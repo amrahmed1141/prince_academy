@@ -3,10 +3,10 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/features/booking/data/models/booking_model.dart';
-import 'package:prince_academy/features/booking/presentation/pages/booking_details/widgets/%20schedule_selector.dart';
+import 'package:prince_academy/features/booking/presentation/pages/booking_details/widgets/schedule_selector.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_details/widgets/booking_bottom_bar.dart';
-import 'package:prince_academy/features/booking/presentation/pages/booking_details/widgets/booking_total_card.dart.dart';
-import 'package:prince_academy/features/booking/presentation/pages/booking_details/widgets/payment_method_selector.dart.dart';
+import 'package:prince_academy/features/booking/presentation/pages/booking_details/widgets/booking_total_card.dart';
+import 'package:prince_academy/features/booking/presentation/pages/booking_details/widgets/payment_method_selector.dart';
 import 'widgets/coach_header_card.dart';
 import 'widgets/package_selector.dart';
 

@@ -38,17 +38,17 @@ class GlassBottomNavigation extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: EColorConstants.primaryColor,
                 borderRadius: BorderRadius.circular(32),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withOpacity(0.15),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: EColorConstants.primaryColor.withOpacity(0.3),
                     blurRadius: 20,
-                    offset: const Offset(0, 10),
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
@@ -66,9 +66,16 @@ class GlassBottomNavigation extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                       decoration: BoxDecoration(
                         color: selected
-                            ? EColorConstants.primaryColor
+                            ? Colors.white
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(24),
+                        boxShadow: selected ? [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ] : null,
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -76,7 +83,7 @@ class GlassBottomNavigation extends StatelessWidget {
                           Icon(
                             item.icon,
                             size: 22,
-                            color: selected ? Colors.white : EColorConstants.primaryColor,
+                            color: selected ? EColorConstants.primaryColor : Colors.white,
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -84,7 +91,7 @@ class GlassBottomNavigation extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                              color: selected ? Colors.white : EColorConstants.primaryColor,
+                              color: selected ? EColorConstants.primaryColor : Colors.white,
                               fontFamily: 'Poppins',
                             ),
                           ),

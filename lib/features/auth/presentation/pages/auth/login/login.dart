@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/features/auth/presentation/pages/auth/common_widgets/divider.dart';
 import 'package:prince_academy/features/auth/presentation/pages/auth/common_widgets/social_button.dart';
-import 'package:prince_academy/features/auth/presentation/pages/auth/login/widgets/Login_header.dart';
+import 'package:prince_academy/features/auth/presentation/pages/auth/login/widgets/login_header.dart';
 import 'package:prince_academy/features/auth/presentation/pages/auth/login/widgets/login_form.dart';
 
 class LoginScreen extends StatefulWidget {
