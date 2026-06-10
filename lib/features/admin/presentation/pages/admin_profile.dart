@@ -1,9 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
+import 'package:prince_academy/features/auth/presentation/pages/authentication/auth_page.dart';
 
 class AdminProfilePage extends StatelessWidget {
   const AdminProfilePage({super.key});
+
+  void _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirm Logout'),
+          content: const Text('Are you sure you want to sign out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      context.read<AuthBloc>().add(AuthSignOut());
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthPage()),
+        (route) => false,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +48,8 @@ class AdminProfilePage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Iconsax.arrow_left_2, color: EColorConstants.authTextDarkBrown),
+          icon: const Icon(Iconsax.arrow_left_2,
+              color: EColorConstants.authTextDarkBrown),
         ),
         title: const Text(
           'Admin Profile',
@@ -39,12 +74,14 @@ class AdminProfilePage extends StatelessWidget {
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: EColorConstants.primaryColor, width: 3),
+                      border: Border.all(
+                          color: EColorConstants.primaryColor, width: 3),
                     ),
                     child: const CircleAvatar(
                       radius: 60,
                       backgroundColor: Colors.white,
-                      child: Icon(Iconsax.user, size: 64, color: EColorConstants.primaryColor),
+                      child: Icon(Iconsax.user,
+                          size: 64, color: EColorConstants.primaryColor),
                     ),
                   ),
                   Positioned(
@@ -56,7 +93,8 @@ class AdminProfilePage extends StatelessWidget {
                         color: EColorConstants.primaryColor,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Iconsax.edit, color: Colors.white, size: 20),
+                      child: const Icon(Iconsax.edit,
+                          color: Colors.white, size: 20),
                     ),
                   ),
                 ],
@@ -84,13 +122,13 @@ class AdminProfilePage extends StatelessWidget {
             const SizedBox(height: 32),
 
             // Profile Info Cards
-            _ProfileInfoTile(
+            const _ProfileInfoTile(
               icon: Iconsax.sms,
               label: 'Email Address',
               value: 'admin@princemma.com',
             ),
             const SizedBox(height: 16),
-            
+
             // Statistics Section
             const Row(
               children: [
@@ -113,9 +151,9 @@ class AdminProfilePage extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             // Settings / Logout
             _ProfileInfoTile(
               icon: Iconsax.setting_2,
@@ -129,7 +167,7 @@ class AdminProfilePage extends StatelessWidget {
               label: 'Logout',
               value: 'Exit administration',
               isDestructive: true,
-              onTap: () {},
+              onTap: () => _confirmSignOut(context),
             ),
           ],
         ),
@@ -175,14 +213,15 @@ class _ProfileInfoTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isDestructive 
-                    ? Colors.red.withOpacity(0.1) 
+                color: isDestructive
+                    ? Colors.red.withOpacity(0.1)
                     : EColorConstants.primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 icon,
-                color: isDestructive ? Colors.red : EColorConstants.primaryColor,
+                color:
+                    isDestructive ? Colors.red : EColorConstants.primaryColor,
                 size: 20,
               ),
             ),
@@ -193,7 +232,7 @@ class _ProfileInfoTile extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
                       color: EColorConstants.authPlaceholderGray,
                       fontWeight: FontWeight.w500,
@@ -204,7 +243,9 @@ class _ProfileInfoTile extends StatelessWidget {
                     value,
                     style: TextStyle(
                       fontSize: 14,
-                      color: isDestructive ? Colors.red : EColorConstants.authTextDarkBrown,
+                      color: isDestructive
+                          ? Colors.red
+                          : EColorConstants.authTextDarkBrown,
                       fontWeight: FontWeight.w600,
                       fontFamily: 'Poppins',
                     ),

@@ -46,7 +46,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           backgroundColor: dark ? Colors.black : const Color(0xFFF7F7F7),
           body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
             children: [
               _ProfileHeaderCard(
                 name: userName,

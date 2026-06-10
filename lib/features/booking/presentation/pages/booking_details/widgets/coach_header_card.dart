@@ -8,6 +8,37 @@ class CoachHeaderCard extends StatelessWidget {
 
   final MMABookingModel info;
 
+  Widget _buildCoachImage(String path) {
+    if (path.isEmpty) {
+      return Container(
+        width: 70,
+        height: 70,
+        color: Colors.grey[300],
+        child: const Icon(Iconsax.user, color: Colors.grey, size: 24),
+      );
+    }
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return Image.network(
+        path,
+        width: 70,
+        height: 70,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: 70,
+          height: 70,
+          color: Colors.grey[300],
+          child: const Icon(Iconsax.user, color: Colors.grey, size: 24),
+        ),
+      );
+    }
+    return Image.asset(
+      path,
+      width: 70,
+      height: 70,
+      fit: BoxFit.cover,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -28,12 +59,7 @@ class CoachHeaderCard extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(14),
-            child: Image.asset(
-              info.coachImage,
-              width: 70,
-              height: 70,
-              fit: BoxFit.cover,
-            ),
+            child: _buildCoachImage(info.coachImage),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -58,7 +84,7 @@ class CoachHeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Private MMA Coach',
+                  info.specialty ?? 'Private Coach',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey.shade600,
                       ),

@@ -68,7 +68,7 @@ class _BookingScreenState extends State<BookingScreen> {
       ),
       backgroundColor: dark ? Colors.black : const Color(0xFFF7F7F7),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
         children: [
           _EnrollmentStatsHeader(
             total: enrollments.length,

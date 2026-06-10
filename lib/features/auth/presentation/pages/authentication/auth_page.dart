@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/app/app.dart';
+import 'package:prince_academy/app/bottom_navigation/navigation_bottom.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/constants/text.dart';
+import 'package:prince_academy/features/admin/presentation/pages/admin_home.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
@@ -67,9 +69,17 @@ class _AuthPageState extends State<AuthPage>
           backgroundColor: Colors.green,
         ),
       );
-      if (state.user.role == 'admin') {
-        // Handle admin route if needed
-      }
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => state.user.role == 'admin'
+              ? const AdminHomeScreen()
+              : const NavigationBottom(),
+        ),
+        (route) => false,
+      );
     }
   }
 
@@ -91,8 +101,7 @@ class _AuthPageState extends State<AuthPage>
                   builder: (context, constraints) {
                     final horizontalPadding =
                         constraints.maxWidth > 600 ? 48.0 : 20.0;
-                    final logoSize =
-                        constraints.maxWidth > 600 ? 200.0 : 165.0;
+                    final logoSize = constraints.maxWidth > 600 ? 200.0 : 165.0;
 
                     return SingleChildScrollView(
                       padding: EdgeInsets.symmetric(
@@ -150,7 +159,8 @@ class _AuthPageState extends State<AuthPage>
                                   duration: const Duration(milliseconds: 300),
                                   switchInCurve: Curves.easeOutCubic,
                                   switchOutCurve: Curves.easeInCubic,
-                                  layoutBuilder: (currentChild, previousChildren) {
+                                  layoutBuilder:
+                                      (currentChild, previousChildren) {
                                     return Stack(
                                       alignment: Alignment.topCenter,
                                       children: <Widget>[
@@ -160,23 +170,30 @@ class _AuthPageState extends State<AuthPage>
                                     );
                                   },
                                   transitionBuilder: (child, animation) {
-                                    final isCurrent = child.key == ValueKey<int>(_currentIndex);
-                                    final double slideDirection = _currentIndex >= _prevIndex ? 1.0 : -1.0;
-                                    
+                                    final isCurrent = child.key ==
+                                        ValueKey<int>(_currentIndex);
+                                    final double slideDirection =
+                                        _currentIndex >= _prevIndex
+                                            ? 1.0
+                                            : -1.0;
+
                                     final offsetTween = isCurrent
                                         ? Tween<Offset>(
-                                            begin: Offset(slideDirection * 0.15, 0.0),
+                                            begin: Offset(
+                                                slideDirection * 0.15, 0.0),
                                             end: Offset.zero,
                                           )
                                         : Tween<Offset>(
-                                            begin: Offset(-slideDirection * 0.15, 0.0),
+                                            begin: Offset(
+                                                -slideDirection * 0.15, 0.0),
                                             end: Offset.zero,
                                           );
 
                                     return FadeTransition(
                                       opacity: animation,
                                       child: SlideTransition(
-                                        position: offsetTween.animate(animation),
+                                        position:
+                                            offsetTween.animate(animation),
                                         child: child,
                                       ),
                                     );

@@ -5,6 +5,7 @@ class AdminTextField extends StatelessWidget {
   final String label;
   final String? hint;
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final bool obscureText;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
@@ -17,6 +18,7 @@ class AdminTextField extends StatelessWidget {
     required this.label,
     this.hint,
     this.controller,
+    this.focusNode,
     this.obscureText = false,
     this.keyboardType,
     this.validator,
@@ -41,6 +43,7 @@ class AdminTextField extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         TextFormField(
+          focusNode: focusNode,
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
@@ -60,18 +63,22 @@ class AdminTextField extends StatelessWidget {
             ),
             filled: true,
             fillColor: EColorConstants.authFieldBackground,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: EColorConstants.authFieldBorder, width: 1),
+              borderSide:
+                  BorderSide(color: EColorConstants.authFieldBorder, width: 1),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: EColorConstants.authFieldBorder, width: 1),
+              borderSide:
+                  BorderSide(color: EColorConstants.authFieldBorder, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: EColorConstants.primaryColor, width: 1.2),
+              borderSide: const BorderSide(
+                  color: EColorConstants.primaryColor, width: 1.2),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),

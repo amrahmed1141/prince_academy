@@ -75,5 +75,11 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We use your location to show nearby gyms and improve the map experience.</string>
 
+	<!-- Permissions required for image picker -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Allow access to your photo library to choose coach images.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow access to the camera to take photos for coach profiles.</string>
+
 </dict>
 </plist>

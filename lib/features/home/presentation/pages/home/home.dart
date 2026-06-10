@@ -16,6 +16,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final ValueNotifier<String?> _selectedCategoryNotifier = ValueNotifier<String?>('All');
+
+  @override
+  void dispose() {
+    _selectedCategoryNotifier.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const CategoryList(),
+                CategoryList(selectedCategoryNotifier: _selectedCategoryNotifier),
                 const SizedBox(height: 24),
               ],
             ),
@@ -102,7 +110,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                   ),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      _selectedCategoryNotifier.value = 'All';
+                    },
                     child: const Text(
                       'View All',
                       style: TextStyle(
@@ -116,12 +126,16 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          const SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-            sliver: CoachesList(),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            sliver: CoachesList(selectedCategoryNotifier: _selectedCategoryNotifier),
+          ),
+          const SliverToBoxAdapter(
+            child: SizedBox(height: 110),
           ),
         ],
       ),
     );
   }
 }
+

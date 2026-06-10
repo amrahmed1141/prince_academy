@@ -1,30 +1,36 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 
 class CoachCard extends StatelessWidget {
   final String name;
   final String specialty;
-  final String experience;
   final String sessionCount;
   final String? rating;
+  final String? imagePath;
 
   const CoachCard({
     super.key,
     required this.name,
     required this.specialty,
-    required this.experience,
     required this.sessionCount,
     this.rating,
+    this.imagePath,
   });
 
   @override
   Widget build(BuildContext context) {
     final initials = name
+        .trim()
         .split(' ')
-        .map((e) => e.isNotEmpty ? e[0] : '')
+        .where((e) => e.isNotEmpty)
+        .map((e) => e[0])
         .join()
-        .substring(0, 1)
         .toUpperCase();
+    
+    final displayInitials = initials.length >= 2 
+        ? initials.substring(0, 2) 
+        : initials.isNotEmpty ? initials : name.isNotEmpty ? name[0].toUpperCase() : '?';
 
     return Container(
       decoration: BoxDecoration(
@@ -36,23 +42,31 @@ class CoachCard extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
-            decoration: const BoxDecoration(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
               color: EColorConstants.authSoftGold,
               shape: BoxShape.circle,
+              image: imagePath != null && imagePath!.isNotEmpty
+                  ? DecorationImage(
+                      image: _getImageProvider(imagePath!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
-            child: Center(
-              child: Text(
-                initials.length >= 1 ? initials : name.isNotEmpty ? name[0] : '?',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: EColorConstants.authCardWhite,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-            ),
+            child: imagePath == null || imagePath!.isEmpty
+                ? Center(
+                    child: Text(
+                      displayInitials,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: EColorConstants.authCardWhite,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  )
+                : null,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -71,7 +85,7 @@ class CoachCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   specialty,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color: EColorConstants.primaryColor,
                     fontWeight: FontWeight.w500,
@@ -82,7 +96,7 @@ class CoachCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      '$experience · $sessionCount sessions',
+                      '$sessionCount sessions',
                       style: const TextStyle(
                         fontSize: 11,
                         color: EColorConstants.authPlaceholderGray,
@@ -115,5 +129,15 @@ class CoachCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  ImageProvider _getImageProvider(String path) {
+    if (path.startsWith('assets/')) {
+      return AssetImage(path);
+    } else if (path.startsWith('http://') || path.startsWith('https://')) {
+      return NetworkImage(path);
+    } else {
+      return FileImage(File(path));
+    }
   }
 }
