@@ -15,11 +15,13 @@ class NavigationBottom extends StatefulWidget {
 class _NavigationBottomState extends State<NavigationBottom> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = const [
-    HomeScreen(),
-    BookingScreen(),
-    SessionScreen(),
-    ProfilePage(),
+  /// Pages are created once and reused to preserve tab state,
+  /// prevent rebuilds, and avoid repeated API calls on tab switch.
+  static const List<Widget> _pages = [
+    RepaintBoundary(child: HomeScreen()),
+    RepaintBoundary(child: BookingScreen()),
+    RepaintBoundary(child: SessionScreen()),
+    RepaintBoundary(child: ProfilePage()),
   ];
 
   @override
@@ -28,15 +30,27 @@ class _NavigationBottomState extends State<NavigationBottom> {
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          _pages[_currentIndex],
+          /// IndexedStack keeps all pages alive in memory.
+          /// Only the active page is visible; the rest remain mounted.
+          /// This prevents widget rebuilds and preserves scroll positions,
+          /// form state, and tab state across navigation.
+          IndexedStack(
+            index: _currentIndex,
+            children: _pages,
+          ),
+
+          /// Floating glassmorphism nav bar positioned over content.
           Positioned(
             left: 16,
             right: 16,
             bottom: 24,
             child: GlassFloatingNavBar(
               selectedIndex: _currentIndex,
-              onDestinationSelected: (index) =>
-                  setState(() => _currentIndex = index),
+              onDestinationSelected: (index) {
+                /// Prevent rebuild if same tab is tapped (no-op).
+                if (index == _currentIndex) return;
+                setState(() => _currentIndex = index);
+              },
             ),
           ),
         ],

@@ -3,11 +3,9 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
-import 'package:prince_academy/features/home/presentation/pages/home/coach_profile.dart';
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/core/di/injection.dart';
-import 'package:prince_academy/features/booking/presentation/pages/booking_details/booking.dart';
-import 'package:prince_academy/features/booking/data/models/booking_model.dart';
+import 'package:prince_academy/features/home/presentation/pages/home/widgets/home_coach_card.dart';
 
 class CoachesList extends StatefulWidget {
   final ValueNotifier<String?> selectedCategoryNotifier;
@@ -20,6 +18,7 @@ class CoachesList extends StatefulWidget {
 
 class _CoachesListState extends State<CoachesList> {
   List<CoachModel> _coaches = [];
+  Map<String, String> _classTypesByCoachId = {};
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -85,9 +84,14 @@ class _CoachesListState extends State<CoachesList> {
         result = await repository.getCoachesBySpecialty(specialty);
       }
 
+      final classTypes = await repository.getPrimaryClassTypesForCoaches(
+        result.map((c) => c.id).toList(),
+      );
+
       if (mounted) {
         setState(() {
           _coaches = result;
+          _classTypesByCoachId = classTypes;
           _isLoading = false;
         });
       }
@@ -99,37 +103,6 @@ class _CoachesListState extends State<CoachesList> {
         });
       }
     }
-  }
-
-  Widget _buildCoachImage(String? photoUrl) {
-    if (photoUrl == null || photoUrl.isEmpty) {
-      return Container(
-        width: 90,
-        height: 110,
-        color: Colors.grey[300],
-        child: const Icon(Iconsax.user, color: Colors.grey, size: 36),
-      );
-    }
-    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
-      return Image.network(
-        photoUrl,
-        width: 90,
-        height: 110,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
-          width: 90,
-          height: 110,
-          color: Colors.grey[300],
-          child: const Icon(Iconsax.user, color: Colors.grey, size: 36),
-        ),
-      );
-    }
-    return Image.asset(
-      photoUrl,
-      width: 90,
-      height: 110,
-      fit: BoxFit.cover,
-    );
   }
 
   @override
@@ -220,142 +193,10 @@ class _CoachesListState extends State<CoachesList> {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           final coach = _coaches[index];
-          return RepaintBoundary(
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CoachProfilePage(
-                      coachId: coach.id,
-                    ),
-                  ),
-                );
-              },
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: dark ? Colors.grey[800] : Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      RepaintBoundary(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: _buildCoachImage(coach.photoUrl),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    coach.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(
-                                          color: dark ? Colors.white : Colors.black,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(Iconsax.verify5,
-                                    size: 18, color: EColorConstants.primaryColor)
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              coach.specialty,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    color:
-                                        dark ? Colors.grey[400] : Colors.grey[600],
-                                    fontSize: 12,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                // AbsorbPointer / GestureDetector stops click bubbling up to the card
-                                GestureDetector(
-                                  onTap: () {}, // consume details tap
-                                  child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => BookingPage(
-                                            bookingInfo: MMABookingModel(
-                                              coachId: coach.id,
-                                              coachName: coach.name,
-                                              coachImage: coach.photoUrl ?? '',
-                                              specialty: coach.specialty,
-                                              coachWhatsapp: '+1234567890',
-                                              availableDays: const ['Monday', 'Wednesday', 'Friday', 'Saturday'],
-                                              availableTimes: const ['7:00 AM', '8:00 AM', '9:00 AM', '5:00 PM', '6:00 PM', '7:00 PM'],
-                                              sessionPackages: const [8, 12],
-                                              pricePerSession: 25.0,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: EColorConstants.primaryColor,
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      elevation: 3,
-                                      shadowColor: EColorConstants.primaryColor.withOpacity(0.3),
-                                    ),
-                                    icon: const Icon(Iconsax.ticket,
-                                        size: 16, color: Colors.white),
-                                    label: const Text(
-                                      'Booking Now',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: 'Poppins',
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          return HomeCoachCard(
+            coach: coach,
+            classType: _classTypesByCoachId[coach.id],
+            dark: dark,
           );
         },
         childCount: _coaches.length,

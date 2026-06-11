@@ -1,85 +1,99 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 
 class AdminTabSelector extends StatelessWidget {
   final List<String> labels;
-  final List<IconData>? icons;
   final ValueChanged<int>? onChanged;
   final int selectedIndex;
 
   const AdminTabSelector({
     super.key,
     required this.labels,
-    this.icons,
     this.onChanged,
     this.selectedIndex = 0,
   }) : assert(labels.length >= 1);
 
+  static const List<IconData> _defaultIcons = [
+    Iconsax.profile_add,
+    Iconsax.calendar,
+  ];
+
   @override
   Widget build(BuildContext context) {
-    debugPrint('AdminTabSelector build selectedIndex=$selectedIndex');
-    return Container(
-      decoration: BoxDecoration(
-        color: EColorConstants.authDeepPrimary.withOpacity(0.35),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      padding: const EdgeInsets.all(4),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: List.generate(labels.length, (index) {
           final isSelected = selectedIndex == index;
-          final IconData? icon =
-              icons != null && index < icons!.length ? icons![index] : null;
+          final icon = index < _defaultIcons.length
+              ? _defaultIcons[index]
+              : Iconsax.element_3;
 
           return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                debugPrint('AdminTabSelector tapped index=$index');
-                onChanged?.call(index);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? EColorConstants.authCardWhite
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : [],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (icon != null)
+            child: Padding(
+              padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
+              child: GestureDetector(
+                onTap: () => onChanged?.call(index),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? EColorConstants.primaryColor
+                        : EColorConstants.authCardWhite,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected
+                          ? EColorConstants.primaryColor
+                          : EColorConstants.authFieldBorder,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color:
+                                  EColorConstants.primaryColor.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                       Icon(
                         icon,
                         size: 18,
                         color: isSelected
-                            ? EColorConstants.primaryColor
-                            : EColorConstants.authPlaceholderGray,
+                            ? Colors.white
+                            : EColorConstants.primaryColor,
                       ),
-                    if (icon != null) const SizedBox(width: 6),
-                    Text(
-                      labels[index],
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected
-                            ? EColorConstants.authTextDarkBrown
-                            : EColorConstants.authPlaceholderGray,
-                        fontFamily: 'Poppins',
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          labels[index],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isSelected
+                                ? Colors.white
+                                : EColorConstants.authTextDarkBrown,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

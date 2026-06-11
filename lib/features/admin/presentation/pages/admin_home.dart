@@ -4,14 +4,23 @@ import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/admin/data/models/session_draft.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_header.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/admin_tab_selector.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/admin_text_field.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_tab_layout.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_dashed_upload.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_smooth_scroll.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/specialty_chip.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/class_type_filter_dropdown.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/session_draft_row.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/session_frequency_selector.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/custom_bottom_navigation.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_profile.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/session_card.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
+import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 import 'package:prince_academy/core/di/injection.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -24,43 +33,25 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentIndex = 0;
 
-  // Local state for coaches fetched from Supabase
   List<CoachModel> _coaches = [];
   bool _isLoadingCoaches = false;
 
-  // Local state for sessions (Mock data remains intact)
-  final List<Map<String, String>> _sessions = [
-    {
-      'title': 'Morning Striking',
-      'type': 'Striking',
-      'coach': 'Alex Johnson',
-      'date': 'June 3, 2026',
-      'duration': '60 min',
-      'spots': '4 spots left',
-    },
-    {
-      'title': 'BJJ Fundamentals',
-      'type': 'Grappling',
-      'coach': 'Maria Garcia',
-      'date': 'June 4, 2026',
-      'duration': '90 min',
-      'spots': '6 spots left',
-    },
-  ];
+  List<CoachSessionModel> _sessions = [];
+  bool _isLoadingSessions = false;
+  String? _sessionsError;
 
   @override
   void initState() {
     super.initState();
     _fetchCoaches();
+    _fetchSessions();
   }
 
   Future<void> _fetchCoaches() async {
-    debugPrint('fetchCoaches start');
-    setState(() {
-      _isLoadingCoaches = true;
-    });
+    setState(() => _isLoadingCoaches = true);
     try {
       final coachesList = await sl<CoachRepository>().fetchCoaches();
+      if (!mounted) return;
       debugPrint('fetchCoaches complete: ${coachesList.length} coaches');
       setState(() {
         _coaches = coachesList;
@@ -84,10 +75,45 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     }
   }
 
-  void _addSession(Map<String, String> session) {
+  Future<void> _fetchSessions() async {
     setState(() {
-      _sessions.insert(0, session);
+      _isLoadingSessions = true;
+      _sessionsError = null;
     });
+    try {
+      final sessionsList =
+          await sl<CoachRepository>().getAllSessionsWithCoach();
+      if (!mounted) return;
+      setState(() {
+        _sessions = sessionsList;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _sessionsError = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingSessions = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _addSession({
+    required String coachId,
+    required int sessionsPerWeek,
+    required String sessionType,
+    DateTime? sessionDate,
+  }) async {
+    await sl<CoachRepository>().addCoachSession(
+      coachId: coachId,
+      sessionsPerWeek: sessionsPerWeek,
+      sessionType: sessionType,
+      sessionDate: sessionDate,
+    );
+    await _fetchSessions();
   }
 
   @override
@@ -103,8 +129,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 coaches: _coaches,
                 sessions: _sessions,
                 onRefreshCoaches: _fetchCoaches,
+                onRefreshSessions: _fetchSessions,
                 onAddSession: _addSession,
                 isLoadingCoaches: _isLoadingCoaches,
+                isLoadingSessions: _isLoadingSessions,
+                sessionsError: _sessionsError,
               ),
               const _CameraPage(),
             ],
@@ -119,90 +148,100 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 }
 
-class _DynamicSessionRow {
-  String? selectedDay;
-  String selectedType = 'Striking';
-}
-
 class _AddInfoPage extends StatefulWidget {
   final List<CoachModel> coaches;
-  final List<Map<String, String>> sessions;
+  final List<CoachSessionModel> sessions;
   final VoidCallback onRefreshCoaches;
-  final Function(Map<String, String>) onAddSession;
+  final VoidCallback onRefreshSessions;
+  final Future<void> Function({
+    required String coachId,
+    required int sessionsPerWeek,
+    required String sessionType,
+    DateTime? sessionDate,
+  }) onAddSession;
   final bool isLoadingCoaches;
+  final bool isLoadingSessions;
+  final String? sessionsError;
 
   const _AddInfoPage({
     required this.coaches,
     required this.sessions,
     required this.onRefreshCoaches,
+    required this.onRefreshSessions,
     required this.onAddSession,
     required this.isLoadingCoaches,
+    required this.isLoadingSessions,
+    this.sessionsError,
   });
 
   @override
   State<_AddInfoPage> createState() => _AddInfoPageState();
 }
 
-class _AddInfoPageState extends State<_AddInfoPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _AddInfoPageState extends State<_AddInfoPage> {
+  static const _coachSpecialties = [
+    'Muay Thai',
+    'BJJ',
+    'Wrestling',
+    'Boxing',
+    'MMA',
+    'Strength & Conditioning',
+  ];
+
+  static const _sessionClassTypes = [
+    'Striking',
+    'Grappling',
+    'Conditioning',
+    'Sparring',
+    'Drills',
+  ];
+
+  static const _weekDays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  final _tabLayoutKey = GlobalKey<AdminTabLayoutState>();
 
   // Coach Form Controllers
   final _coachNameController = TextEditingController();
   late final FocusNode _coachNameFocusNode;
-  int _formBuildCount = 0;
   String _selectedCoachSpecialty = 'Muay Thai';
   String? _selectedCoachImagePath;
   bool _isAddingCoach = false;
 
   // Session Form State
-  int? _sessionsPerWeek;
-  String _selectedSessionCoach = '';
-  final List<_DynamicSessionRow> _dynamicRows = [];
+  int _sessionsPerWeek = 1;
+  List<SessionDraft> _sessionDrafts = SessionDraft.listForCount(1);
+  String? _selectedSessionCoachId;
+  bool _isAddingSession = false;
+
+  // Coaches list filter
+  String _coachFilter = 'All Coaches';
+  String _sessionFilter = 'All Classes';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        debugPrint('TabController index changed: ${_tabController.index}');
-        setState(() {});
-      }
-    });
-    _coachNameFocusNode = FocusNode()
-      ..addListener(() {
-        debugPrint('Coach name focus changed: ${_coachNameFocusNode.hasFocus}');
-      });
+    _coachNameFocusNode = FocusNode();
     if (widget.coaches.isNotEmpty) {
-      _selectedSessionCoach = widget.coaches.first.name;
+      _selectedSessionCoachId = widget.coaches.first.id;
     }
   }
 
   @override
   void didUpdateWidget(covariant _AddInfoPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_selectedSessionCoach.isEmpty && widget.coaches.isNotEmpty) {
+    if (_selectedSessionCoachId == null && widget.coaches.isNotEmpty) {
       setState(() {
-        _selectedSessionCoach = widget.coaches.first.name;
+        _selectedSessionCoachId = widget.coaches.first.id;
       });
     }
-  }
-
-  void _onSessionsPerWeekChanged(int? value) {
-    setState(() {
-      _sessionsPerWeek = value;
-      if (value == null) {
-        _dynamicRows.clear();
-        return;
-      }
-      while (_dynamicRows.length < value) {
-        _dynamicRows.add(_DynamicSessionRow());
-      }
-      while (_dynamicRows.length > value) {
-        _dynamicRows.removeLast();
-      }
-    });
   }
 
   Future<void> _pickCoachImage() async {
@@ -301,62 +340,112 @@ class _AddInfoPageState extends State<_AddInfoPage>
     }
   }
 
-  void _handleAddSessions() {
-    if (_sessionsPerWeek == null) {
-      _showSnackBar('Please select sessions per week.', Colors.orange);
+  DateTime _getNextWeekdayDate(String dayOfWeekName) {
+    final now = DateTime.now();
+    final dayMap = <String, int>{
+      'mon': DateTime.monday,
+      'tue': DateTime.tuesday,
+      'wed': DateTime.wednesday,
+      'thu': DateTime.thursday,
+      'fri': DateTime.friday,
+      'sat': DateTime.saturday,
+      'sun': DateTime.sunday,
+    };
+    final key = dayOfWeekName.toLowerCase().substring(0, 3);
+    final targetWeekday = dayMap[key] ?? now.weekday;
+    int daysToAdd = targetWeekday - now.weekday;
+    if (daysToAdd <= 0) {
+      daysToAdd += 7;
+    }
+    return DateTime(now.year, now.month, now.day + daysToAdd, 18, 0);
+  }
+
+  Future<void> _handleAddSessions() async {
+    if (widget.coaches.isEmpty) {
+      _showSnackBar(
+        'No coaches available. Please add a coach first.',
+        Colors.orange,
+      );
       return;
     }
 
-    if (_dynamicRows.isEmpty) {
-      _showSnackBar('Please configure the session rows.', Colors.orange);
+    if (_selectedSessionCoachId == null) {
+      _showSnackBar('Please select a coach.', Colors.orange);
+      return;
+    }
+
+    if (_sessionDrafts.length != _sessionsPerWeek) {
+      _showSnackBar('Session rows are out of sync. Please reselect frequency.', Colors.orange);
       return;
     }
 
     final selectedDays = <String>{};
-
-    for (int i = 0; i < _dynamicRows.length; i++) {
-      final row = _dynamicRows[i];
-      final day = row.selectedDay;
-
-      if (day == null || day.isEmpty) {
-        _showSnackBar('Day ${i + 1}: please select a day.', Colors.orange);
+    for (int i = 0; i < _sessionDrafts.length; i++) {
+      final draft = _sessionDrafts[i];
+      if (draft.day.isEmpty) {
+        _showSnackBar('Session ${i + 1}: please select a day.', Colors.orange);
         return;
       }
-
-      if (selectedDays.contains(day)) {
-        _showSnackBar(
-            'Duplicate day: $day is selected more than once.', Colors.orange);
+      if (draft.classType.isEmpty) {
+        _showSnackBar('Session ${i + 1}: please select a class type.', Colors.orange);
         return;
       }
-      selectedDays.add(day);
+      if (selectedDays.contains(draft.day)) {
+        _showSnackBar('Duplicate day: ${draft.day} is selected more than once.', Colors.orange);
+        return;
+      }
+      selectedDays.add(draft.day);
     }
 
-    final selectedCoachModel = widget.coaches.firstWhere(
-      (c) => c.name == _selectedSessionCoach,
-      orElse: () => widget.coaches.first,
-    );
+    final selectedCoachExists =
+        widget.coaches.any((c) => c.id == _selectedSessionCoachId);
 
-    for (var row in _dynamicRows) {
-      widget.onAddSession({
-        'title': '${row.selectedType} – ${row.selectedDay}',
-        'type': row.selectedType,
-        'coach': selectedCoachModel.name,
-        'coach_id': selectedCoachModel.id,
-        'day_of_week': row.selectedDay!,
-        'duration': '',
-        'spots': '10 spots left',
-      });
+    if (!selectedCoachExists) {
+      _showSnackBar(
+        'Selected coach is no longer available. Please refresh.',
+        Colors.orange,
+      );
+      return;
     }
-
-    debugPrint(
-        'handleAddSessions added ${_dynamicRows.length} sessions for coach=$_selectedSessionCoach');
-    _showSnackBar('Sessions added successfully!', Colors.green);
 
     setState(() {
-      _sessionsPerWeek = null;
-      _dynamicRows.clear();
+      _isAddingSession = true;
     });
-    FocusScope.of(context).unfocus();
+
+    try {
+      for (final draft in _sessionDrafts) {
+        final sessionDate = _getNextWeekdayDate(draft.day);
+        await widget.onAddSession(
+          coachId: _selectedSessionCoachId!,
+          sessionsPerWeek: _sessionsPerWeek,
+          sessionType: draft.classType,
+          sessionDate: sessionDate,
+        );
+      }
+
+      _showSnackBar(
+        _sessionDrafts.length == 1
+            ? 'Session added successfully!'
+            : '${_sessionDrafts.length} sessions added successfully!',
+        Colors.green,
+      );
+
+      if (mounted) {
+        setState(() {
+          _sessionsPerWeek = 1;
+          _sessionDrafts = SessionDraft.listForCount(1);
+        });
+        FocusScope.of(context).unfocus();
+      }
+    } catch (e) {
+      _showSnackBar('Failed to add sessions: $e', Colors.redAccent);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAddingSession = false;
+        });
+      }
+    }
   }
 
   void _showSnackBar(String message, Color backgroundColor) {
@@ -370,419 +459,904 @@ class _AddInfoPageState extends State<_AddInfoPage>
     }
   }
 
+  void _onSessionsPerWeekChanged(int count) {
+    setState(() {
+      _sessionsPerWeek = count;
+      _sessionDrafts = SessionDraft.resize(_sessionDrafts, count);
+    });
+  }
+
+  void _updateSessionDraft(int index, SessionDraft draft) {
+    setState(() {
+      _sessionDrafts[index] = draft;
+    });
+  }
+
   @override
   void dispose() {
-    _tabController.dispose();
     _coachNameController.dispose();
     _coachNameFocusNode.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    debugPrint(
-        'AddInfoPage build #${++_formBuildCount} tab=${_tabController.index} sessionsPerWeek=$_sessionsPerWeek dynamicRows=${_dynamicRows.length} coaches=${widget.coaches.length}');
-    return Column(
-      children: [
-        AdminHeader(
-          onAvatarTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminProfilePage()),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: AdminTabSelector(
-            labels: const ['Coaches', 'Sessions'],
-            icons: const [Iconsax.user, Iconsax.calendar],
-            selectedIndex: _tabController.index,
-            onChanged: (index) => _tabController.animateTo(index),
-          ),
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _CoachesListTab(
-                nameController: _coachNameController,
-                selectedSpecialty: _selectedCoachSpecialty,
-                onSpecialtyChanged: (v) =>
-                    setState(() => _selectedCoachSpecialty = v),
-                selectedImagePath: _selectedCoachImagePath,
-                onPickImage: _pickCoachImage,
-                coaches: widget.coaches,
-                onAdd: _handleAddCoach,
-                isAdding: _isAddingCoach,
-                isLoadingCoaches: widget.isLoadingCoaches,
-                focusNode: _coachNameFocusNode,
-              ),
-              _SessionsListTab(
-                sessionsPerWeek: _sessionsPerWeek,
-                onSessionsPerWeekChanged: _onSessionsPerWeekChanged,
-                dynamicRows: _dynamicRows,
-                selectedCoach: _selectedSessionCoach,
-                coaches: widget.coaches,
-                onCoachChanged: (v) =>
-                    setState(() => _selectedSessionCoach = v),
-                sessions: widget.sessions,
-                onAdd: _handleAddSessions,
-                onDayChanged: (idx, day) {
-                  setState(() {
-                    _dynamicRows[idx].selectedDay = day;
-                  });
-                },
-                onTypeChangedForRow: (idx, type) {
-                  setState(() {
-                    _dynamicRows[idx].selectedType = type;
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SessionsListTab extends StatelessWidget {
-  final int? sessionsPerWeek;
-  final ValueChanged<int?> onSessionsPerWeekChanged;
-  final List<_DynamicSessionRow> dynamicRows;
-  final String selectedCoach;
-  final List<CoachModel> coaches;
-  final ValueChanged<String> onCoachChanged;
-  final List<Map<String, String>> sessions;
-  final VoidCallback onAdd;
-  final Function(int, String) onDayChanged;
-  final Function(int, String) onTypeChangedForRow;
-
-  const _SessionsListTab({
-    required this.sessionsPerWeek,
-    required this.onSessionsPerWeekChanged,
-    required this.dynamicRows,
-    required this.selectedCoach,
-    required this.coaches,
-    required this.onCoachChanged,
-    required this.sessions,
-    required this.onAdd,
-    required this.onDayChanged,
-    required this.onTypeChangedForRow,
-  });
-
-  static const _types = ['Striking', 'Grappling', 'Conditioning', 'Boxing'];
-  static const _days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-  List<Widget> _buildGroupedSessionsByCoach(
-      List<Map<String, String>> sessions) {
-    // Group sessions by coach
-    final Map<String, List<Map<String, String>>> groupedByCoach = {};
-
-    for (final session in sessions) {
-      final coach = session['coach'] ?? 'Unknown';
-      if (!groupedByCoach.containsKey(coach)) {
-        groupedByCoach[coach] = [];
-      }
-      groupedByCoach[coach]!.add(session);
-    }
-
-    // Build widgets for each coach group
-    return groupedByCoach.entries.map((entry) {
-      final coach = entry.key;
-      final coachSessions = entry.value;
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: _CoachSessionGroup(
-          coachName: coach,
-          sessions: coachSessions,
-        ),
-      );
-    }).toList();
-  }
+  // ---------- Build Methods ----------
 
   @override
   Widget build(BuildContext context) {
-    debugPrint(
-        'SessionsListTab build sessions=${sessions.length} rows=${dynamicRows.length} coach=$selectedCoach');
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
+    final dark = MediaQuery.of(context).platformBrightness == Brightness.dark;
+
+    return SafeArea(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(title: 'ADD SESSION'),
-          const SizedBox(height: 10),
-          _FormCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _FieldLabel(label: 'Sessions per Week'),
-                const SizedBox(height: 8),
-                _CustomDropdown(
-                  value: sessionsPerWeek?.toString() ?? '',
-                  items: const ['1', '2', '3', '4'],
-                  onChanged: (v) => onSessionsPerWeekChanged(
-                    v != null ? int.tryParse(v) : null,
-                  ),
+          AdminHeader(
+            onAvatarTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AdminProfilePage(),
                 ),
-                if (dynamicRows.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  const Divider(
-                    color: EColorConstants.authFieldBorder,
-                    height: 1,
-                  ),
-                  const SizedBox(height: 20),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: dynamicRows.length,
-                    itemBuilder: (context, index) {
-                      final row = dynamicRows[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: EColorConstants.authFieldBackground,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: EColorConstants.authFieldBorder,
-                            width: 1,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'DAY ${index + 1}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: EColorConstants.primaryColor,
-                                fontFamily: 'Poppins',
-                                letterSpacing: 1.1,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            const _FieldLabel(label: 'Day'),
-                            const SizedBox(height: 6),
-                            _CustomDropdown(
-                              value: row.selectedDay ?? '',
-                              items: _days,
-                              onChanged: (val) => onDayChanged(index, val!),
-                            ),
-                            const SizedBox(height: 12),
-                            const _FieldLabel(label: 'Type'),
-                            const SizedBox(height: 8),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: _types.map((t) {
-                                  final selected = row.selectedType == t;
-                                  return _ChipItem(
-                                    label: t,
-                                    selected: selected,
-                                    onTap: () => onTypeChangedForRow(index, t),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ScrollConfiguration(
+              behavior: const AdminSmoothScrollBehavior(),
+              child: AdminTabLayout(
+                key: _tabLayoutKey,
+                labels: const ['Add Coach', 'Sessions'],
+                children: [
+                  _buildAddCoachTab(dark),
+                  _buildSessionsTab(dark),
                 ],
-                const SizedBox(height: 16),
-                const _FieldLabel(label: 'Coach'),
-                const SizedBox(height: 8),
-                _CustomDropdown(
-                  value: selectedCoach,
-                  items: coaches.map((c) => c.name).toList(),
-                  onChanged: (v) => onCoachChanged(v!),
-                ),
-                const SizedBox(height: 20),
-                _ActionButton(label: '+ Add Session', onTap: onAdd),
-              ],
+              ),
             ),
           ),
-          const SizedBox(height: 24),
-          _SectionTitle(title: 'SESSIONS (${sessions.length})'),
-          const SizedBox(height: 12),
-          if (sessions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: Text(
-                  'No sessions added yet',
-                  style: TextStyle(
-                    color: EColorConstants.authPlaceholderGray,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ),
-            )
-          else
-            ..._buildGroupedSessionsByCoach(sessions),
         ],
       ),
     );
   }
-}
 
-class _CoachesListTab extends StatelessWidget {
-  final TextEditingController nameController;
-  final String selectedSpecialty;
-  final ValueChanged<String> onSpecialtyChanged;
-  final String? selectedImagePath;
-  final VoidCallback onPickImage;
-  final List<CoachModel> coaches;
-  final VoidCallback onAdd;
-  final bool isAdding;
-  final bool isLoadingCoaches;
-  final FocusNode? focusNode;
+  /// -----------------------------------------------------------------
+  /// TAB 1: ADD COACH
+  /// -----------------------------------------------------------------
+  Widget _buildAddCoachTab(bool dark) {
+    final filteredCoaches = _coachFilter == 'All Coaches'
+        ? widget.coaches
+        : widget.coaches.where((c) => c.specialty == _coachFilter).toList();
 
-  const _CoachesListTab({
-    required this.nameController,
-    required this.selectedSpecialty,
-    required this.onSpecialtyChanged,
-    required this.selectedImagePath,
-    required this.onPickImage,
-    required this.coaches,
-    required this.onAdd,
-    required this.isAdding,
-    required this.isLoadingCoaches,
-    this.focusNode,
-  });
+    final filterOptions = <String>[
+      'All Coaches',
+      ...widget.coaches.map((c) => c.specialty).toSet(),
+    ];
 
-  static const _specialties = ['Muay Thai', 'BJJ', 'MMA', 'Boxing'];
-
-  @override
-  Widget build(BuildContext context) {
-    debugPrint(
-        'CoachesListTab build coaches=${coaches.length} isLoading=$isLoadingCoaches isAdding=$isAdding');
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
+    return AdminSmoothScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(title: 'ADD COACH'),
-          const SizedBox(height: 10),
-          _FormCard(
-            child: Column(
-              children: [
-                Align(
-                  alignment: Alignment.center,
-                  child: GestureDetector(
-                    onTap: isAdding ? null : onPickImage,
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: EColorConstants.authFieldBackground,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: EColorConstants.authFieldBorder,
-                                width: 2),
-                            image: selectedImagePath != null
-                                ? DecorationImage(
-                                    image: FileImage(File(selectedImagePath!)),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                          ),
-                          child: selectedImagePath == null
-                              ? const Icon(Iconsax.user,
-                                  size: 40,
-                                  color: EColorConstants.authPlaceholderGray)
-                              : null,
-                        ),
-                        Positioned(
-                          bottom: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: EColorConstants.primaryColor,
-                              shape: BoxShape.circle,
+          _buildAddCoachFormCard(),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Coaches',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: EColorConstants.authTextDarkBrown,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: EColorConstants.authCardWhite,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: EColorConstants.authFieldBorder),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isDense: true,
+                      isExpanded: true,
+                      value: filterOptions.contains(_coachFilter)
+                          ? _coachFilter
+                          : 'All Coaches',
+                      icon: const Icon(
+                        Iconsax.arrow_down_1,
+                        size: 14,
+                        color: EColorConstants.authPlaceholderGray,
+                      ),
+                      selectedItemBuilder: (context) {
+                        return filterOptions.map((option) {
+                          final label = option == 'All Coaches'
+                              ? option
+                              : SpecialtyChip.displayLabel(option);
+                          return Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: EColorConstants.authTextDarkBrown,
+                                fontFamily: 'Poppins',
+                              ),
                             ),
-                            child: const Icon(Iconsax.camera,
-                                size: 16, color: Colors.white),
+                          );
+                        }).toList();
+                      },
+                      items: filterOptions.map((option) {
+                        return DropdownMenuItem(
+                          value: option,
+                          child: Text(
+                            option,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: EColorConstants.authTextDarkBrown,
+                              fontFamily: 'Poppins',
+                            ),
                           ),
-                        ),
-                      ],
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _coachFilter = value);
+                        }
+                      },
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                AdminTextField(
-                  label: 'Full Name',
-                  hint: 'Enter coach full name',
-                  controller: nameController,
-                  focusNode: focusNode,
-                ),
-                const SizedBox(height: 16),
-                const _FieldLabel(label: 'Specialty'),
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _specialties.map((s) {
-                      final selected = selectedSpecialty == s;
-                      return _ChipItem(
-                        label: s,
-                        selected: selected,
-                        onTap: isAdding ? () {} : () => onSpecialtyChanged(s),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _ActionButton(
-                  label: '+ Add Coach',
-                  onTap: isAdding ? null : onAdd,
-                  isLoading: isAdding,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-          _SectionTitle(title: 'COACHES (${coaches.length})'),
-          const SizedBox(height: 12),
-          if (isLoadingCoaches && coaches.isEmpty)
+          const SizedBox(height: 14),
+          if (widget.isLoadingCoaches)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
+              padding: EdgeInsets.symmetric(vertical: 40),
               child: Center(
                 child: CircularProgressIndicator(
                   color: EColorConstants.primaryColor,
                 ),
               ),
             )
+          else if (filteredCoaches.isEmpty)
+            _buildEmptyState(
+              icon: Iconsax.people,
+              message: widget.coaches.isEmpty
+                  ? 'No coaches added yet.\nCreate your first coach above.'
+                  : 'No coaches match this filter.',
+            )
           else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: coaches.length,
-              padding: EdgeInsets.zero,
-              itemBuilder: (context, index) {
-                final coach = coaches[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: CoachCard(
-                    name: coach.name,
-                    specialty: coach.specialty,
-                    sessionCount: '0',
-                    rating: '5.0',
-                    imagePath: coach.photoUrl,
-                  ),
-                );
-              },
-            ),
+            ...filteredCoaches.map((coach) {
+              final coachSessionCount =
+                  widget.sessions.where((s) => s.coachId == coach.id).length;
+              return CoachListCard(
+                name: coach.name,
+                specialty: coach.specialty,
+                sessionCount: coachSessionCount,
+                imagePath: coach.photoUrl,
+                onMenuTap: () {
+                  _showCoachMenu(context, coach);
+                },
+              );
+            }),
         ],
       ),
     );
   }
+
+  Widget _buildAddCoachFormCard() {
+    return AdminSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: EColorConstants.primaryColor.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Iconsax.profile_add,
+                    size: 20,
+                    color: EColorConstants.primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Add New Coach',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: EColorConstants.authTextDarkBrown,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      Text(
+                        'Create coach profile to get started',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: EColorConstants.authPlaceholderGray,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AdminDashedUpload(
+                  imagePath: _selectedCoachImagePath,
+                  onTap: _pickCoachImage,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildCompactFieldLabel('Coach Name'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _coachNameController,
+                        focusNode: _coachNameFocusNode,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontFamily: 'Poppins',
+                          color: EColorConstants.authTextDarkBrown,
+                        ),
+                        decoration: _compactInputDecoration(
+                          hint: 'e.g. John Doe',
+                          prefixIcon: Iconsax.user,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildCompactFieldLabel('Specialty'),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: _selectedCoachSpecialty,
+                        isExpanded: true,
+                        decoration: _compactInputDecoration(
+                          hint: 'Select specialty',
+                          prefixIcon: Iconsax.category,
+                        ),
+                        selectedItemBuilder: (context) {
+                          return _coachSpecialties.map((specialty) {
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                SpecialtyChip.displayLabel(specialty),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontFamily: 'Poppins',
+                                  color: EColorConstants.authTextDarkBrown,
+                                ),
+                              ),
+                            );
+                          }).toList();
+                        },
+                        items: _coachSpecialties.map((specialty) {
+                          return DropdownMenuItem(
+                            value: specialty,
+                            child: Text(
+                              specialty,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontFamily: 'Poppins'),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _selectedCoachSpecialty = value);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: _isAddingCoach ? null : _handleAddCoach,
+                icon: _isAddingCoach
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Iconsax.add, color: Colors.white, size: 20),
+                label: Text(
+                  _isAddingCoach ? 'Adding...' : '+ Add Coach',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: EColorConstants.primaryColor,
+                  disabledBackgroundColor:
+                      EColorConstants.authPlaceholderGray,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<CoachSessionModel> _filteredSessions() {
+    if (_sessionFilter == 'All Classes') return widget.sessions;
+    return widget.sessions
+        .where(
+          (s) => s.sessionType.toLowerCase() == _sessionFilter.toLowerCase(),
+        )
+        .toList();
+  }
+
+  Widget _buildCompactFieldLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: EColorConstants.authTextDarkBrown,
+        fontFamily: 'Poppins',
+      ),
+    );
+  }
+
+  InputDecoration _compactInputDecoration({
+    required String hint,
+    required IconData prefixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(
+        fontSize: 12,
+        color: EColorConstants.authPlaceholderGray,
+        fontFamily: 'Poppins',
+      ),
+      prefixIcon: Icon(
+        prefixIcon,
+        size: 18,
+        color: EColorConstants.authPlaceholderGray,
+      ),
+      filled: true,
+      fillColor: EColorConstants.authFieldBackground,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: EColorConstants.authFieldBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: EColorConstants.authFieldBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: EColorConstants.primaryColor,
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+
+  void _showCoachMenu(BuildContext context, CoachModel coach) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: EColorConstants.authCardWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Iconsax.calendar, color: EColorConstants.primaryColor),
+                title: const Text('Manage Sessions', style: TextStyle(fontFamily: 'Poppins')),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  setState(() => _selectedSessionCoachId = coach.id);
+                  _tabLayoutKey.currentState?.animateToTab(1);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Iconsax.refresh, color: EColorConstants.primaryColor),
+                title: const Text('Refresh Coaches', style: TextStyle(fontFamily: 'Poppins')),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onRefreshCoaches();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// -----------------------------------------------------------------
+  /// TAB 2: SESSIONS
+  /// -----------------------------------------------------------------
+  Widget _buildSessionsTab(bool dark) {
+    final filteredSessions = _filteredSessions();
+
+    return AdminSmoothScrollView(
+      refreshColor: EColorConstants.primaryColor,
+      onRefresh: () async {
+        widget.onRefreshCoaches();
+        widget.onRefreshSessions();
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildAddSessionForm(dark),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: EColorConstants.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Iconsax.folder_2,
+                    size: 16,
+                    color: EColorConstants.primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Saved Sessions',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: EColorConstants.authTextDarkBrown,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ),
+                if (!widget.isLoadingSessions)
+                  Flexible(
+                    child: ClassTypeFilterDropdown(
+                      value: _sessionFilter,
+                      onChanged: (value) {
+                        setState(() => _sessionFilter = value);
+                      },
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (widget.sessionsError != null)
+              _buildSessionsErrorState(widget.sessionsError!)
+            else if (widget.isLoadingSessions)
+              _buildSessionsLoadingState()
+            else if (widget.sessions.isEmpty)
+              _buildEmptyState(
+                icon: Iconsax.calendar_remove,
+                message:
+                    'No sessions added yet.\nUse the form above to create a session.',
+              )
+            else if (filteredSessions.isEmpty)
+              _buildEmptyState(
+                icon: Iconsax.filter_search,
+                message: 'No sessions match "$_sessionFilter".',
+              )
+            else
+              ...filteredSessions.map((session) {
+                return SavedSessionCard(
+                  coachName: session.coachName ?? 'Unknown Coach',
+                  coachPhotoUrl: session.coachPhotoUrl,
+                  session: session,
+                  onMenuTap: () => _showSessionMenu(session),
+                );
+              }),
+        ],
+      ),
+    );
+  }
+
+  void _showSessionMenu(CoachSessionModel session) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: EColorConstants.authCardWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Iconsax.refresh, color: EColorConstants.primaryColor),
+              title: const Text('Refresh Sessions', style: TextStyle(fontFamily: 'Poppins')),
+              onTap: () {
+                Navigator.pop(ctx);
+                widget.onRefreshSessions();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSessionsLoadingState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      decoration: BoxDecoration(
+        color: EColorConstants.authCardWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: EColorConstants.authFieldBorder),
+      ),
+      child: const Column(
+        children: [
+          CircularProgressIndicator(color: EColorConstants.primaryColor),
+          SizedBox(height: 14),
+          Text(
+            'Loading sessions from Supabase...',
+            style: TextStyle(
+              fontSize: 13,
+              color: EColorConstants.authPlaceholderGray,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSessionsErrorState(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Column(
+        children: [
+          Icon(Iconsax.warning_2, color: Colors.red.shade400, size: 36),
+          const SizedBox(height: 10),
+          Text(
+            'Could not load sessions',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.red.shade700,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.red.shade600,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: widget.onRefreshSessions,
+            icon: const Icon(Iconsax.refresh, size: 16),
+            label: const Text('Retry'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red.shade700,
+              side: BorderSide(color: Colors.red.shade300),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddSessionForm(bool dark) {
+    final hasCoaches = widget.coaches.isNotEmpty;
+
+    return AdminSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(
+                    color: EColorConstants.primaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Iconsax.clipboard_text,
+                    size: 20,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Create New Session',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: EColorConstants.authTextDarkBrown,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      Text(
+                        'Build a training session schedule',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: EColorConstants.authPlaceholderGray,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!hasCoaches)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Iconsax.info_circle,
+                            size: 18, color: Colors.orange.shade700),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Add a coach first before scheduling sessions.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                _buildFieldLabel('Select Coach'),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: hasCoaches ? _selectedSessionCoachId : null,
+                  isExpanded: true,
+                  decoration: _sessionFieldDecoration(),
+                  selectedItemBuilder: (context) {
+                    return widget.coaches.map((coach) {
+                      return SessionCoachDropdownTile(
+                        name: coach.name,
+                        photoUrl: coach.photoUrl,
+                      );
+                    }).toList();
+                  },
+                  items: widget.coaches.map((coach) {
+                    return DropdownMenuItem(
+                      value: coach.id,
+                      child: SessionCoachDropdownTile(
+                        name: coach.name,
+                        photoUrl: coach.photoUrl,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: hasCoaches
+                      ? (value) {
+                          if (value != null) {
+                            setState(() => _selectedSessionCoachId = value);
+                          }
+                        }
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                _buildFieldLabel('Sessions Per Week'),
+                const SizedBox(height: 10),
+                SessionFrequencySelector(
+                  selectedCount: _sessionsPerWeek,
+                  enabled: hasCoaches,
+                  onChanged: _onSessionsPerWeekChanged,
+                ),
+                if (_sessionDrafts.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildFieldLabel('Session Details'),
+                  const SizedBox(height: 8),
+                  ...List.generate(_sessionDrafts.length, (index) {
+                    return SessionDraftRow(
+                      index: index,
+                      draft: _sessionDrafts[index],
+                      weekDays: _weekDays,
+                      classTypes: _sessionClassTypes,
+                      enabled: hasCoaches,
+                      onChanged: (draft) => _updateSessionDraft(index, draft),
+                    );
+                  }),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: (!_isAddingSession && hasCoaches)
+                        ? _handleAddSessions
+                        : null,
+                    icon: _isAddingSession
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Iconsax.add, color: Colors.white, size: 20),
+                    label: Text(
+                      _isAddingSession ? 'Saving...' : '+ Add Session',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: EColorConstants.primaryColor,
+                      disabledBackgroundColor:
+                          EColorConstants.authPlaceholderGray,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: EColorConstants.authTextDarkBrown,
+        fontFamily: 'Poppins',
+      ),
+    );
+  }
+
+  InputDecoration _sessionFieldDecoration({IconData? prefixIcon}) {
+    return InputDecoration(
+      prefixIcon: prefixIcon != null
+          ? Icon(prefixIcon, size: 18, color: EColorConstants.authPlaceholderGray)
+          : null,
+      filled: true,
+      fillColor: EColorConstants.authFieldBackground,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: EColorConstants.authFieldBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: EColorConstants.authFieldBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: EColorConstants.primaryColor,
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+
+  /// Empty state widget
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String message,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      decoration: BoxDecoration(
+        color: EColorConstants.authFieldBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: EColorConstants.authFieldBorder),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 48, color: EColorConstants.authPlaceholderGray),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              color: EColorConstants.authPlaceholderGray,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }
 
 class _CameraPage extends StatelessWidget {
@@ -790,409 +1364,10 @@ class _CameraPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AdminHeader(
-          onAvatarTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminProfilePage()),
-          ),
-        ),
-        Expanded(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Iconsax.camera,
-                    size: 36,
-                    color: EColorConstants.primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Camera tools will appear here.',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: EColorConstants.authPlaceholderGray,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// Reusable micro-widgets for the admin panel
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  const _SectionTitle({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w800,
-        color: EColorConstants.authTextDarkBrown,
-        fontFamily: 'Poppins',
-        letterSpacing: 1.2,
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  final String label;
-  const _FieldLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: EColorConstants.authTextDarkBrown,
-        fontFamily: 'Poppins',
-      ),
-    );
-  }
-}
-
-class _FormCard extends StatelessWidget {
-  final Widget child;
-  const _FormCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
-class _ChipItem extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ChipItem({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: selected
-                ? EColorConstants.primaryColor
-                : EColorConstants.authFieldBackground,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected
-                  ? EColorConstants.primaryColor
-                  : EColorConstants.authFieldBorder,
-              width: 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color:
-                  selected ? Colors.white : EColorConstants.authTextDarkBrown,
-              fontFamily: 'Poppins',
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onTap;
-  final bool isLoading;
-
-  const _ActionButton({
-    required this.label,
-    required this.onTap,
-    this.isLoading = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: EColorConstants.primaryColor,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 0,
-        ),
-        child: isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-      ),
-    );
-  }
-}
-
-class _CustomDropdown extends StatelessWidget {
-  final String value;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
-
-  const _CustomDropdown({
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    debugPrint('CustomDropdown build value="$value" items=${items.length}');
-    final safeValue = value.isNotEmpty && items.contains(value) ? value : null;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: EColorConstants.authFieldBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: EColorConstants.authFieldBorder),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: safeValue,
-          isExpanded: true,
-          onTap: () => debugPrint('Dropdown opened with value="$value"'),
-          icon: const Icon(Iconsax.arrow_down_1,
-              size: 20, color: EColorConstants.authPlaceholderGray),
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: EColorConstants.authTextDarkBrown,
-            fontFamily: 'Poppins',
-          ),
-          items: items.map((String item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item),
-            );
-          }).toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-}
-
-class _CoachSessionGroup extends StatelessWidget {
-  final String coachName;
-  final List<Map<String, String>> sessions;
-
-  const _CoachSessionGroup({
-    required this.coachName,
-    required this.sessions,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Extract unique days and types from sessions
-    final Set<String> uniqueDays = {};
-    final Map<String, Set<String>> dayToTypes = {};
-
-    for (final session in sessions) {
-      final day = session['day_of_week'] ?? session['date'] ?? 'Unknown';
-      final type = session['type'] ?? 'Unknown';
-
-      uniqueDays.add(day);
-      if (!dayToTypes.containsKey(day)) {
-        dayToTypes[day] = {};
-      }
-      dayToTypes[day]!.add(type);
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Coach name header
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: EColorConstants.primaryColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Center(
-                  child: Icon(Iconsax.user, size: 18, color: Colors.white),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      coachName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: EColorConstants.authTextDarkBrown,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    Text(
-                      '${sessions.length} ${sessions.length == 1 ? 'session' : 'sessions'}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: EColorConstants.authPlaceholderGray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(color: EColorConstants.authFieldBorder, height: 1),
-          const SizedBox(height: 16),
-          // Days and types display
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: dayToTypes.entries.map((entry) {
-              final day = entry.key;
-              final types = entry.value.toList();
-
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: EColorConstants.authFieldBackground,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: EColorConstants.authFieldBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      day,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: EColorConstants.authTextDarkBrown,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 4,
-                      children: types.map((type) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color:
-                                EColorConstants.primaryColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            type,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: EColorConstants.primaryColor,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
+    return const Center(
+      child: Text(
+        'Camera / Scanner Page',
+        style: TextStyle(fontFamily: 'Poppins'),
       ),
     );
   }

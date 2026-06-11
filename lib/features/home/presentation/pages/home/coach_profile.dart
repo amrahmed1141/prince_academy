@@ -128,7 +128,8 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: EColorConstants.primaryColor,
                   ),
-                  child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                  child: const Text('Retry',
+                      style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),
@@ -186,7 +187,8 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                     shape: BoxShape.circle,
                     color: Colors.black.withOpacity(0.5),
                   ),
-                  child: const Icon(Iconsax.share, color: Colors.white, size: 20),
+                  child:
+                      const Icon(Iconsax.share, color: Colors.white, size: 20),
                 ),
                 onPressed: () {},
               ),
@@ -197,7 +199,8 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                 height: 32,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: dark ? EColorConstants.darkContainerColor : Colors.white,
+                  color:
+                      dark ? EColorConstants.darkContainerColor : Colors.white,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(32),
                     topRight: Radius.circular(32),
@@ -224,7 +227,7 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                   children: [
                     Row(
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
                             coach.name,
                             style: Theme.of(context)
@@ -236,8 +239,12 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                                 ),
                           ),
                         ),
-                        const Icon(Iconsax.verify5,
-                            size: 24, color: EColorConstants.primaryColor),
+                        const SizedBox(width: 6),
+                        const Icon(
+                          Iconsax.verify5,
+                          size: 18,
+                          color: EColorConstants.primaryColor,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -251,11 +258,38 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        _buildRatingInfo(context, '4.9', 'Rating'),
-                        const SizedBox(width: 16),
-                        _buildRatingInfo(context, '120', 'Students'),
-                        const SizedBox(width: 16),
-                        _buildRatingInfo(context, '5', 'Years'),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color:
+                                EColorConstants.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(
+                              color:
+                                  EColorConstants.primaryColor.withOpacity(0.2),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Iconsax.user,
+                                  size: 14,
+                                  color: EColorConstants.primaryColor),
+                              const SizedBox(width: 6),
+                              Text(
+                                '120 Students Trained',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: EColorConstants.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -277,7 +311,7 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Specialties',
+                      'Classes Taught',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                             fontSize: 18,
@@ -287,15 +321,24 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
-                        _buildSpecialtyChip(coach.specialty, context),
-                        _buildSpecialtyChip('Strength & Conditioning', context),
-                        _buildSpecialtyChip('Fitness Training', context),
-                      ],
+                      children: (() {
+                        final classesTaught = _sessions
+                            .map((s) => s.sessionType)
+                            .where((t) => t.isNotEmpty)
+                            .toSet()
+                            .toList();
+                        if (classesTaught.isEmpty) {
+                          classesTaught.add(coach.specialty);
+                        }
+                        return classesTaught
+                            .map((className) =>
+                                _buildSpecialtyChip(className, context))
+                            .toList();
+                      })(),
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Availability',
+                      'Sessions',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                             fontSize: 18,
@@ -303,55 +346,161 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                     ),
                     const SizedBox(height: 12),
                     if (_sessions.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          'No availability scheduled by admin.',
-                          style: TextStyle(
-                            color: dark ? Colors.grey[400] : Colors.grey[600],
-                            fontStyle: FontStyle.italic,
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 32, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: dark ? Colors.grey[900] : Colors.grey[50],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: dark ? Colors.grey[800]! : Colors.grey[200]!,
                           ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Iconsax.calendar_remove,
+                              size: 40,
+                              color: dark ? Colors.grey[600] : Colors.grey[400],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No sessions available yet',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge
+                                  ?.copyWith(
+                                    color: dark
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            )
+                          ],
                         ),
                       )
                     else
-                      ..._sessions.map((session) => Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: dark ? Colors.grey[800] : Colors.grey[100],
-                              borderRadius: BorderRadius.circular(16),
+                      ..._sessions.map((session) {
+                        final dayText = session.weekdayLabel ?? '';
+                        final dateText = session.formattedSessionDate ?? '';
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: dark ? Colors.grey[900] : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color:
+                                  dark ? Colors.grey[800]! : Colors.grey[200]!,
                             ),
-                            child: Row(
-                              children: [
-                                const Icon(Iconsax.calendar,
-                                    size: 24, color: EColorConstants.primaryColor),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '${session.sessionType} (${session.sessionsPerWeek} sessions/week)',
-                                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                      if (session.sessionDate != null) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Start Date: ${session.sessionDate!.toLocal().toString().split(' ')[0]}',
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                color: dark ? Colors.grey[400] : Colors.grey[600],
-                                              ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.02),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    session.sessionType,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: dark
+                                              ? Colors.white
+                                              : Colors.black,
                                         ),
-                                      ],
-                                    ],
                                   ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: EColorConstants.primaryColor
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '${session.sessionsPerWeek} sessions/week',
+                                      style: const TextStyle(
+                                        color: EColorConstants.primaryColor,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (dayText.isNotEmpty || dateText.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 16,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (dayText.isNotEmpty)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Iconsax.calendar_1,
+                                              size: 16,
+                                              color: dark
+                                                  ? Colors.grey[400]
+                                                  : Colors.grey[600]),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            dayText,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  color: dark
+                                                      ? Colors.grey[300]
+                                                      : Colors.grey[700],
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    if (dateText.isNotEmpty)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Iconsax.calendar,
+                                              size: 16,
+                                              color: dark
+                                                  ? Colors.grey[400]
+                                                  : Colors.grey[600]),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            dateText,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  color: dark
+                                                      ? Colors.grey[300]
+                                                      : Colors.grey[700],
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
                                 ),
                               ],
-                            ),
-                          )),
-                    const SizedBox(height: 24),
+                            ],
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 120),
                   ],
                 ),
               ),
@@ -388,7 +537,8 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                     width: 1.5,
                   ),
                 ),
-                child: const Icon(Iconsax.message, color: EColorConstants.primaryColor),
+                child: const Icon(Iconsax.message,
+                    color: EColorConstants.primaryColor),
               ),
             ),
             const SizedBox(width: 16),
@@ -406,8 +556,20 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                           coachImage: coach.photoUrl ?? '',
                           specialty: coach.specialty,
                           coachWhatsapp: '+1234567890',
-                          availableDays: const ['Monday', 'Wednesday', 'Friday', 'Saturday'],
-                          availableTimes: const ['7:00 AM', '8:00 AM', '9:00 AM', '5:00 PM', '6:00 PM', '7:00 PM'],
+                          availableDays: const [
+                            'Monday',
+                            'Wednesday',
+                            'Friday',
+                            'Saturday'
+                          ],
+                          availableTimes: const [
+                            '7:00 AM',
+                            '8:00 AM',
+                            '9:00 AM',
+                            '5:00 PM',
+                            '6:00 PM',
+                            '7:00 PM'
+                          ],
                           sessionPackages: const [8, 12],
                           pricePerSession: 25.0,
                         ),
@@ -445,46 +607,15 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
     );
   }
 
-  Widget _buildRatingInfo(BuildContext context, String value, String label) {
-    final dark = EHelperFunction.isDarkMode(context);
-
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: dark ? Colors.grey[800] : Colors.grey[100],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: dark ? Colors.grey[400] : Colors.grey[600],
-                    fontSize: 12,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSpecialtyChip(String specialty, BuildContext context) {
     final dark = EHelperFunction.isDarkMode(context);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: dark ? Colors.grey[800] : EColorConstants.primaryColor.withOpacity(0.1),
+        color: dark
+            ? Colors.grey[800]
+            : EColorConstants.primaryColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(

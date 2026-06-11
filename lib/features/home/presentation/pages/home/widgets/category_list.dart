@@ -15,7 +15,7 @@ class CategoryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = EHelperFunction.isDarkMode(context);
-    
+
     // Create categories list starting with "All"
     final List<CategoryModel> displayCategories = [
       CategoryModel(id: 'all', name: 'All'),
@@ -58,7 +58,8 @@ class CategoryList extends StatelessWidget {
                               : (dark ? Colors.grey[800] : Colors.grey[100]),
                           borderRadius: BorderRadius.circular(20),
                           border: isSelected
-                              ? Border.all(color: EColorConstants.primaryColor, width: 2)
+                              ? Border.all(
+                                  color: EColorConstants.primaryColor, width: 2)
                               : Border.all(color: Colors.transparent, width: 2),
                           boxShadow: [
                             BoxShadow(
@@ -71,7 +72,9 @@ class CategoryList extends StatelessWidget {
                         child: category.id == 'all'
                             ? Icon(
                                 Iconsax.grid_5,
-                                color: isSelected ? EColorConstants.primaryColor : Colors.grey[600],
+                                color: isSelected
+                                    ? EColorConstants.primaryColor
+                                    : Colors.grey[600],
                                 size: 28,
                               )
                             : Image.asset(
@@ -83,13 +86,15 @@ class CategoryList extends StatelessWidget {
                       Text(
                         category.name ?? '',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: isSelected
-                              ? EColorConstants.primaryColor
-                              : (dark ? Colors.white : Colors.black),
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          fontFamily: 'Poppins',
-                        ),
+                              color: isSelected
+                                  ? EColorConstants.primaryColor
+                                  : (dark ? Colors.white : Colors.black),
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                              fontFamily: 'Poppins',
+                            ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                         textAlign: TextAlign.center,
