@@ -10,15 +10,18 @@ class AuthRepoImpl implements AuthRepo {
   bool hasSession() => ds.hasSession;
 
   @override
-  Future<void> signUp(
-    String email,
-    String password,
-    String fullName,
-    String phone,
-  ) async {
-    await ds.signUp(
-      email: email, 
-      password: password,
+  Future<String> signUp(String email, String password) {
+    return ds.signUp(email: email, password: password);
+  }
+
+  @override
+  Future<void> saveProfile({
+    required String userId,
+    required String fullName,
+    required String phone,
+  }) {
+    return ds.saveProfile(
+      userId: userId,
       fullName: fullName,
       phone: phone,
     );

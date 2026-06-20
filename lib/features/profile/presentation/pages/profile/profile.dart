@@ -2,12 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
+import 'package:prince_academy/core/services/user_qr_service.dart';
+import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
+import 'package:prince_academy/features/profile/presentation/widgets/member_qr_display.dart';
+import 'package:prince_academy/features/profile/presentation/pages/profile/my_qr_screen.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final bool isActive;
+
+  const ProfilePage({
+    super.key,
+    this.isActive = false,
+  });
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -27,6 +37,30 @@ class _ProfilePageState extends State<ProfilePage> {
 
   bool notificationsEnabled = true;
   bool darkModeEnabled = false;
+  late final UserQrService _qrService;
+
+  @override
+  void initState() {
+    super.initState();
+    _qrService = sl<UserQrService>();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfilePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _qrService.refresh();
+      });
+    }
+  }
+
+  void _openMyQrScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MyQrScreen()),
+    ).then((_) => _qrService.refresh());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +79,10 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           backgroundColor: dark ? Colors.black : const Color(0xFFF7F7F7),
-          body: ListView(
+          body: ListenableBuilder(
+            listenable: _qrService,
+            builder: (context, _) {
+              return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
             children: [
               _ProfileHeaderCard(
@@ -60,6 +97,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 completedEnrollments: completedEnrollments,
                 remainingSessions: remainingSessions,
               ),
+              if (_qrService.hasQrCode) ...[
+                const SizedBox(height: 16),
+                _QrPreviewCard(
+                  qrCode: _qrService.qrCode!,
+                  onTap: _openMyQrScreen,
+                ),
+              ],
               const SizedBox(height: 16),
               _SectionTitle(title: 'My Account'),
               const SizedBox(height: 10),
@@ -78,7 +122,12 @@ class _ProfilePageState extends State<ProfilePage> {
                       title: 'Booking History',
                       subtitle: 'All your enrollments & packages',
                       onTap: () {
-                        // Navigator.push to BookingScreen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const BookingHistoryPage(),
+                          ),
+                        );
                       },
                     ),
                     _DividerLine(),
@@ -89,6 +138,23 @@ class _ProfilePageState extends State<ProfilePage> {
                       onTap: () {
                         // Navigator.push to Sessions screen
                       },
+                    ),
+                    _DividerLine(),
+                    _ActionTile(
+                      icon: Icons.qr_code_2,
+                      title: 'My QR Code',
+                      subtitle: _qrService.isLoading
+                          ? 'Checking QR status...'
+                          : _qrService.hasQrCode
+                              ? 'Show your member QR at the front desk'
+                              : 'Book a coach to get your QR code',
+                      onTap: _qrService.hasQrCode ? _openMyQrScreen : null,
+                      titleColor: !_qrService.hasQrCode && !_qrService.isLoading
+                          ? Colors.grey.shade500
+                          : null,
+                      iconColor: !_qrService.hasQrCode && !_qrService.isLoading
+                          ? Colors.grey.shade500
+                          : null,
                     ),
                     _DividerLine(),
                     _ActionTile(
@@ -197,8 +263,79 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ],
+              );
+            },
           ),
         );
+  }
+}
+
+class _QrPreviewCard extends StatelessWidget {
+  const _QrPreviewCard({
+    required this.qrCode,
+    required this.onTap,
+  });
+
+  final String qrCode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+              color: Colors.black.withOpacity(0.04),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: EColorConstants.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.qr_code_2,
+                    color: EColorConstants.primaryColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Your Member QR Code',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                const Icon(Iconsax.arrow_right_3, size: 18, color: Colors.grey),
+              ],
+            ),
+            const SizedBox(height: 16),
+            MemberQrDisplay(
+              qrCode: qrCode,
+              size: 160,
+              hint: 'Tap to view subscriptions',
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -425,14 +562,16 @@ class _ActionTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color? titleColor;
   final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onTap != null;
     return ListTile(
       onTap: onTap,
+      enabled: enabled,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       leading: Container(
         width: 42,

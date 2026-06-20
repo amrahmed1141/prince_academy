@@ -8,42 +8,47 @@ class AuthRemoteDs {
 
   bool get hasSession => supabase.auth.currentSession != null;
 
+  /// Creates the auth user only — profile is saved separately via [saveProfile].
   Future<String> signUp({
     required String email,
     required String password,
-    required String fullName,
-    required String phone,
   }) async {
     final response = await supabase.auth.signUp(
-      email: email,
+      email: email.trim(),
       password: password,
-      data: {
-        'full_name': fullName,
-        'phone': phone,
-        'role': 'user',
-      },
     );
+
     final user = response.user;
     if (user == null) {
-      throw Exception('Could not create account. Try again.');
+      throw const AuthException('Failed to create account');
     }
+
     return user.id;
   }
 
-  Future<void> updateUser({
+  Future<void> saveProfile({
     required String userId,
     required String fullName,
     required String phone,
   }) async {
+    final trimmedName = fullName.trim();
+    final trimmedPhone = phone.trim();
+
+    final row = {
+      'id': userId,
+      'full_name': trimmedName,
+      'phone': trimmedPhone,
+      'role': 'user',
+    };
+
     try {
-      await supabase.from('profiles').upsert({
-        'id': userId,
-        'full_name': fullName,
-        'phone': phone,
+      await supabase.from('profiles').upsert(row, onConflict: 'id');
+    } on PostgrestException {
+      await supabase.from('profiles').update({
+        'full_name': trimmedName,
+        'phone': trimmedPhone,
         'role': 'user',
-      });
-    } catch (e) {
-      throw Exception('Failed to update profile: $e');
+      }).eq('id', userId);
     }
   }
 
@@ -52,7 +57,7 @@ class AuthRemoteDs {
     required String password,
   }) async {
     await supabase.auth.signInWithPassword(
-      email: email,
+      email: email.trim(),
       password: password,
     );
   }

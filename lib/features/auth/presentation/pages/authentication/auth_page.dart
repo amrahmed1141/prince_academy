@@ -12,6 +12,7 @@ import 'package:prince_academy/features/auth/presentation/pages/authentication/w
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/auth_card.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/auth_tab_bar.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/auth_text_field.dart';
+import 'package:prince_academy/features/auth/presentation/pages/auth/signup/widgets/signup_form.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/gradient_button.dart';
 
 class AuthPage extends StatefulWidget {
@@ -61,14 +62,23 @@ class _AuthPageState extends State<AuthPage>
     }
 
     if (state is AuthAuthed) {
-      rootScaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Login Successful! Welcome back, ${state.user.fullName ?? "User"}!',
+      if (state.profileSaveWarning != null) {
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(state.profileSaveWarning!),
+            backgroundColor: Colors.orange,
           ),
-          backgroundColor: Colors.green,
-        ),
-      );
+        );
+      } else {
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Login Successful! Welcome back, ${state.user.fullName ?? "User"}!',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
 
       if (!mounted) return;
 
@@ -336,94 +346,12 @@ class _SignInTabState extends State<_SignInTab> {
   }
 }
 
-class _SignUpTab extends StatefulWidget {
+class _SignUpTab extends StatelessWidget {
   const _SignUpTab({super.key});
 
   @override
-  State<_SignUpTab> createState() => _SignUpTabState();
-}
-
-class _SignUpTabState extends State<_SignUpTab> {
-  final _fullName = TextEditingController();
-  final _phone = TextEditingController();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _obscure = true;
-
-  @override
-  void dispose() {
-    _fullName.dispose();
-    _phone.dispose();
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final loading =
-        context.select<AuthBloc, bool>((b) => b.state is AuthLoading);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AuthTextField(
-          controller: _fullName,
-          label: 'Full Name',
-          hintText: 'Enter your full name',
-          prefixIcon: Icons.person_outline,
-          keyboardType: TextInputType.name,
-        ),
-        const SizedBox(height: 16),
-        AuthTextField(
-          controller: _phone,
-          label: 'Phone',
-          hintText: 'Enter your phone number',
-          prefixIcon: Icons.phone_outlined,
-          keyboardType: TextInputType.phone,
-        ),
-        const SizedBox(height: 16),
-        AuthTextField(
-          controller: _email,
-          label: 'Email Address',
-          hintText: 'you@example.com',
-          prefixIcon: Icons.email_outlined,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 16),
-        AuthTextField(
-          controller: _password,
-          label: 'Password',
-          hintText: 'Enter your password',
-          prefixIcon: Icons.lock_outline,
-          obscureText: _obscure,
-          suffixIcon: IconButton(
-            onPressed: () => setState(() => _obscure = !_obscure),
-            icon: Icon(
-              _obscure
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
-              color: EColorConstants.primaryColor,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        GradientButton(
-          text: 'Sign Up',
-          loading: loading,
-          onPressed: () {
-            context.read<AuthBloc>().add(
-                  AuthUserSignUp(
-                    _email.text.trim(),
-                    _password.text.trim(),
-                    _fullName.text.trim(),
-                    _phone.text.trim(),
-                  ),
-                );
-          },
-        ),
-      ],
-    );
+    return const SignupForm();
   }
 }
 

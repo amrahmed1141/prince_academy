@@ -86,37 +86,12 @@ class HomeCoachCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        displayClassType,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: dark ? Colors.grey[400] : Colors.grey[600],
-                          fontFamily: 'Poppins',
-                        ),
+                      const SizedBox(height: 8),
+                      _ClassTypeChip(
+                        label: displayClassType,
+                        dark: dark,
                       ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const Icon(
-                            Iconsax.star1,
-                            size: 14,
-                            color: Colors.amber,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '4.9 (28 Reviews)',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: dark ? Colors.grey[400] : Colors.grey[600],
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerRight,
                         child: GestureDetector(
@@ -133,22 +108,6 @@ class HomeCoachCard extends StatelessWidget {
                                       coachImage: coach.photoUrl ?? '',
                                       specialty: coach.specialty,
                                       coachWhatsapp: '+1234567890',
-                                      availableDays: const [
-                                        'Monday',
-                                        'Wednesday',
-                                        'Friday',
-                                        'Saturday',
-                                      ],
-                                      availableTimes: const [
-                                        '7:00 AM',
-                                        '8:00 AM',
-                                        '9:00 AM',
-                                        '5:00 PM',
-                                        '6:00 PM',
-                                        '7:00 PM',
-                                      ],
-                                      sessionPackages: const [8, 12],
-                                      pricePerSession: 25.0,
                                     ),
                                   ),
                                 ),
@@ -196,6 +155,48 @@ class HomeCoachCard extends StatelessWidget {
   }
 }
 
+class _ClassTypeChip extends StatelessWidget {
+  final String label;
+  final bool dark;
+
+  const _ClassTypeChip({
+    required this.label,
+    required this.dark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: dark
+            ? EColorConstants.primaryColor.withOpacity(0.18)
+            : EColorConstants.authFieldBackground,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: dark
+              ? EColorConstants.primaryColor.withOpacity(0.35)
+              : EColorConstants.authFieldBorder,
+        ),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: dark
+              ? EColorConstants.authLightPrimary
+              : EColorConstants.primaryColor,
+          fontFamily: 'Poppins',
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
 class _CoachCircleAvatar extends StatelessWidget {
   final String name;
   final String? photoUrl;
@@ -207,7 +208,7 @@ class _CoachCircleAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const radius = 30.0;
+    const radius = 38.0;
     final initial =
         name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
 
@@ -227,7 +228,7 @@ class _CoachCircleAvatar extends StatelessWidget {
         style: const TextStyle(
           color: Colors.black54,
           fontWeight: FontWeight.w700,
-          fontSize: 20,
+          fontSize: 24,
           fontFamily: 'Poppins',
         ),
       ),

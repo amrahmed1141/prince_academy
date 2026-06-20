@@ -9,6 +9,8 @@ class AuthTextField extends StatefulWidget {
   final Widget? suffixIcon;
   final bool obscureText;
   final TextInputType? keyboardType;
+  final TextCapitalization textCapitalization;
+  final String? Function(String?)? validator;
 
   const AuthTextField({
     super.key,
@@ -19,6 +21,8 @@ class AuthTextField extends StatefulWidget {
     this.suffixIcon,
     this.obscureText = false,
     this.keyboardType,
+    this.textCapitalization = TextCapitalization.none,
+    this.validator,
   });
 
   @override
@@ -70,11 +74,13 @@ class _AuthTextFieldState extends State<AuthTextField> {
               width: isFocused ? 1.5 : 1,
             ),
           ),
-          child: TextField(
+          child: TextFormField(
             controller: widget.controller,
             focusNode: _focusNode,
             keyboardType: widget.keyboardType,
+            textCapitalization: widget.textCapitalization,
             obscureText: widget.obscureText,
+            validator: widget.validator,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -94,6 +100,8 @@ class _AuthTextFieldState extends State<AuthTextField> {
               ),
               suffixIcon: widget.suffixIcon,
               border: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 16,

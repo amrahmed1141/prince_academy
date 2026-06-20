@@ -1,22 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-
-enum PaymentMethod { card, paypal, googlePay }
-
-extension PaymentMethodX on PaymentMethod {
-  String get label => switch (this) {
-        PaymentMethod.card => 'Card (Visa/Mastercard)',
-        PaymentMethod.paypal => 'PayPal',
-        PaymentMethod.googlePay => 'Google Pay',
-      };
-
-  IconData get icon => switch (this) {
-        PaymentMethod.card => Iconsax.card,
-        PaymentMethod.paypal => Iconsax.money,
-        PaymentMethod.googlePay => Iconsax.wallet,
-      };
-}
+import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 
 class PaymentMethodSelector extends StatelessWidget {
   const PaymentMethodSelector({
@@ -30,20 +14,22 @@ class PaymentMethodSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final methods = PaymentMethod.values;
+    const methods = PaymentMethod.values;
 
     return Column(
-      children: methods.map((m) {
-        final isSelected = selected == m;
+      children: methods.map((method) {
+        final isSelected = selected == method;
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: () => onChanged(m),
+            onTap: () => onChanged(method),
             child: Ink(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isSelected
+                    ? EColorConstants.primaryColor.withOpacity(0.05)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected
@@ -55,27 +41,57 @@ class PaymentMethodSelector extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    m.icon,
+                    _iconFor(method),
                     color: isSelected
                         ? EColorConstants.primaryColor
                         : Colors.grey.shade700,
+                    size: 28,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      m.label,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight:
-                                isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: isSelected
-                                ? EColorConstants.primaryColor
-                                : Colors.grey.shade800,
-                          ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          method.label,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: isSelected
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                    color: isSelected
+                                        ? EColorConstants.primaryColor
+                                        : Colors.grey.shade800,
+                                  ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          method.subtitle,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey.shade600,
+                                  ),
+                        ),
+                      ],
                     ),
                   ),
                   if (isSelected)
-                    const Icon(Icons.check_circle,
-                        color: EColorConstants.primaryColor),
+                    const Icon(
+                      Icons.check_circle,
+                      color: EColorConstants.primaryColor,
+                    )
+                  else
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.grey.shade400,
+                          width: 2,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -83,5 +99,12 @@ class PaymentMethodSelector extends StatelessWidget {
         );
       }).toList(),
     );
+  }
+
+  IconData _iconFor(PaymentMethod method) {
+    return switch (method) {
+      PaymentMethod.cash => Icons.payments_outlined,
+      PaymentMethod.instapay => Icons.qr_code_2_rounded,
+    };
   }
 }

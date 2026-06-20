@@ -12,6 +12,7 @@ class AdminTextField extends StatelessWidget {
   final VoidCallback? onSuffixTap;
   final Widget? suffix;
   final bool readOnly;
+  final ValueChanged<String>? onChanged;
 
   const AdminTextField({
     super.key,
@@ -25,6 +26,7 @@ class AdminTextField extends StatelessWidget {
     this.onSuffixTap,
     this.suffix,
     this.readOnly = false,
+    this.onChanged,
   });
 
   @override
@@ -49,6 +51,7 @@ class AdminTextField extends StatelessWidget {
           keyboardType: keyboardType,
           readOnly: readOnly,
           validator: validator,
+          onChanged: onChanged,
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,

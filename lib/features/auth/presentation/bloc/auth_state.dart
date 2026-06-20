@@ -22,16 +22,19 @@ class AuthNoSession extends AuthState {
 
 class AuthAuthed extends AuthState {
   final UserModel user;
-  const AuthAuthed(this.user);
+  final String? profileSaveWarning;
+
+  const AuthAuthed(this.user, {this.profileSaveWarning});
 
   @override
-  List<Object?> get props => [user];
+  List<Object?> get props => [user, profileSaveWarning];
 }
 
 class AuthError extends AuthState {
   final String message;
+
   const AuthError(this.message);
 
   @override
-  List<Object?> get props => [message];
+  List<Object> get props => [message];
 }

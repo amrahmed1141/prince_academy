@@ -19,7 +19,7 @@ class GlassBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     const items = [
       _NavItem(label: 'Add Info', icon: Iconsax.add_circle),
-      _NavItem(label: 'Camera', icon: Iconsax.camera),
+      _NavItem(label: 'Scan QR', icon: Icons.qr_code_scanner),
     ];
 
     return Align(

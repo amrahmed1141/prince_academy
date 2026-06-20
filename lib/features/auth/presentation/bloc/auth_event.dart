@@ -1,40 +1,55 @@
-
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 
 abstract class AuthEvent extends Equatable {
+  const AuthEvent();
+
   @override
   List<Object?> get props => [];
 }
 
-class AuthStarted extends AuthEvent {}
+class AuthStarted extends AuthEvent {
+  const AuthStarted();
+}
 
-class AuthUserSignUp extends AuthEvent {
-  final String email;
-  final String password;
+@immutable
+class SignUpRequested extends AuthEvent {
   final String fullName;
   final String phone;
-  AuthUserSignUp(this.email, this.password, this.fullName, this.phone);
+  final String email;
+  final String password;
+
+  const SignUpRequested({
+    required this.fullName,
+    required this.phone,
+    required this.email,
+    required this.password,
+  });
 
   @override
-  List<Object?> get props => [email, password, fullName, phone];
+  List<Object> get props => [fullName, phone, email, password];
 }
 
 class AuthUserSignIn extends AuthEvent {
   final String email;
   final String password;
-  AuthUserSignIn(this.email, this.password);
+
+  const AuthUserSignIn(this.email, this.password);
 
   @override
-  List<Object?> get props => [email, password];
+  List<Object> get props => [email, password];
 }
 
 class AuthAdminSignIn extends AuthEvent {
   final String email;
   final String password;
-  AuthAdminSignIn(this.email, this.password);
+
+  const AuthAdminSignIn(this.email, this.password);
 
   @override
-  List<Object?> get props => [email, password];
+  List<Object> get props => [email, password];
 }
 
-class AuthSignOut extends AuthEvent {}
+class AuthSignOut extends AuthEvent {
+  const AuthSignOut();
+}

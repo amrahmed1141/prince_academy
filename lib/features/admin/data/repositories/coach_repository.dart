@@ -1,6 +1,11 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
+import 'package:prince_academy/features/admin/data/models/session_draft.dart';
+import 'package:prince_academy/features/admin/data/models/today_booking_model.dart';
+import 'package:prince_academy/features/admin/data/models/admin_scan_profile_model.dart';
+import 'package:prince_academy/features/admin/data/models/user_qr_profile_model.dart';
+import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
 class CoachRepository {
@@ -8,7 +13,6 @@ class CoachRepository {
 
   CoachRepository(this._supabase);
 
-  /// Fetches all coaches sorted by creation date descending.
   Future<List<CoachModel>> fetchCoaches() async {
     try {
       final response = await _supabase
@@ -23,15 +27,28 @@ class CoachRepository {
     }
   }
 
-  /// Uploads a photo to the public bucket `coach-photos` using a unique path: coaches/{timestamp}_{filename}
-  /// Returns the public URL of the uploaded image.
   Future<String> uploadCoachPhoto(File file, String fileName) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final cleanFileName = fileName.replaceAll(RegExp(r'\s+'), '_');
     final path = 'coaches/${timestamp}_$cleanFileName';
 
-    await _supabase.storage.from('coach-photos').upload(path, file);
+    await _supabase.storage.from('coach-photos').upload(
+          path,
+          file,
+          fileOptions: FileOptions(
+            upsert: true,
+            contentType: _mimeTypeForFile(fileName),
+          ),
+        );
     return _supabase.storage.from('coach-photos').getPublicUrl(path);
+  }
+
+  String _mimeTypeForFile(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
   }
 
   Future<void> _requireAdmin() async {
@@ -52,11 +69,12 @@ class CoachRepository {
 
     final role = profile['role'] as String?;
     if (role != 'admin') {
-      throw Exception('Unauthorized: Only administrators can perform this action.');
+      throw Exception(
+        'Unauthorized: Only administrators can perform this action.',
+      );
     }
   }
 
-  /// Inserts a new coach row into `public.coaches` after validating admin role.
   Future<void> addCoach({
     required String name,
     required String specialty,
@@ -103,24 +121,178 @@ class CoachRepository {
     }
   }
 
-  Future<void> addCoachSession({
+  Future<void> upsertSession(SessionDraft draft) async {
+    await _requireAdmin();
+
+    if (draft.coachId == null || draft.coachId!.isEmpty) {
+      throw Exception('Coach is required.');
+    }
+    if (draft.timeSlot.isEmpty) {
+      throw Exception('Time slot is required.');
+    }
+    if (draft.pricePerSession <= 0) {
+      throw Exception('Enter a valid price per session.');
+    }
+    if (draft.sessions.isEmpty) {
+      throw Exception('Add at least one session detail.');
+    }
+    if (draft.sessions.length != draft.sessionsPerWeek) {
+      throw Exception('Session details count does not match sessions per week.');
+    }
+
+    for (int i = 0; i < draft.sessions.length; i++) {
+      final slot = draft.sessions[i];
+      if (slot.day.isEmpty) {
+        throw Exception('Session ${i + 1}: please select a day.');
+      }
+      if (slot.classType.isEmpty) {
+        throw Exception('Session ${i + 1}: please select a class type.');
+      }
+    }
+
+    try {
+      final firstDay = draft.sessions.first.day;
+      final payload = {
+        'coach_id': draft.coachId,
+        'sessions_per_week': draft.sessionsPerWeek,
+        'session_type': draft.sessions.map((s) => s.classType).join(', '),
+        'session_date': _formatDateForDb(_getNextWeekdayDate(firstDay)),
+        'days': draft.sessions.map((s) => s.day).toList(),
+        'time_slots': [draft.timeSlot],
+        'price_per_session': draft.pricePerSession,
+        'is_active': true,
+      };
+
+      await _supabase.from('coach_sessions').insert(payload);
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'save session'));
+    }
+  }
+
+  Future<void> deleteSessionsByCoachId(String coachId) async {
+    await _requireAdmin();
+
+    try {
+      await _supabase.from('coach_sessions').delete().eq('coach_id', coachId);
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'delete sessions'));
+    }
+  }
+
+  Future<void> deleteCoach(String coachId) async {
+    await _requireAdmin();
+
+    try {
+      await _supabase.from('coach_sessions').delete().eq('coach_id', coachId);
+      await _supabase.from('coaches').delete().eq('id', coachId);
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'delete coach'));
+    }
+  }
+
+  Future<List<AdminScanProfile>> getUserByQrCode(String qrCode) async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase
+          .from('admin_scan_profile')
+          .select()
+          .eq('qr_code', qrCode);
+
+      return (response as List)
+          .map(
+            (e) => AdminScanProfile.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load member by QR code'));
+    }
+  }
+
+  Future<List<UserQrProfile>> getUserQrProfileByUserId(String userId) async {
+    try {
+      final response = await _supabase
+          .from('user_qr_profile')
+          .select()
+          .eq('user_id', userId);
+
+      return (response as List)
+          .map(
+            (e) => UserQrProfile.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load your QR profile'));
+    }
+  }
+
+  Future<List<TodayBooking>> getTodayBookings(String userId) async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase
+          .from('today_bookings')
+          .select()
+          .eq('user_id', userId);
+
+      return (response as List)
+          .map(
+            (e) => TodayBooking.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load today\'s bookings'));
+    }
+  }
+
+  Future<void> markAttendance({
+    required String bookingId,
+    required String userId,
     required String coachId,
-    required int sessionsPerWeek,
-    required String sessionType,
-    DateTime? sessionDate,
+    required String adminId,
   }) async {
     await _requireAdmin();
 
     try {
-      await _supabase.from('coach_sessions').insert({
+      final today = _formatDateForDb(DateTime.now());
+      await _supabase.from('attendance').insert({
+        'booking_id': bookingId,
+        'user_id': userId,
         'coach_id': coachId,
-        'sessions_per_week': sessionsPerWeek,
-        'session_type': sessionType,
-        'session_date': _formatDateForDb(sessionDate),
-        'is_active': true,
+        'attended_on': today,
+        'status': 'attended',
+        'scanned_by': adminId,
       });
     } on PostgrestException catch (e) {
-      throw Exception(_mapPostgrestError(e, 'add session'));
+      throw Exception(_mapPostgrestError(e, 'mark attendance'));
+    }
+  }
+
+  Future<BookingModel> renewSubscription(String bookingId) async {
+    try {
+      final response = await _supabase.rpc(
+        'renew_booking_subscription',
+        params: {'p_booking_id': bookingId},
+      );
+
+      if (response is Map) {
+        return BookingModel.fromJson(Map<String, dynamic>.from(response));
+      }
+      if (response is List && response.isNotEmpty) {
+        return BookingModel.fromJson(
+          Map<String, dynamic>.from(response.first as Map),
+        );
+      }
+
+      throw Exception('Unexpected response from subscription renewal.');
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'renew subscription'));
     }
   }
 
@@ -134,6 +306,26 @@ class CoachRepository {
         .toList();
   }
 
+  DateTime _getNextWeekdayDate(String dayOfWeekName) {
+    final now = DateTime.now();
+    final dayMap = <String, int>{
+      'mon': DateTime.monday,
+      'tue': DateTime.tuesday,
+      'wed': DateTime.wednesday,
+      'thu': DateTime.thursday,
+      'fri': DateTime.friday,
+      'sat': DateTime.saturday,
+      'sun': DateTime.sunday,
+    };
+    final key = dayOfWeekName.toLowerCase().substring(0, 3);
+    final targetWeekday = dayMap[key] ?? now.weekday;
+    int daysToAdd = targetWeekday - now.weekday;
+    if (daysToAdd <= 0) {
+      daysToAdd += 7;
+    }
+    return DateTime(now.year, now.month, now.day + daysToAdd, 18, 0);
+  }
+
   String? _formatDateForDb(DateTime? date) {
     if (date == null) return null;
     final local = date.toLocal();
@@ -145,10 +337,10 @@ class CoachRepository {
 
   String _mapPostgrestError(PostgrestException e, String action) {
     if (e.code == 'PGRST205' || e.code == '42P01') {
-      return "Database table missing. Please run the coach_sessions setup SQL in Supabase.";
+      return 'Database table missing. Please run the coach_sessions setup SQL in Supabase.';
     }
     if (e.code == '42501') {
-      return "Permission denied. Check Row Level Security policies for coach_sessions.";
+      return 'Permission denied. Check Row Level Security policies for coach_sessions.';
     }
     return 'Failed to $action: ${e.message}';
   }

@@ -5,16 +5,16 @@ import 'package:prince_academy/features/admin/data/models/session_draft.dart';
 
 class SessionDraftRow extends StatelessWidget {
   final int index;
-  final SessionDraft draft;
+  final SessionSlot slot;
   final List<String> weekDays;
   final List<String> classTypes;
   final bool enabled;
-  final ValueChanged<SessionDraft> onChanged;
+  final ValueChanged<SessionSlot> onChanged;
 
   const SessionDraftRow({
     super.key,
     required this.index,
-    required this.draft,
+    required this.slot,
     required this.weekDays,
     required this.classTypes,
     this.enabled = true,
@@ -44,24 +44,24 @@ class SessionDraftRow extends StatelessWidget {
 
               final dayField = _buildDropdown(
                 label: 'Day',
-                value: draft.day,
+                value: slot.day,
                 prefixIcon: Iconsax.calendar_1,
                 items: weekDays,
                 onChanged: (value) {
                   if (value != null) {
-                    onChanged(draft.copyWith(day: value));
+                    onChanged(slot.copyWith(day: value));
                   }
                 },
               );
 
               final typeField = _buildDropdown(
                 label: 'Class Type',
-                value: draft.classType,
+                value: slot.classType,
                 prefixIcon: Iconsax.category,
                 items: classTypes,
                 onChanged: (value) {
                   if (value != null) {
-                    onChanged(draft.copyWith(classType: value));
+                    onChanged(slot.copyWith(classType: value));
                   }
                 },
               );
@@ -118,7 +118,7 @@ class SessionDraftRow extends StatelessWidget {
             prefixIcon: Icon(
               prefixIcon,
               size: 18,
-              color: EColorConstants.authPlaceholderGray,
+              color: EColorConstants.primaryColor,
             ),
             filled: true,
             fillColor: EColorConstants.authFieldBackground,
@@ -126,13 +126,15 @@ class SessionDraftRow extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: EColorConstants.authFieldBorder),
+              borderSide: BorderSide(
+                color: EColorConstants.primaryColor.withOpacity(0.3),
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: EColorConstants.authFieldBorder),
+              borderSide: BorderSide(
+                color: EColorConstants.primaryColor.withOpacity(0.3),
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -152,7 +154,9 @@ class SessionDraftRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 12,
+                    fontWeight: FontWeight.w600,
                     fontFamily: 'Poppins',
+                    color: EColorConstants.authTextDarkBrown,
                   ),
                 ),
               );

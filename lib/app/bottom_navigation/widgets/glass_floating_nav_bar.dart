@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
@@ -7,6 +8,9 @@ import 'package:prince_academy/app/bottom_navigation/models/bottom_nav_item_mode
 class GlassFloatingNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final VoidCallback onQrPressed;
+  final bool hasQrCode;
+  final bool isQrLoading;
 
   static const List<BottomNavItemModel> navItems = [
     BottomNavItemModel(icon: Iconsax.home_1, label: 'Home'),
@@ -19,133 +23,163 @@ class GlassFloatingNavBar extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    required this.onQrPressed,
+    this.hasQrCode = false,
+    this.isQrLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    const primaryColor = EColorConstants.primaryColor;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          height: 76,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.black.withOpacity(0.55)
-                : Colors.white.withOpacity(0.72),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withOpacity(0.10)
-                  : Colors.black.withOpacity(0.06),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? Colors.black.withOpacity(0.4)
-                    : Colors.black.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(navItems.length, (index) {
-              final item = navItems[index];
-              return Expanded(
-                child: AnimatedBottomNavItem(
-                  index: index,
-                  item: item,
-                  isSelected: selectedIndex == index,
-                  primaryColor: primaryColor,
-                  onTap: onDestinationSelected,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(36),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                height: 72,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(36),
+                  border: Border.all(color: Colors.black.withOpacity(0.05)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-              );
-            }),
+                child: Row(
+                  children: List.generate(navItems.length, (index) {
+                    final item = navItems[index];
+                    return Expanded(
+                      child: _NavPillItem(
+                        item: item,
+                        isSelected: selectedIndex == index,
+                        onTap: () => onDestinationSelected(index),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
           ),
         ),
+        const SizedBox(width: 12),
+        _QrFabButton(
+          onPressed: onQrPressed,
+          hasQrCode: hasQrCode,
+          isLoading: isQrLoading,
+        ),
+      ],
+    );
+  }
+}
+
+class _NavPillItem extends StatelessWidget {
+  const _NavPillItem({
+    required this.item,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final BottomNavItemModel item;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final unselectedColor = Colors.grey.shade500;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: isSelected ? Colors.grey.shade200 : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              item.icon,
+              size: 18,
+              color: isSelected
+                  ? EColorConstants.authTextDarkBrown
+                  : unselectedColor,
+            ),
+          ),
+          const SizedBox(height: 1),
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 220),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected
+                  ? EColorConstants.authTextDarkBrown
+                  : unselectedColor,
+              fontFamily: 'Poppins',
+            ),
+            child: Text(
+              item.label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class AnimatedBottomNavItem extends StatelessWidget {
-  final int index;
-  final BottomNavItemModel item;
-  final bool isSelected;
-  final Color primaryColor;
-  final ValueChanged<int> onTap;
-
-  const AnimatedBottomNavItem({
-    super.key,
-    required this.index,
-    required this.item,
-    required this.isSelected,
-    required this.primaryColor,
-    required this.onTap,
+class _QrFabButton extends StatelessWidget {
+  const _QrFabButton({
+    required this.onPressed,
+    required this.hasQrCode,
+    required this.isLoading,
   });
+
+  final VoidCallback onPressed;
+  final bool hasQrCode;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final unselectedColor = isDark ? Colors.grey[400]! : Colors.grey[500]!;
-
-    return GestureDetector(
-      onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? primaryColor.withOpacity(0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            /// Icon
-            AnimatedScale(
-              scale: isSelected ? 1.1 : 1.0,
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              child: AnimatedOpacity(
-                opacity: isSelected ? 1.0 : 0.7,
-                duration: const Duration(milliseconds: 180),
-                child: Icon(
-                  item.icon,
-                  color: isSelected ? primaryColor : unselectedColor,
-                  size: 22,
-                ),
-              ),
+    return ClipOval(
+      child: Material(
+        color: EColorConstants.authTextDarkBrown,
+        child: InkWell(
+          onTap: isLoading ? null : onPressed,
+          child: SizedBox(
+            width: 56,
+            height: 56,
+            child: Center(
+              child: isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.qr_code_2_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
             ),
-            const SizedBox(height: 2),
-            /// Label — always visible, changes color on selection
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? primaryColor : unselectedColor,
-                fontFamily: 'Poppins',
-              ),
-              child: Text(
-                item.label,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

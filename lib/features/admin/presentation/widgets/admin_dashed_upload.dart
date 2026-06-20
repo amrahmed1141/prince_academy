@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 
 class AdminDashedUpload extends StatelessWidget {
   final String? imagePath;
@@ -117,13 +118,12 @@ class AdminDashedUpload extends StatelessWidget {
   }
 
   ImageProvider _imageProvider(String path) {
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      return NetworkImage(path);
+    final resolved = CoachPhotoHelper.resolve(path) ?? path;
+    if (resolved.startsWith('assets/')) return AssetImage(resolved);
+    if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+      return NetworkImage(resolved);
     }
-    if (path.startsWith('assets/')) {
-      return AssetImage(path);
-    }
-    return FileImage(File(path));
+    return FileImage(File(resolved));
   }
 }
 

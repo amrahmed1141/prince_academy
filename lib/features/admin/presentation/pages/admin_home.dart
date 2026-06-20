@@ -12,13 +12,17 @@ import 'package:prince_academy/features/admin/presentation/widgets/admin_section
 import 'package:prince_academy/features/admin/presentation/widgets/admin_smooth_scroll.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/specialty_chip.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/class_type_filter_dropdown.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_dropdown_field.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_text_field.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_draft_row.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_frequency_selector.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_card.dart';
+import 'package:prince_academy/features/admin/presentation/pages/qr_scanner_page.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/custom_bottom_navigation.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_profile.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_card.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
+import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 import 'package:prince_academy/core/di/injection.dart';
@@ -101,19 +105,26 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     }
   }
 
-  Future<void> _addSession({
-    required String coachId,
-    required int sessionsPerWeek,
-    required String sessionType,
-    DateTime? sessionDate,
-  }) async {
-    await sl<CoachRepository>().addCoachSession(
-      coachId: coachId,
-      sessionsPerWeek: sessionsPerWeek,
-      sessionType: sessionType,
-      sessionDate: sessionDate,
-    );
+  Future<void> _saveSession(SessionDraft draft) async {
+    await sl<CoachRepository>().upsertSession(draft);
     await _fetchSessions();
+  }
+
+  Future<void> _deleteCoach(String coachId) async {
+    await sl<CoachRepository>().deleteCoach(coachId);
+    if (!mounted) return;
+    setState(() {
+      _coaches.removeWhere((coach) => coach.id == coachId);
+      _sessions.removeWhere((session) => session.coachId == coachId);
+    });
+  }
+
+  Future<void> _deleteSessionsByCoachId(String coachId) async {
+    await sl<CoachRepository>().deleteSessionsByCoachId(coachId);
+    if (!mounted) return;
+    setState(() {
+      _sessions.removeWhere((session) => session.coachId == coachId);
+    });
   }
 
   @override
@@ -130,12 +141,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 sessions: _sessions,
                 onRefreshCoaches: _fetchCoaches,
                 onRefreshSessions: _fetchSessions,
-                onAddSession: _addSession,
+                onSaveSession: _saveSession,
+                onDeleteCoach: _deleteCoach,
+                onDeleteSessionsByCoachId: _deleteSessionsByCoachId,
                 isLoadingCoaches: _isLoadingCoaches,
                 isLoadingSessions: _isLoadingSessions,
                 sessionsError: _sessionsError,
               ),
-              const _CameraPage(),
+              const QrScannerPage(),
             ],
           ),
           GlassBottomNavigation(
@@ -153,12 +166,9 @@ class _AddInfoPage extends StatefulWidget {
   final List<CoachSessionModel> sessions;
   final VoidCallback onRefreshCoaches;
   final VoidCallback onRefreshSessions;
-  final Future<void> Function({
-    required String coachId,
-    required int sessionsPerWeek,
-    required String sessionType,
-    DateTime? sessionDate,
-  }) onAddSession;
+  final Future<void> Function(SessionDraft draft) onSaveSession;
+  final Future<void> Function(String coachId) onDeleteCoach;
+  final Future<void> Function(String coachId) onDeleteSessionsByCoachId;
   final bool isLoadingCoaches;
   final bool isLoadingSessions;
   final String? sessionsError;
@@ -168,7 +178,9 @@ class _AddInfoPage extends StatefulWidget {
     required this.sessions,
     required this.onRefreshCoaches,
     required this.onRefreshSessions,
-    required this.onAddSession,
+    required this.onSaveSession,
+    required this.onDeleteCoach,
+    required this.onDeleteSessionsByCoachId,
     required this.isLoadingCoaches,
     required this.isLoadingSessions,
     this.sessionsError,
@@ -188,24 +200,6 @@ class _AddInfoPageState extends State<_AddInfoPage> {
     'Strength & Conditioning',
   ];
 
-  static const _sessionClassTypes = [
-    'Striking',
-    'Grappling',
-    'Conditioning',
-    'Sparring',
-    'Drills',
-  ];
-
-  static const _weekDays = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ];
-
   final _tabLayoutKey = GlobalKey<AdminTabLayoutState>();
 
   // Coach Form Controllers
@@ -215,11 +209,21 @@ class _AddInfoPageState extends State<_AddInfoPage> {
   String? _selectedCoachImagePath;
   bool _isAddingCoach = false;
 
+  static const _weekDays = SessionDraft.weekDays;
+  static const _classTypes = SessionDraft.classTypes;
+
+  final _sessionFormKey = GlobalKey<FormState>();
+
   // Session Form State
-  int _sessionsPerWeek = 1;
-  List<SessionDraft> _sessionDrafts = SessionDraft.listForCount(1);
   String? _selectedSessionCoachId;
-  bool _isAddingSession = false;
+  String _selectedTimeSlot = SessionDraft.defaultTimeSlot;
+  final _priceController = TextEditingController();
+  int _sessionsPerWeek = 1;
+  List<SessionSlot> _sessionSlots = [SessionSlot.initial()];
+  bool _isSavingSession = false;
+  String? _coachError;
+  String? _timeSlotError;
+  String? _priceError;
 
   // Coaches list filter
   String _coachFilter = 'All Coaches';
@@ -340,27 +344,38 @@ class _AddInfoPageState extends State<_AddInfoPage> {
     }
   }
 
-  DateTime _getNextWeekdayDate(String dayOfWeekName) {
-    final now = DateTime.now();
-    final dayMap = <String, int>{
-      'mon': DateTime.monday,
-      'tue': DateTime.tuesday,
-      'wed': DateTime.wednesday,
-      'thu': DateTime.thursday,
-      'fri': DateTime.friday,
-      'sat': DateTime.saturday,
-      'sun': DateTime.sunday,
-    };
-    final key = dayOfWeekName.toLowerCase().substring(0, 3);
-    final targetWeekday = dayMap[key] ?? now.weekday;
-    int daysToAdd = targetWeekday - now.weekday;
-    if (daysToAdd <= 0) {
-      daysToAdd += 7;
+  bool _validateSessionForm() {
+    var isValid = true;
+    String? coachError;
+    String? timeSlotError;
+    String? priceError;
+
+    if (_selectedSessionCoachId == null) {
+      coachError = 'Please select a coach';
+      isValid = false;
     }
-    return DateTime(now.year, now.month, now.day + daysToAdd, 18, 0);
+
+    if (_selectedTimeSlot.isEmpty) {
+      timeSlotError = 'Please select a time slot';
+      isValid = false;
+    }
+
+    final price = double.tryParse(_priceController.text.trim()) ?? 0;
+    if (price <= 0) {
+      priceError = 'Enter a valid price greater than 0';
+      isValid = false;
+    }
+
+    setState(() {
+      _coachError = coachError;
+      _timeSlotError = timeSlotError;
+      _priceError = priceError;
+    });
+
+    return isValid && (_sessionFormKey.currentState?.validate() ?? false);
   }
 
-  Future<void> _handleAddSessions() async {
+  Future<void> _handleSaveSession() async {
     if (widget.coaches.isEmpty) {
       _showSnackBar(
         'No coaches available. Please add a coach first.',
@@ -369,83 +384,135 @@ class _AddInfoPageState extends State<_AddInfoPage> {
       return;
     }
 
-    if (_selectedSessionCoachId == null) {
-      _showSnackBar('Please select a coach.', Colors.orange);
-      return;
-    }
+    if (!_validateSessionForm()) return;
 
-    if (_sessionDrafts.length != _sessionsPerWeek) {
-      _showSnackBar('Session rows are out of sync. Please reselect frequency.', Colors.orange);
-      return;
-    }
-
-    final selectedDays = <String>{};
-    for (int i = 0; i < _sessionDrafts.length; i++) {
-      final draft = _sessionDrafts[i];
-      if (draft.day.isEmpty) {
+    for (int i = 0; i < _sessionSlots.length; i++) {
+      final slot = _sessionSlots[i];
+      if (slot.day.isEmpty) {
         _showSnackBar('Session ${i + 1}: please select a day.', Colors.orange);
         return;
       }
-      if (draft.classType.isEmpty) {
-        _showSnackBar('Session ${i + 1}: please select a class type.', Colors.orange);
+      if (slot.classType.isEmpty) {
+        _showSnackBar(
+          'Session ${i + 1}: please select a class type.',
+          Colors.orange,
+        );
         return;
       }
-      if (selectedDays.contains(draft.day)) {
-        _showSnackBar('Duplicate day: ${draft.day} is selected more than once.', Colors.orange);
-        return;
-      }
-      selectedDays.add(draft.day);
     }
 
-    final selectedCoachExists =
-        widget.coaches.any((c) => c.id == _selectedSessionCoachId);
+    final price = double.parse(_priceController.text.trim());
+    final draft = SessionDraft(
+      coachId: _selectedSessionCoachId,
+      timeSlot: _selectedTimeSlot,
+      pricePerSession: price,
+      sessionsPerWeek: _sessionsPerWeek,
+      sessions: List.from(_sessionSlots),
+    );
 
-    if (!selectedCoachExists) {
-      _showSnackBar(
-        'Selected coach is no longer available. Please refresh.',
-        Colors.orange,
-      );
-      return;
-    }
-
-    setState(() {
-      _isAddingSession = true;
-    });
+    setState(() => _isSavingSession = true);
 
     try {
-      for (final draft in _sessionDrafts) {
-        final sessionDate = _getNextWeekdayDate(draft.day);
-        await widget.onAddSession(
-          coachId: _selectedSessionCoachId!,
-          sessionsPerWeek: _sessionsPerWeek,
-          sessionType: draft.classType,
-          sessionDate: sessionDate,
-        );
-      }
-
-      _showSnackBar(
-        _sessionDrafts.length == 1
-            ? 'Session added successfully!'
-            : '${_sessionDrafts.length} sessions added successfully!',
-        Colors.green,
-      );
+      await widget.onSaveSession(draft);
+      _showSnackBar('Session saved successfully!', Colors.green);
 
       if (mounted) {
         setState(() {
+          _selectedTimeSlot = SessionDraft.defaultTimeSlot;
           _sessionsPerWeek = 1;
-          _sessionDrafts = SessionDraft.listForCount(1);
+          _sessionSlots = [SessionSlot.initial()];
+          _priceController.clear();
+          _coachError = null;
+          _timeSlotError = null;
+          _priceError = null;
         });
         FocusScope.of(context).unfocus();
       }
     } catch (e) {
-      _showSnackBar('Failed to add sessions: $e', Colors.redAccent);
+      _showSnackBar('Failed to save session: $e', Colors.redAccent);
     } finally {
       if (mounted) {
-        setState(() {
-          _isAddingSession = false;
-        });
+        setState(() => _isSavingSession = false);
       }
     }
+  }
+
+  void _onSessionsPerWeekChanged(int count) {
+    setState(() {
+      _sessionsPerWeek = count;
+      _sessionSlots = SessionDraft.resizeSlots(_sessionSlots, count);
+    });
+  }
+
+  void _updateSessionSlot(int index, SessionSlot slot) {
+    setState(() {
+      _sessionSlots[index] = slot;
+    });
+  }
+
+  void _showDeleteSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontFamily: 'Poppins'),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red.shade500,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _handleDeleteCoach(CoachModel coach) async {
+    try {
+      await widget.onDeleteCoach(coach.id);
+      _showDeleteSnackBar('"${coach.name}" and their sessions deleted');
+    } catch (e) {
+      _showSnackBar('Failed to delete coach: $e', Colors.redAccent);
+      widget.onRefreshCoaches();
+      widget.onRefreshSessions();
+    }
+  }
+
+  Future<void> _handleDeleteSessionSchedule(CoachWithSessions group) async {
+    try {
+      await widget.onDeleteSessionsByCoachId(group.coachId);
+      final message = group.hasMultipleSchedules
+          ? 'All sessions for "${group.name}" deleted'
+          : '"${group.name}" deleted successfully';
+      _showDeleteSnackBar(message);
+    } catch (e) {
+      _showSnackBar('Failed to delete session schedule: $e', Colors.redAccent);
+      widget.onRefreshSessions();
+    }
+  }
+
+  void _prefillCoachForEdit(CoachModel coach) {
+    setState(() {
+      _coachNameController.text = coach.name;
+      _selectedCoachSpecialty = coach.specialty;
+      _selectedCoachImagePath = null;
+    });
+  }
+
+  void _prefillSessionForEdit(String coachId) {
+    setState(() => _selectedSessionCoachId = coachId);
+    _tabLayoutKey.currentState?.animateToTab(1);
+  }
+
+  List<CoachWithSessions> _groupedFilteredSessions() {
+    return CoachWithSessions.group(_filteredSessions());
   }
 
   void _showSnackBar(String message, Color backgroundColor) {
@@ -459,23 +526,11 @@ class _AddInfoPageState extends State<_AddInfoPage> {
     }
   }
 
-  void _onSessionsPerWeekChanged(int count) {
-    setState(() {
-      _sessionsPerWeek = count;
-      _sessionDrafts = SessionDraft.resize(_sessionDrafts, count);
-    });
-  }
-
-  void _updateSessionDraft(int index, SessionDraft draft) {
-    setState(() {
-      _sessionDrafts[index] = draft;
-    });
-  }
-
   @override
   void dispose() {
     _coachNameController.dispose();
     _coachNameFocusNode.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -498,7 +553,6 @@ class _AddInfoPageState extends State<_AddInfoPage> {
               );
             },
           ),
-          const SizedBox(height: 12),
           Expanded(
             child: ScrollConfiguration(
               behavior: const AdminSmoothScrollBehavior(),
@@ -639,13 +693,13 @@ class _AddInfoPageState extends State<_AddInfoPage> {
               final coachSessionCount =
                   widget.sessions.where((s) => s.coachId == coach.id).length;
               return CoachListCard(
+                coachId: coach.id,
                 name: coach.name,
                 specialty: coach.specialty,
                 sessionCount: coachSessionCount,
                 imagePath: coach.photoUrl,
-                onMenuTap: () {
-                  _showCoachMenu(context, coach);
-                },
+                onEdit: () => _prefillCoachForEdit(coach),
+                onDelete: () => _handleDeleteCoach(coach),
               );
             }),
         ],
@@ -884,48 +938,11 @@ class _AddInfoPageState extends State<_AddInfoPage> {
     );
   }
 
-  void _showCoachMenu(BuildContext context, CoachModel coach) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: EColorConstants.authCardWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Iconsax.calendar, color: EColorConstants.primaryColor),
-                title: const Text('Manage Sessions', style: TextStyle(fontFamily: 'Poppins')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  setState(() => _selectedSessionCoachId = coach.id);
-                  _tabLayoutKey.currentState?.animateToTab(1);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Iconsax.refresh, color: EColorConstants.primaryColor),
-                title: const Text('Refresh Coaches', style: TextStyle(fontFamily: 'Poppins')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  widget.onRefreshCoaches();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   /// -----------------------------------------------------------------
   /// TAB 2: SESSIONS
   /// -----------------------------------------------------------------
   Widget _buildSessionsTab(bool dark) {
-    final filteredSessions = _filteredSessions();
+    final groupedSessions = _groupedFilteredSessions();
 
     return AdminSmoothScrollView(
       refreshColor: EColorConstants.primaryColor,
@@ -987,46 +1004,20 @@ class _AddInfoPageState extends State<_AddInfoPage> {
                 message:
                     'No sessions added yet.\nUse the form above to create a session.',
               )
-            else if (filteredSessions.isEmpty)
+            else if (groupedSessions.isEmpty)
               _buildEmptyState(
                 icon: Iconsax.filter_search,
                 message: 'No sessions match "$_sessionFilter".',
               )
             else
-              ...filteredSessions.map((session) {
-                return SavedSessionCard(
-                  coachName: session.coachName ?? 'Unknown Coach',
-                  coachPhotoUrl: session.coachPhotoUrl,
-                  session: session,
-                  onMenuTap: () => _showSessionMenu(session),
+              ...groupedSessions.map((group) {
+                return GroupedCoachSessionCard(
+                  coachWithSessions: group,
+                  onEdit: () => _prefillSessionForEdit(group.coachId),
+                  onDelete: () => _handleDeleteSessionSchedule(group),
                 );
               }),
         ],
-      ),
-    );
-  }
-
-  void _showSessionMenu(CoachSessionModel session) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: EColorConstants.authCardWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Iconsax.refresh, color: EColorConstants.primaryColor),
-              title: const Text('Refresh Sessions', style: TextStyle(fontFamily: 'Poppins')),
-              onTap: () {
-                Navigator.pop(ctx);
-                widget.onRefreshSessions();
-              },
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1158,129 +1149,191 @@ class _AddInfoPageState extends State<_AddInfoPage> {
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!hasCoaches)
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 14),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Iconsax.info_circle,
-                            size: 18, color: Colors.orange.shade700),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Add a coach first before scheduling sessions.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontFamily: 'Poppins',
+            child: Form(
+              key: _sessionFormKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!hasCoaches)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Iconsax.info_circle,
+                              size: 18, color: Colors.orange.shade700),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Add a coach first before scheduling sessions.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'Poppins',
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                _buildFieldLabel('Select Coach'),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: hasCoaches ? _selectedSessionCoachId : null,
-                  isExpanded: true,
-                  decoration: _sessionFieldDecoration(),
-                  selectedItemBuilder: (context) {
-                    return widget.coaches.map((coach) {
-                      return SessionCoachDropdownTile(
-                        name: coach.name,
-                        photoUrl: coach.photoUrl,
-                      );
-                    }).toList();
-                  },
-                  items: widget.coaches.map((coach) {
-                    return DropdownMenuItem(
-                      value: coach.id,
-                      child: SessionCoachDropdownTile(
-                        name: coach.name,
-                        photoUrl: coach.photoUrl,
+                        ],
                       ),
-                    );
-                  }).toList(),
-                  onChanged: hasCoaches
-                      ? (value) {
-                          if (value != null) {
-                            setState(() => _selectedSessionCoachId = value);
-                          }
-                        }
-                      : null,
-                ),
-                const SizedBox(height: 16),
-                _buildFieldLabel('Sessions Per Week'),
-                const SizedBox(height: 10),
-                SessionFrequencySelector(
-                  selectedCount: _sessionsPerWeek,
-                  enabled: hasCoaches,
-                  onChanged: _onSessionsPerWeekChanged,
-                ),
-                if (_sessionDrafts.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  _buildFieldLabel('Session Details'),
+                    ),
+                  _buildFieldLabel('Select Coach'),
                   const SizedBox(height: 8),
-                  ...List.generate(_sessionDrafts.length, (index) {
-                    return SessionDraftRow(
-                      index: index,
-                      draft: _sessionDrafts[index],
-                      weekDays: _weekDays,
-                      classTypes: _sessionClassTypes,
-                      enabled: hasCoaches,
-                      onChanged: (draft) => _updateSessionDraft(index, draft),
-                    );
-                  }),
-                ],
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    onPressed: (!_isAddingSession && hasCoaches)
-                        ? _handleAddSessions
+                  DropdownButtonFormField<String>(
+                    value: hasCoaches ? _selectedSessionCoachId : null,
+                    isExpanded: true,
+                    decoration: _sessionFieldDecoration().copyWith(
+                      errorText: _coachError,
+                    ),
+                    selectedItemBuilder: (context) {
+                      return widget.coaches.map((coach) {
+                        return SessionCoachDropdownTile(
+                          name: coach.name,
+                          photoUrl: coach.photoUrl,
+                        );
+                      }).toList();
+                    },
+                    items: widget.coaches.map((coach) {
+                      return DropdownMenuItem(
+                        value: coach.id,
+                        child: SessionCoachDropdownTile(
+                          name: coach.name,
+                          photoUrl: coach.photoUrl,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: hasCoaches
+                        ? (value) {
+                            setState(() {
+                              _selectedSessionCoachId = value;
+                              _coachError = null;
+                            });
+                          }
                         : null,
-                    icon: _isAddingSession
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Iconsax.add, color: Colors.white, size: 20),
-                    label: Text(
-                      _isAddingSession ? 'Saving...' : '+ Add Session',
+                  ),
+                  const SizedBox(height: 16),
+                  AdminDropdownField<String>(
+                    label: 'Time Slot',
+                    value: _selectedTimeSlot,
+                    items: SessionDraft.presetTimeSlots,
+                    itemLabel: (item) => item,
+                    prefixIcon: Iconsax.clock,
+                    enabled: hasCoaches,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedTimeSlot = value;
+                          _timeSlotError = null;
+                        });
+                      }
+                    },
+                  ),
+                  if (_timeSlotError != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      _timeSlotError!,
                       style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        color: Colors.redAccent,
+                        fontSize: 12,
                         fontFamily: 'Poppins',
                       ),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: EColorConstants.primaryColor,
-                      disabledBackgroundColor:
-                          EColorConstants.authPlaceholderGray,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                  ],
+                  const SizedBox(height: 16),
+                  AdminTextField(
+                    label: 'Price per Session (EGP)',
+                    hint: 'Enter price',
+                    controller: _priceController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    validator: (value) {
+                      final parsed = double.tryParse(value?.trim() ?? '');
+                      if (parsed == null || parsed <= 0) {
+                        return 'Enter a valid price greater than 0';
+                      }
+                      return null;
+                    },
+                    onChanged: (_) {
+                      if (_priceError != null) {
+                        setState(() => _priceError = null);
+                      }
+                    },
+                  ),
+                  if (_priceError != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      _priceError!,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  SessionsPerWeekDropdown(
+                    selectedCount: _sessionsPerWeek,
+                    enabled: hasCoaches,
+                    onChanged: _onSessionsPerWeekChanged,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildFieldLabel('Session Details'),
+                  const SizedBox(height: 8),
+                  ...List.generate(_sessionSlots.length, (index) {
+                    return SessionDraftRow(
+                      index: index,
+                      slot: _sessionSlots[index],
+                      weekDays: _weekDays,
+                      classTypes: _classTypes,
+                      enabled: hasCoaches,
+                      onChanged: (slot) => _updateSessionSlot(index, slot),
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: (!_isSavingSession && hasCoaches)
+                          ? _handleSaveSession
+                          : null,
+                      icon: _isSavingSession
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Iconsax.save_2,
+                              color: Colors.white, size: 20),
+                      label: Text(
+                        _isSavingSession ? 'Saving...' : 'Save Session',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: EColorConstants.primaryColor,
+                        disabledBackgroundColor:
+                            EColorConstants.authPlaceholderGray,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -1357,18 +1410,4 @@ class _AddInfoPageState extends State<_AddInfoPage> {
     );
   }
 
-}
-
-class _CameraPage extends StatelessWidget {
-  const _CameraPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Camera / Scanner Page',
-        style: TextStyle(fontFamily: 'Poppins'),
-      ),
-    );
-  }
 }

@@ -9,21 +9,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepo repo;
   StreamSubscription<dynamic>? _authSubscription;
 
-  AuthBloc(this.repo) : super(AuthInitial()) {
+  AuthBloc(this.repo) : super(const AuthInitial()) {
     on<AuthStarted>(_onStarted);
-    on<AuthUserSignUp>(_onUserSignUp);
+    on<SignUpRequested>(_onSignUpRequested);
     on<AuthUserSignIn>(_onUserSignIn);
     on<AuthAdminSignIn>(_onAdminSignIn);
     on<AuthSignOut>(_onSignOut);
 
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authSubscription =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedOut) {
         if (state is! AuthNoSession && state is! AuthInitial) {
-          add(AuthSignOut());
+          add(const AuthSignOut());
         }
       }
     });
   }
+
+  SupabaseClient get _supabase => Supabase.instance.client;
 
   @override
   Future<void> close() {
@@ -32,19 +35,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onStarted(AuthStarted event, Emitter<AuthState> emit) async {
-    // Guaranteed minimum visibility for Splash Screen
     await Future.delayed(const Duration(seconds: 2));
 
     try {
       if (!repo.hasSession()) {
-        emit(AuthNoSession());
+        emit(const AuthNoSession());
         return;
       }
 
       final userDoc = await repo.loadUser();
       if (userDoc == null) {
         await repo.signOut();
-        emit(AuthNoSession());
+        emit(const AuthNoSession());
         return;
       }
 
@@ -53,7 +55,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthError(e.message));
     } on PostgrestException catch (e) {
       if (e.code == 'PGRST205' || e.code == '404') {
-        emit(const AuthError("Database missing: Please create the 'profiles' table in Supabase."));
+        emit(const AuthError(
+          "Database missing: Please create the 'profiles' table in Supabase.",
+        ));
       } else {
         emit(AuthError(e.message));
       }
@@ -62,33 +66,96 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  Future<void> _onUserSignUp(AuthUserSignUp event, Emitter<AuthState> emit) async {
-    emit(AuthLoading());
-    try {
-      await repo.signUp(event.email, event.password, event.fullName, event.phone);
+  Future<void> _onSignUpRequested(
+    SignUpRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
 
+    try {
+      // Step 1: Create auth user (no metadata — profile is inserted separately).
+      final response = await _supabase.auth.signUp(
+        email: event.email.trim(),
+        password: event.password,
+      );
+
+      final user = response.user;
+      if (user == null) {
+        emit(const AuthError('Failed to create account'));
+        return;
+      }
+
+      // Step 2: Insert profile row before emitting success.
+      String? profileSaveWarning;
+      try {
+        await _saveProfileRow(
+          userId: user.id,
+          fullName: event.fullName,
+          phone: event.phone,
+        );
+      } catch (_) {
+        profileSaveWarning =
+            'Account created but profile save failed. Please update your profile.';
+      }
+
+      // Step 3: Load profile and emit success (no signIn call needed).
       final userDoc = await repo.loadUser();
       if (userDoc == null) {
-        emit(const AuthError('Profile not created yet. Try login.'));
+        if (profileSaveWarning != null) {
+          emit(AuthError(profileSaveWarning));
+        } else {
+          emit(const AuthError('Profile not created yet. Try login.'));
+        }
         return;
       }
 
-      emit(AuthAuthed(userDoc));
+      emit(AuthAuthed(userDoc, profileSaveWarning: profileSaveWarning));
     } on AuthException catch (e) {
       emit(AuthError(e.message));
     } on PostgrestException catch (e) {
       if (e.code == 'PGRST205' || e.code == '404') {
-        emit(const AuthError("Database missing: Please create the 'profiles' table in Supabase."));
+        emit(const AuthError(
+          "Database missing: Please create the 'profiles' table in Supabase.",
+        ));
       } else {
         emit(AuthError(e.message));
       }
     } catch (e) {
-      emit(AuthError(e.toString()));
+      emit(AuthError('Signup failed: ${e.toString()}'));
     }
   }
 
-  Future<void> _onUserSignIn(AuthUserSignIn event, Emitter<AuthState> emit) async {
-    emit(AuthLoading());
+  Future<void> _saveProfileRow({
+    required String userId,
+    required String fullName,
+    required String phone,
+  }) async {
+    final trimmedName = fullName.trim();
+    final trimmedPhone = phone.trim();
+
+    final row = {
+      'id': userId,
+      'full_name': trimmedName,
+      'phone': trimmedPhone,
+      'role': 'user',
+    };
+
+    try {
+      await _supabase.from('profiles').upsert(row, onConflict: 'id');
+    } on PostgrestException {
+      await _supabase.from('profiles').update({
+        'full_name': trimmedName,
+        'phone': trimmedPhone,
+        'role': 'user',
+      }).eq('id', userId);
+    }
+  }
+
+  Future<void> _onUserSignIn(
+    AuthUserSignIn event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
     try {
       await repo.signIn(event.email, event.password);
 
@@ -103,7 +170,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthError(e.message));
     } on PostgrestException catch (e) {
       if (e.code == 'PGRST205' || e.code == '404') {
-        emit(const AuthError("Database missing: Please create the 'profiles' table in Supabase."));
+        emit(const AuthError(
+          "Database missing: Please create the 'profiles' table in Supabase.",
+        ));
       } else {
         emit(AuthError(e.message));
       }
@@ -112,8 +181,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  Future<void> _onAdminSignIn(AuthAdminSignIn event, Emitter<AuthState> emit) async {
-    emit(AuthLoading());
+  Future<void> _onAdminSignIn(
+    AuthAdminSignIn event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
     try {
       await repo.signIn(event.email, event.password);
 
@@ -133,8 +205,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } on AuthException catch (e) {
       emit(AuthError(e.message));
     } on PostgrestException catch (e) {
-       if (e.code == 'PGRST205' || e.code == '404') {
-        emit(const AuthError("Database missing: Please create the 'users' table in Supabase."));
+      if (e.code == 'PGRST205' || e.code == '404') {
+        emit(const AuthError(
+          "Database missing: Please create the 'users' table in Supabase.",
+        ));
       } else {
         emit(AuthError(e.message));
       }
@@ -144,10 +218,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onSignOut(AuthSignOut event, Emitter<AuthState> emit) async {
-    emit(AuthLoading());
+    emit(const AuthLoading());
     try {
       await repo.signOut();
-      emit(AuthNoSession());
+      emit(const AuthNoSession());
     } on AuthException catch (e) {
       emit(AuthError(e.message));
     } on PostgrestException catch (e) {

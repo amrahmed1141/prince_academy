@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/app/bottom_navigation/widgets/glass_floating_nav_bar.dart';
+import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/services/user_qr_service.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/home.dart';
-import 'package:prince_academy/features/booking/presentation/pages/booking/booking_screen.dart';
+import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
 import 'package:prince_academy/features/profile/presentation/pages/profile/profile.dart';
+import 'package:prince_academy/features/profile/presentation/widgets/qr_code_bottom_sheet.dart';
 import 'package:prince_academy/features/sessions/session_screen.dart';
 
 class NavigationBottom extends StatefulWidget {
@@ -14,15 +17,28 @@ class NavigationBottom extends StatefulWidget {
 
 class _NavigationBottomState extends State<NavigationBottom> {
   int _currentIndex = 0;
+  late final UserQrService _qrService;
 
-  /// Pages are created once and reused to preserve tab state,
-  /// prevent rebuilds, and avoid repeated API calls on tab switch.
-  static const List<Widget> _pages = [
-    RepaintBoundary(child: HomeScreen()),
-    RepaintBoundary(child: BookingScreen()),
-    RepaintBoundary(child: SessionScreen()),
-    RepaintBoundary(child: ProfilePage()),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _qrService = sl<UserQrService>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _qrService.refresh();
+    });
+  }
+
+  void _onQrFabPressed() {
+    if (_qrService.hasQrCode) {
+      showMemberQrBottomSheet(
+        context,
+        qrCode: _qrService.qrCode!,
+        memberName: _qrService.fullName,
+      );
+      return;
+    }
+    showNoQrSnackBar(context);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,26 +46,39 @@ class _NavigationBottomState extends State<NavigationBottom> {
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          /// IndexedStack keeps all pages alive in memory.
-          /// Only the active page is visible; the rest remain mounted.
-          /// This prevents widget rebuilds and preserves scroll positions,
-          /// form state, and tab state across navigation.
           IndexedStack(
             index: _currentIndex,
-            children: _pages,
+            children: [
+              const RepaintBoundary(child: HomeScreen()),
+              const RepaintBoundary(child: BookingHistoryPage()),
+              const RepaintBoundary(child: SessionScreen()),
+              RepaintBoundary(
+                child: ProfilePage(
+                  isActive: _currentIndex == 3,
+                ),
+              ),
+            ],
           ),
-
-          /// Floating glassmorphism nav bar positioned over content.
           Positioned(
             left: 16,
             right: 16,
             bottom: 24,
-            child: GlassFloatingNavBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (index) {
-                /// Prevent rebuild if same tab is tapped (no-op).
-                if (index == _currentIndex) return;
-                setState(() => _currentIndex = index);
+            child: ListenableBuilder(
+              listenable: _qrService,
+              builder: (context, _) {
+                return GlassFloatingNavBar(
+                  selectedIndex: _currentIndex,
+                  hasQrCode: _qrService.hasQrCode,
+                  isQrLoading: _qrService.isLoading,
+                  onQrPressed: _onQrFabPressed,
+                  onDestinationSelected: (index) {
+                    if (index == _currentIndex) return;
+                    setState(() => _currentIndex = index);
+                    if (index == 3) {
+                      _qrService.refresh();
+                    }
+                  },
+                );
               },
             ),
           ),

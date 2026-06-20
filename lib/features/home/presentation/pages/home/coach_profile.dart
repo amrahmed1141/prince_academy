@@ -7,6 +7,7 @@ import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_details/booking.dart';
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
+import 'package:prince_academy/features/home/presentation/pages/home/widgets/session_info_card.dart';
 import 'package:prince_academy/core/di/injection.dart';
 
 class CoachProfilePage extends StatefulWidget {
@@ -381,125 +382,14 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                         ),
                       )
                     else
-                      ..._sessions.map((session) {
-                        final dayText = session.weekdayLabel ?? '';
-                        final dateText = session.formattedSessionDate ?? '';
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: dark ? Colors.grey[900] : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color:
-                                  dark ? Colors.grey[800]! : Colors.grey[200]!,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    session.sessionType,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: dark
-                                              ? Colors.white
-                                              : Colors.black,
-                                        ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: EColorConstants.primaryColor
-                                          .withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '${session.sessionsPerWeek} sessions/week',
-                                      style: const TextStyle(
-                                        color: EColorConstants.primaryColor,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (dayText.isNotEmpty || dateText.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                Wrap(
-                                  spacing: 16,
-                                  runSpacing: 8,
-                                  children: [
-                                    if (dayText.isNotEmpty)
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Iconsax.calendar_1,
-                                              size: 16,
-                                              color: dark
-                                                  ? Colors.grey[400]
-                                                  : Colors.grey[600]),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            dayText,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(
-                                                  color: dark
-                                                      ? Colors.grey[300]
-                                                      : Colors.grey[700],
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    if (dateText.isNotEmpty)
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Iconsax.calendar,
-                                              size: 16,
-                                              color: dark
-                                                  ? Colors.grey[400]
-                                                  : Colors.grey[600]),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            dateText,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(
-                                                  color: dark
-                                                      ? Colors.grey[300]
-                                                      : Colors.grey[700],
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      }),
+                      ...expandCoachSessions(_sessions).map(
+                        (pair) => SessionInfoCard(
+                          classType: pair.classType,
+                          day: pair.day,
+                          time: pair.time,
+                          sessionsPerWeek: pair.sessionsPerWeek,
+                        ),
+                      ),
                     const SizedBox(height: 120),
                   ],
                 ),
@@ -556,22 +446,6 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                           coachImage: coach.photoUrl ?? '',
                           specialty: coach.specialty,
                           coachWhatsapp: '+1234567890',
-                          availableDays: const [
-                            'Monday',
-                            'Wednesday',
-                            'Friday',
-                            'Saturday'
-                          ],
-                          availableTimes: const [
-                            '7:00 AM',
-                            '8:00 AM',
-                            '9:00 AM',
-                            '5:00 PM',
-                            '6:00 PM',
-                            '7:00 PM'
-                          ],
-                          sessionPackages: const [8, 12],
-                          pricePerSession: 25.0,
                         ),
                       ),
                     ),

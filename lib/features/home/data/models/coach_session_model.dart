@@ -3,6 +3,9 @@ class CoachSessionModel {
   final String coachId;
   final int sessionsPerWeek;
   final String sessionType;
+  final List<String> days;
+  final List<String> timeSlots;
+  final double pricePerSession;
   final DateTime? sessionDate;
   final bool isActive;
   final DateTime? createdAt;
@@ -16,6 +19,9 @@ class CoachSessionModel {
     required this.coachId,
     required this.sessionsPerWeek,
     required this.sessionType,
+    this.days = const [],
+    this.timeSlots = const [],
+    this.pricePerSession = 0,
     this.sessionDate,
     required this.isActive,
     this.createdAt,
@@ -37,6 +43,9 @@ class CoachSessionModel {
       coachId: json['coach_id'] as String? ?? '',
       sessionsPerWeek: json['sessions_per_week'] as int? ?? 0,
       sessionType: json['session_type'] as String? ?? '',
+      days: _parseStringList(json['days']),
+      timeSlots: _parseStringList(json['time_slots']),
+      pricePerSession: (json['price_per_session'] as num?)?.toDouble() ?? 0,
       sessionDate: _parseDate(json['session_date']),
       isActive: json['is_active'] as bool? ?? true,
       createdAt: _parseDate(json['created_at']),
@@ -45,6 +54,14 @@ class CoachSessionModel {
       coachSpecialty: coachMap?['specialty'] as String?,
       coachPhotoUrl: coachMap?['photo_url'] as String?,
     );
+  }
+
+  static List<String> _parseStringList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return [];
   }
 
   static DateTime? _parseDate(dynamic value) {
@@ -65,9 +82,46 @@ class CoachSessionModel {
       'coach_id': coachId,
       'sessions_per_week': sessionsPerWeek,
       'session_type': sessionType,
+      'days': days,
+      'time_slots': timeSlots,
+      'price_per_session': pricePerSession,
       'session_date': _formatDateForDb(sessionDate),
       'is_active': isActive,
     };
+  }
+
+  CoachSessionModel copyWith({
+    String? id,
+    String? coachId,
+    int? sessionsPerWeek,
+    String? sessionType,
+    List<String>? days,
+    List<String>? timeSlots,
+    double? pricePerSession,
+    DateTime? sessionDate,
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? coachName,
+    String? coachSpecialty,
+    String? coachPhotoUrl,
+  }) {
+    return CoachSessionModel(
+      id: id ?? this.id,
+      coachId: coachId ?? this.coachId,
+      sessionsPerWeek: sessionsPerWeek ?? this.sessionsPerWeek,
+      sessionType: sessionType ?? this.sessionType,
+      days: days ?? this.days,
+      timeSlots: timeSlots ?? this.timeSlots,
+      pricePerSession: pricePerSession ?? this.pricePerSession,
+      sessionDate: sessionDate ?? this.sessionDate,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      coachName: coachName ?? this.coachName,
+      coachSpecialty: coachSpecialty ?? this.coachSpecialty,
+      coachPhotoUrl: coachPhotoUrl ?? this.coachPhotoUrl,
+    );
   }
 
   static String? _formatDateForDb(DateTime? date) {
@@ -86,8 +140,9 @@ class CoachSessionModel {
   }
 
   String? get weekdayLabel {
+    if (days.isNotEmpty) return days.first;
     if (sessionDate == null) return null;
-    const days = [
+    const dayNames = [
       'Monday',
       'Tuesday',
       'Wednesday',
@@ -96,7 +151,7 @@ class CoachSessionModel {
       'Saturday',
       'Sunday',
     ];
-    return days[sessionDate!.toLocal().weekday - 1];
+    return dayNames[sessionDate!.toLocal().weekday - 1];
   }
 
   Map<String, dynamic> toMap() {
@@ -105,6 +160,9 @@ class CoachSessionModel {
       'coach_id': coachId,
       'sessions_per_week': sessionsPerWeek,
       'session_type': sessionType,
+      'days': days,
+      'time_slots': timeSlots,
+      'price_per_session': pricePerSession,
       'session_date': _formatDateForDb(sessionDate),
       'is_active': isActive,
       'created_at': createdAt?.toIso8601String(),

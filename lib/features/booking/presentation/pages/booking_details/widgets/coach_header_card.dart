@@ -46,7 +46,7 @@ class CoachHeaderCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: EColorConstants.primaryColor.withOpacity(0.3)),
         boxShadow: [
           BoxShadow(
             blurRadius: 18,
@@ -68,18 +68,16 @@ class CoachHeaderCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        info.coachName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Text(
+                      info.coachName,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     const Icon(Iconsax.verify5,
                         size: 18, color: EColorConstants.primaryColor),
+                    const Spacer(),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -88,17 +86,6 @@ class CoachHeaderCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey.shade600,
                       ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Iconsax.star1, size: 16, color: Colors.amber),
-                    const SizedBox(width: 4),
-                    Text(
-                      '4.9 • 120 reviews',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
                 ),
               ],
             ),

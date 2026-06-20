@@ -42,7 +42,10 @@ dependencies:
   supabase_flutter: ^2.8.0
   url_launcher: any
   image_picker: ^1.0.7
-  
+  qr_flutter: ^4.1.0
+  # v5.x requires Dart >=3.3.0; v4.0.1 is the latest compatible with SDK 3.2.3
+  mobile_scanner: ^4.0.1
+  uuid: ^4.4.0
 
 dev_dependencies:
   flutter_lints: ^4.0.0
