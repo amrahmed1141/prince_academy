@@ -179,6 +179,16 @@ class CoachRepository {
     }
   }
 
+  Future<void> deleteSession(String sessionId) async {
+    await _requireAdmin();
+
+    try {
+      await _supabase.from('coach_sessions').delete().eq('id', sessionId);
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'delete session'));
+    }
+  }
+
   Future<void> deleteCoach(String coachId) async {
     await _requireAdmin();
 
@@ -189,6 +199,68 @@ class CoachRepository {
       throw Exception(_mapPostgrestError(e, 'delete coach'));
     }
   }
+
+  Future<void> updateCoach({
+    required String coachId,
+    String? name,
+    String? specialty,
+    String? photoUrl,
+  }) async {
+    await _requireAdmin();
+    try {
+      await _supabase.from('coaches').update({
+        if (name != null) 'name': name,
+        if (specialty != null) 'specialty': specialty,
+        if (photoUrl != null) 'photo_url': photoUrl,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', coachId);
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'update coach'));
+    }
+  }
+
+  Future<void> deleteCoachPhoto(String photoUrl) async {
+    await _requireAdmin();
+    try {
+      final uri = Uri.parse(photoUrl);
+      final pathSegments = uri.pathSegments;
+      final bucketIndex = pathSegments.indexOf('coach-photos');
+      if (bucketIndex != -1 && bucketIndex + 1 < pathSegments.length) {
+        final storagePath = pathSegments.sublist(bucketIndex + 1).join('/');
+        await _supabase.storage.from('coach-photos').remove([storagePath]);
+      } else {
+        final fileName = pathSegments.last;
+        await _supabase.storage.from('coach-photos').remove([fileName]);
+      }
+    } catch (e) {
+      // Non-blocking log
+      print('Failed to delete coach photo: $e');
+    }
+  }
+
+  Future<void> updateSession({
+    required String sessionId,
+    String? timeSlot,
+    double? pricePerSession,
+    int? sessionsPerWeek,
+    List<String>? days,
+    List<String>? classTypes,
+  }) async {
+    await _requireAdmin();
+    try {
+      await _supabase.from('coach_sessions').update({
+        if (timeSlot != null) 'time_slots': [timeSlot],
+        if (pricePerSession != null) 'price_per_session': pricePerSession,
+        if (sessionsPerWeek != null) 'sessions_per_week': sessionsPerWeek,
+        if (days != null) 'days': days,
+        if (classTypes != null) 'session_type': classTypes.join(', '),
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', sessionId);
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'update session'));
+    }
+  }
+
 
   Future<List<AdminScanProfile>> getUserByQrCode(String qrCode) async {
     await _requireAdmin();

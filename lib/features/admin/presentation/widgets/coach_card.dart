@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/admin_dismissible_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/delete_confirmation_sheet.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/specialty_chip.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
@@ -29,12 +28,91 @@ class CoachListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AdminDismissibleCard(
-      dismissKey: ValueKey('coach_$coachId'),
-      confirmTitle: 'Delete Coach?',
-      confirmSubtitle:
-          'This will permanently delete $name and all their sessions.',
-      onDismissConfirmed: onDelete,
+    return Dismissible(
+      key: ValueKey('coach_$coachId'),
+      direction: DismissDirection.horizontal, // BOTH left and right
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.endToStart) {
+          // LEFT swipe → DELETE (existing behavior)
+          final confirmed = await DeleteConfirmationSheet.show(
+            context: context,
+            title: 'Delete Coach?',
+            subtitle: 'This will permanently delete $name and all their sessions.',
+          );
+          if (confirmed) {
+            onDelete();
+            return true;
+          }
+          return false;
+        } else {
+          // RIGHT swipe → EDIT (new behavior)
+          onEdit?.call();
+          return false; // Don't dismiss the card, just navigate
+        }
+      },
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
+        decoration: BoxDecoration(
+          color: EColorConstants.primaryColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.edit_outlined, color: Colors.white, size: 28),
+            SizedBox(height: 4),
+            Text(
+              'Edit',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.red.shade300, Colors.red.shade600],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 26),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ],
+        ),
+      ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -107,20 +185,31 @@ class CoachListCard extends StatelessWidget {
                   final confirmed = await DeleteConfirmationSheet.show(
                     context: context,
                     title: 'Delete Coach?',
-                    subtitle:
-                        'This will permanently delete $name and all their sessions.',
+                    subtitle: 'This will permanently delete $name and all their sessions.',
                   );
                   if (confirmed) onDelete();
                 }
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
+              itemBuilder: (context) => [
+                const PopupMenuItem(
                   value: 'edit',
-                  child: Text('Edit Coach', style: TextStyle(fontFamily: 'Poppins')),
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 18, color: EColorConstants.primaryColor),
+                      SizedBox(width: 8),
+                      Text('Edit', style: TextStyle(fontFamily: 'Poppins')),
+                    ],
+                  ),
                 ),
                 PopupMenuItem(
                   value: 'delete',
-                  child: Text('Delete', style: TextStyle(fontFamily: 'Poppins')),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: Colors.red, fontFamily: 'Poppins')),
+                    ],
+                  ),
                 ),
               ],
             ),

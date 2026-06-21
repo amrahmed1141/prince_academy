@@ -26,6 +26,8 @@ import 'package:prince_academy/features/admin/data/models/coach_with_sessions.da
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/features/admin/presentation/pages/edit_coach_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/edit_session_page.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -487,29 +489,44 @@ class _AddInfoPageState extends State<_AddInfoPage> {
 
   Future<void> _handleDeleteSessionSchedule(CoachWithSessions group) async {
     try {
-      await widget.onDeleteSessionsByCoachId(group.coachId);
+      for (final session in group.schedules) {
+        await sl<CoachRepository>().deleteSession(session.id);
+      }
       final message = group.hasMultipleSchedules
           ? 'All sessions for "${group.name}" deleted'
           : '"${group.name}" deleted successfully';
       _showDeleteSnackBar(message);
+      widget.onRefreshSessions();
     } catch (e) {
       _showSnackBar('Failed to delete session schedule: $e', Colors.redAccent);
       widget.onRefreshSessions();
     }
   }
 
-  void _prefillCoachForEdit(CoachModel coach) {
-    setState(() {
-      _coachNameController.text = coach.name;
-      _selectedCoachSpecialty = coach.specialty;
-      _selectedCoachImagePath = null;
-    });
+  void _navigateToEditCoach(CoachModel coach) async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditCoachPage(coach: coach),
+      ),
+    );
+    if (result == true) {
+      widget.onRefreshCoaches();
+      widget.onRefreshSessions();
+    }
   }
 
-  void _prefillSessionForEdit(String coachId) {
-    setState(() => _selectedSessionCoachId = coachId);
-    _tabLayoutKey.currentState?.animateToTab(1);
+  void _navigateToEditSession(CoachSessionModel session) async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditSessionPage(session: session),
+      ),
+    );
+    if (result == true) {
+      widget.onRefreshSessions();
+    }
   }
+
+
 
   List<CoachWithSessions> _groupedFilteredSessions() {
     return CoachWithSessions.group(_filteredSessions());
@@ -698,7 +715,7 @@ class _AddInfoPageState extends State<_AddInfoPage> {
                 specialty: coach.specialty,
                 sessionCount: coachSessionCount,
                 imagePath: coach.photoUrl,
-                onEdit: () => _prefillCoachForEdit(coach),
+                onEdit: () => _navigateToEditCoach(coach),
                 onDelete: () => _handleDeleteCoach(coach),
               );
             }),
@@ -1013,7 +1030,7 @@ class _AddInfoPageState extends State<_AddInfoPage> {
               ...groupedSessions.map((group) {
                 return GroupedCoachSessionCard(
                   coachWithSessions: group,
-                  onEdit: () => _prefillSessionForEdit(group.coachId),
+                  onEdit: (session) => _navigateToEditSession(session),
                   onDelete: () => _handleDeleteSessionSchedule(group),
                 );
               }),

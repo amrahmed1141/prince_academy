@@ -3,7 +3,6 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/class_type_colors.dart';
 import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/admin_dismissible_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_name_with_verify.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/delete_confirmation_sheet.dart';
@@ -21,7 +20,7 @@ class _DaySlot {
 class GroupedCoachSessionCard extends StatelessWidget {
   final CoachWithSessions coachWithSessions;
   final VoidCallback onDelete;
-  final VoidCallback? onEdit;
+  final void Function(CoachSessionModel)? onEdit;
 
   const GroupedCoachSessionCard({
     super.key,
@@ -51,132 +50,229 @@ class GroupedCoachSessionCard extends StatelessWidget {
     final frequencyLabel =
         totalSessionsPerWeek > 0 ? '${totalSessionsPerWeek}x / week' : '— / week';
 
-    return AdminDismissibleCard(
-      dismissKey: ValueKey('session_${coachWithSessions.coachId}'),
-      confirmTitle: 'Delete Session Schedule?',
-      confirmSubtitle:
-          "This will permanently remove $coachName's training schedule.",
-      onDismissConfirmed: onDelete,
-      child: Container(
+    final firstSession = schedules.isNotEmpty ? schedules.first : null;
+
+    return Dismissible(
+      key: ValueKey('session_${coachWithSessions.coachId}'),
+      direction: DismissDirection.horizontal,
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.endToStart) {
+          // LEFT swipe → DELETE
+          final confirmed = await DeleteConfirmationSheet.show(
+            context: context,
+            title: 'Delete Session?',
+            subtitle: "This will remove $coachName's training schedule permanently.",
+          );
+          if (confirmed) {
+            onDelete();
+            return true;
+          }
+          return false;
+        } else {
+          // RIGHT swipe → EDIT
+          if (firstSession != null) {
+            onEdit?.call(firstSession);
+          }
+          return false; // Don't dismiss, just navigate
+        }
+      },
+      background: Container(
         margin: const EdgeInsets.only(bottom: 12),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: EColorConstants.primaryColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: EColorConstants.primaryColor.withOpacity(0.15),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.edit_outlined, color: Colors.white, size: 28),
+            SizedBox(height: 4),
+            Text(
+              'Edit',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Poppins',
+              ),
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+      secondaryBackground: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.red.shade300, Colors.red.shade600],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                CoachAvatar(
-                  name: coachName,
-                  photoUrl: coachWithSessions.photoUrl,
-                  radius: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: CoachNameWithVerify(name: coachName),
-                ),
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Iconsax.more,
-                    size: 18,
-                    color: EColorConstants.authPlaceholderGray,
-                  ),
-                  onSelected: (value) async {
-                    if (value == 'edit') {
-                      onEdit?.call();
-                    } else if (value == 'delete') {
-                      final confirmed = await DeleteConfirmationSheet.show(
-                        context: context,
-                        title: 'Delete Session Schedule?',
-                        subtitle:
-                            "This will permanently remove $coachName's training schedule.",
-                      );
-                      if (confirmed) onDelete();
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Text(
-                        'Edit',
-                        style: TextStyle(fontFamily: 'Poppins'),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Text(
-                        'Delete',
-                        style: TextStyle(fontFamily: 'Poppins'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 26),
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                _InfoPill(
-                  icon: Iconsax.money,
-                  iconColor: const Color(0xFFFFC107),
-                  iconBgColor: Colors.white,
-                  label: priceLabel,
-                  labelColor: maxPrice > 0
-                      ? EColorConstants.authTextDarkBrown
-                      : EColorConstants.authPlaceholderGray,
-                ),
-                const SizedBox(width: 12),
-                _InfoPill(
-                  icon: Icons.calendar_today_rounded,
-                  iconColor: const Color(0xFF2196F3),
-                  iconBgColor: Colors.white,
-                  label: frequencyLabel,
-                ),
-              ],
+            const SizedBox(height: 6),
+            const Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                fontFamily: 'Poppins',
+              ),
             ),
-            if (pricesVary) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Prices vary by session type',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: EColorConstants.authPlaceholderGray,
-                      fontSize: 10,
-                      fontFamily: 'Poppins',
-                    ),
+          ],
+        ),
+      ),
+      child: GestureDetector(
+        onTap: () {
+          if (firstSession != null) {
+            onEdit?.call(firstSession);
+          }
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: EColorConstants.primaryColor.withOpacity(0.15),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
             ],
-            if (activeDays.isNotEmpty) ...[
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  CoachAvatar(
+                    name: coachName,
+                    photoUrl: coachWithSessions.photoUrl,
+                    radius: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: CoachNameWithVerify(name: coachName),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(
+                      Iconsax.more,
+                      size: 18,
+                      color: EColorConstants.authPlaceholderGray,
+                    ),
+                    onSelected: (value) async {
+                      if (value == 'edit') {
+                        if (firstSession != null) {
+                          onEdit?.call(firstSession);
+                        }
+                      } else if (value == 'delete') {
+                        final confirmed = await DeleteConfirmationSheet.show(
+                          context: context,
+                          title: 'Delete Session?',
+                          subtitle: "This will remove $coachName's training schedule permanently.",
+                        );
+                        if (confirmed) onDelete();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 18, color: EColorConstants.primaryColor),
+                            SizedBox(width: 8),
+                            Text('Edit Session', style: TextStyle(fontFamily: 'Poppins')),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                            const SizedBox(width: 8),
+                            Text('Delete', style: TextStyle(color: Colors.red, fontFamily: 'Poppins')),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  for (int i = 0; i < activeDays.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 8),
-                    Expanded(
-                      child: _DayColumn(
-                        day: activeDays[i],
-                        classType: daySchedule[activeDays[i]]!.classType,
-                        time: daySchedule[activeDays[i]]!.time,
-                      ),
-                    ),
-                  ],
+                  _InfoPill(
+                    icon: Iconsax.money,
+                    iconColor: const Color(0xFFFFC107),
+                    iconBgColor: Colors.white,
+                    label: priceLabel,
+                    labelColor: maxPrice > 0
+                        ? EColorConstants.authTextDarkBrown
+                        : EColorConstants.authPlaceholderGray,
+                  ),
+                  const SizedBox(width: 12),
+                  _InfoPill(
+                    icon: Icons.calendar_today_rounded,
+                    iconColor: const Color(0xFF2196F3),
+                    iconBgColor: Colors.white,
+                    label: frequencyLabel,
+                  ),
                 ],
               ),
+              if (pricesVary) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Prices vary by session type',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: EColorConstants.authPlaceholderGray,
+                        fontSize: 10,
+                        fontFamily: 'Poppins',
+                      ),
+                ),
+              ],
+              if (activeDays.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (int i = 0; i < activeDays.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      Expanded(
+                        child: _DayColumn(
+                          day: activeDays[i],
+                          classType: daySchedule[activeDays[i]]!.classType,
+                          time: daySchedule[activeDays[i]]!.time,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

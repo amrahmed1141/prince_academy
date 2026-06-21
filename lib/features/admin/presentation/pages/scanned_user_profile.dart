@@ -13,7 +13,7 @@ class ScannedUserProfilePage extends StatefulWidget {
     super.key,
     required this.qrCode,
   });
-
+ 
   @override
   State<ScannedUserProfilePage> createState() => _ScannedUserProfilePageState();
 }
@@ -382,8 +382,9 @@ class _BookingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = booking.subscriptionStatus == 'active';
-    final borderColor =
-        (isActive ? _successGreen : _expiredRed).withOpacity(0.2);
+    final isToday = booking.isScheduledToday && isActive;
+    final borderColor = isToday ? _successGreen : Colors.grey.shade200;
+    final borderWidth = isToday ? 1.5 : 1.0;
     final bodySmall = Theme.of(context).textTheme.bodySmall;
 
     return Container(
@@ -391,7 +392,7 @@ class _BookingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor, width: 1.5),
+        border: Border.all(color: borderColor, width: borderWidth),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -403,15 +404,32 @@ class _BookingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Coach name row with status dot and badge
           Row(
             children: [
               Expanded(
-                child: Text(
-                  booking.coachLabel,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: EColorConstants.authTextDarkBrown,
+                child: Row(
+                  children: [
+                    // Green/Red dot based on active/expired status
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: isActive ? _successGreen : _expiredRed,
+                        shape: BoxShape.circle,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        booking.coachLabel,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: EColorConstants.authTextDarkBrown,
+                            ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               _StatusBadge(isActive: isActive),
@@ -426,31 +444,34 @@ class _BookingCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          // Start date in yellow
           if (booking.subscriptionStart != null)
             Row(
               children: [
                 Icon(
                   Icons.calendar_today_outlined,
                   size: 14,
-                  color: EColorConstants.authPlaceholderGray,
+                  color: Colors.amber.shade700,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'Start: ${SubscriptionFormatters.formatDate(booking.subscriptionStart)}',
                   style: bodySmall?.copyWith(
-                    color: EColorConstants.authPlaceholderGray,
+                    color: Colors.amber.shade700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           if (booking.subscriptionStart != null) const SizedBox(height: 4),
+          // Expires date
           if (booking.subscriptionEnd != null)
             Row(
               children: [
                 Icon(
-                  Icons.timer_outlined,
+                  isActive ? Icons.timer_outlined : Icons.warning_amber_rounded,
                   size: 14,
-                  color: EColorConstants.authPlaceholderGray,
+                  color: isActive ? EColorConstants.authPlaceholderGray : _expiredRed,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -619,13 +640,15 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
+    final color = isActive ? Colors.amber.shade700 : const Color(0xFFD32F2F);
+    final bgColor = isActive ? Colors.amber.shade50 : const Color(0xFFD32F2F).withOpacity(0.12);
+    final borderColor = isActive ? Colors.amber.shade200 : const Color(0xFFD32F2F).withOpacity(0.35);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: bgColor,
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: borderColor),
       ),
       child: Text(
         isActive ? 'Active' : 'Expired',
