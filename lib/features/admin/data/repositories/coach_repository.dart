@@ -1,9 +1,14 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
+import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
+import 'package:prince_academy/features/admin/data/models/day_attendance_model.dart';
+import 'package:prince_academy/features/admin/data/models/session_detail_model.dart';
 import 'package:prince_academy/features/admin/data/models/session_draft.dart';
 import 'package:prince_academy/features/admin/data/models/today_booking_model.dart';
 import 'package:prince_academy/features/admin/data/models/admin_scan_profile_model.dart';
+import 'package:prince_academy/features/admin/data/models/user_booking_detail_model.dart';
 import 'package:prince_academy/features/admin/data/models/user_qr_profile_model.dart';
 import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
@@ -261,6 +266,209 @@ class CoachRepository {
     }
   }
 
+
+  Future<List<CoachUserStats>> getCoachUserStats() async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase.from('coach_user_stats').select();
+
+      return (response as List)
+          .map(
+            (json) => CoachUserStats.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load coach stats'));
+    }
+  }
+
+  Future<List<ActiveUser>> getActiveUsersWithQr() async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase.from('active_users_with_qr').select();
+
+      return (response as List)
+          .map(
+            (json) => ActiveUser.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load active users'));
+    }
+  }
+
+  Future<List<ActiveUser>> searchActiveUsers(String query) async {
+    await _requireAdmin();
+
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return getActiveUsersWithQr();
+
+    try {
+      final response = await _supabase
+          .from('active_users_with_qr')
+          .select()
+          .or('full_name.ilike.%$trimmed%,phone.ilike.%$trimmed%');
+
+      return (response as List)
+          .map(
+            (json) => ActiveUser.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'search active users'));
+    }
+  }
+
+  Future<Set<String>> getUserIdsForCoach(String coachId) async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase
+          .from('user_attendance_history')
+          .select('user_id')
+          .eq('coach_id', coachId);
+
+      return (response as List)
+          .map((row) => (row as Map)['user_id'] as String?)
+          .whereType<String>()
+          .toSet();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load coach subscribers'));
+    }
+  }
+
+  Future<List<UserBookingDetail>> getUserBookingDetails(String userId) async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase
+          .from('user_attendance_history')
+          .select()
+          .eq('user_id', userId);
+
+      return (response as List)
+          .map(
+            (json) => UserBookingDetail.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load user bookings'));
+    }
+  }
+
+  Future<List<DayAttendance>> getWeeklyAttendance(
+    String userId,
+    String bookingId,
+  ) async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase.rpc(
+        'get_user_weekly_attendance',
+        params: {
+          'p_user_id': userId,
+          'p_booking_id': bookingId,
+        },
+      );
+
+      if (response == null) return [];
+
+      return (response as List)
+          .map(
+            (json) => DayAttendance.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load weekly attendance'));
+    }
+  }
+
+  Future<List<SessionDetail>> getBookingSessions(String bookingId) async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase.rpc(
+        'get_booking_sessions',
+        params: {'p_booking_id': bookingId},
+      );
+
+      if (response == null) return [];
+
+      return (response as List)
+          .map(
+            (json) => SessionDetail.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load booking sessions'));
+    }
+  }
+
+  Future<bool> reAttendSession(
+    String bookingId,
+    DateTime sessionDate,
+  ) async {
+    await _requireAdmin();
+
+    try {
+      final local = sessionDate.toLocal();
+      final formatted =
+          '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
+
+      final response = await _supabase.rpc(
+        're_attend_session',
+        params: {
+          'p_booking_id': bookingId,
+          'p_session_date': formatted,
+        },
+      );
+
+      if (response is bool) return response;
+      return false;
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 're-attend session'));
+    }
+  }
+
+  Future<bool> unmarkSession(
+    String bookingId,
+    DateTime sessionDate,
+  ) async {
+    await _requireAdmin();
+
+    try {
+      final local = sessionDate.toLocal();
+      final formatted =
+          '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
+
+      final response = await _supabase.rpc(
+        'unmark_session',
+        params: {
+          'p_booking_id': bookingId,
+          'p_session_date': formatted,
+        },
+      );
+
+      if (response is bool) return response;
+      return false;
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'unmark session'));
+    }
+  }
 
   Future<List<AdminScanProfile>> getUserByQrCode(String qrCode) async {
     await _requireAdmin();

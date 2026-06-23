@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/features/admin/data/models/admin_scan_profile_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
+import 'package:prince_academy/features/admin/presentation/pages/session_detail_page.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/member_booking_card.dart';
 
 class ScannedUserProfilePage extends StatefulWidget {
   final String qrCode;
@@ -13,14 +16,13 @@ class ScannedUserProfilePage extends StatefulWidget {
     super.key,
     required this.qrCode,
   });
- 
+
   @override
   State<ScannedUserProfilePage> createState() => _ScannedUserProfilePageState();
 }
 
 class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
   static const _successGreen = Color(0xFF2E7D32);
-  static const _expiredRed = Color(0xFFD32F2F);
 
   bool _isLoading = true;
   String? _error;
@@ -61,8 +63,14 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
         .join();
   }
 
+  int _activeCount() =>
+      _bookings.where((b) => b.subscriptionStatus.toLowerCase() == 'active').length;
+
+  int _expiredCount() =>
+      _bookings.where((b) => b.subscriptionStatus.toLowerCase() == 'expired').length;
+
   int get _todaySessionCount =>
-      _bookings.where((booking) => booking.isScheduledToday).length;
+      _bookings.where((b) => b.isScheduledToday && b.isActive).length;
 
   Future<void> _loadData() async {
     setState(() {
@@ -89,6 +97,27 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
         _error = e.toString().replaceFirst('Exception: ', '');
       });
     }
+  }
+
+  MemberBookingCardData _toCardData(AdminScanProfile booking) {
+    return MemberBookingCardData(
+      bookingId: booking.bookingId,
+      coachName: booking.coachName,
+      coachPhoto: booking.coachPhoto,
+      specialty: booking.coachSpecialty?.trim().isNotEmpty == true
+          ? booking.coachSpecialty!
+          : 'MMA',
+      selectedDays: booking.selectedDays,
+      selectedTime: booking.selectedTime,
+      subscriptionStart: booking.subscriptionStart,
+      subscriptionEnd: booking.subscriptionEnd,
+      daysRemaining: booking.daysRemaining,
+      attendedSessions: booking.attendedSessions,
+      totalSessions: booking.totalSessions,
+      subscriptionStatus: booking.subscriptionStatus,
+      isScheduledToday: booking.isScheduledToday,
+      alreadyCheckedInToday: booking.alreadyCheckedInToday,
+    );
   }
 
   Future<void> _markAttendance(AdminScanProfile booking) async {
@@ -138,21 +167,13 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(
-                Icons.check_circle_outline,
-                color: Colors.white,
-                size: 18,
-              ),
+              const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
               const SizedBox(width: 8),
               Text('Attendance marked for ${booking.coachName}'),
             ],
           ),
           backgroundColor: _successGreen,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          margin: const EdgeInsets.all(12),
         ),
       );
     } catch (e) {
@@ -164,13 +185,10 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to mark attendance: $e'),
-          backgroundColor: Colors.red.shade500,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
           ),
-          margin: const EdgeInsets.all(12),
+          backgroundColor: Colors.red,
         ),
       );
     } finally {
@@ -180,43 +198,22 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
     }
   }
 
-  Future<void> _handleRenew(AdminScanProfile booking) async {
-    if (_busyBookingIds.contains(booking.bookingId)) return;
+  Future<void> _openSessionDetail(AdminScanProfile booking) async {
+    final refreshed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => SessionDetailPage(
+          bookingId: booking.bookingId,
+          coachName: booking.coachName,
+          coachSpecialty: booking.coachSpecialty?.trim().isNotEmpty == true
+              ? booking.coachSpecialty!
+              : 'MMA',
+          sessionTime: booking.selectedTime,
+        ),
+      ),
+    );
 
-    setState(() => _busyBookingIds.add(booking.bookingId));
-
-    try {
-      await sl<CoachRepository>().renewSubscription(booking.bookingId);
-      if (!mounted) return;
-
+    if (refreshed == true) {
       await _loadData();
-      if (!mounted) return;
-
-      final updated = _bookings.firstWhere(
-        (p) => p.bookingId == booking.bookingId,
-        orElse: () => booking,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Subscription renewed until ${SubscriptionFormatters.formatRenewedUntil(updated.subscriptionEnd)}',
-          ),
-          backgroundColor: _successGreen,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: _expiredRed,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _busyBookingIds.remove(booking.bookingId));
-      }
     }
   }
 
@@ -236,35 +233,59 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
                 : RefreshIndicator(
                     color: EColorConstants.primaryColor,
                     onRefresh: _loadData,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.arrow_back),
+                    child: CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      slivers: [
+                        SliverToBoxAdapter(child: _buildHeader()),
+                        SliverToBoxAdapter(child: _buildTodaySummary()),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final booking = _bookings[index];
+                              return MemberBookingCard(
+                                data: _toCardData(booking),
+                                isMarkingAttendance:
+                                    _busyBookingIds.contains(booking.bookingId),
+                                onMarkAttendance: booking.isScheduledToday &&
+                                        booking.isActive
+                                    ? () => _markAttendance(booking)
+                                    : null,
+                                onViewSessions: () => _openSessionDetail(booking),
+                              );
+                            },
+                            childCount: _bookings.length,
                           ),
                         ),
-                        _buildHeader(),
-                        const SizedBox(height: 18),
-                        _buildTodaySummary(),
-                        const SizedBox(height: 18),
-                        ..._bookings.map((booking) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: _BookingCard(
-                              booking: booking,
-                              isBusy:
-                                  _busyBookingIds.contains(booking.bookingId),
-                              onMarkAttendance: () => _markAttendance(booking),
-                              onRenew: () => _handleRenew(booking),
-                            ),
-                          );
-                        }),
+                        const SliverToBoxAdapter(child: SizedBox(height: 24)),
                       ],
                     ),
                   ),
+      ),
+    );
+  }
+
+  Widget _buildTodaySummary() {
+    final todayName = SubscriptionFormatters.weekdayName(DateTime.now());
+    final sessionCount = _todaySessionCount;
+    final headerText = sessionCount == 0
+        ? 'No sessions scheduled for today'
+        : 'Today: $todayName — $sessionCount session${sessionCount == 1 ? '' : 's'} scheduled';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Text(
+        headerText,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: sessionCount == 0
+              ? EColorConstants.authPlaceholderGray
+              : EColorConstants.authTextDarkBrown,
+          fontFamily: 'Poppins',
+        ),
       ),
     );
   }
@@ -297,367 +318,102 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
     );
   }
 
+  void _handleBack() {
+    Navigator.of(context).pop();
+  }
+
   Widget _buildHeader() {
     final profile = _bookings.first;
     final displayName = _displayName(profile);
     final displayPhone = _displayPhone(profile);
     final initials = _initials(displayName);
 
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 32,
-          backgroundColor: EColorConstants.primaryColor,
-          child: Text(
-            initials,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                displayName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: EColorConstants.authTextDarkBrown,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                displayPhone,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: EColorConstants.authPlaceholderGray,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTodaySummary() {
-    final todayName = SubscriptionFormatters.weekdayName(DateTime.now());
-    final sessionCount = _todaySessionCount;
-    final headerText = sessionCount == 0
-        ? 'No sessions scheduled for today'
-        : 'Today: $todayName — $sessionCount session${sessionCount == 1 ? '' : 's'} scheduled';
-
-    return Text(
-      headerText,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: sessionCount == 0
-                ? EColorConstants.authPlaceholderGray
-                : EColorConstants.authTextDarkBrown,
-          ),
-    );
-  }
-}
-
-class _BookingCard extends StatelessWidget {
-  const _BookingCard({
-    required this.booking,
-    required this.isBusy,
-    required this.onMarkAttendance,
-    required this.onRenew,
-  });
-
-  final AdminScanProfile booking;
-  final bool isBusy;
-  final VoidCallback onMarkAttendance;
-  final VoidCallback onRenew;
-
-  static const _successGreen = Color(0xFF2E7D32);
-  static const _expiredRed = Color(0xFFD32F2F);
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive = booking.subscriptionStatus == 'active';
-    final isToday = booking.isScheduledToday && isActive;
-    final borderColor = isToday ? _successGreen : Colors.grey.shade200;
-    final borderWidth = isToday ? 1.5 : 1.0;
-    final bodySmall = Theme.of(context).textTheme.bodySmall;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor, width: borderWidth),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Coach name row with status dot and badge
           Row(
             children: [
+              IconButton(
+                onPressed: _handleBack,
+                icon: const Icon(Icons.arrow_back),
+                color: EColorConstants.authTextDarkBrown,
+              ),
               Expanded(
-                child: Row(
+                child: Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: EColorConstants.authTextDarkBrown,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: EColorConstants.primaryColor,
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Green/Red dot based on active/expired status
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: isActive ? _successGreen : _expiredRed,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        booking.coachLabel,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: EColorConstants.authTextDarkBrown,
+                    Row(
+                      children: [
+                        const Icon(
+                          Iconsax.call,
+                          size: 14,
+                          color: EColorConstants.authPlaceholderGray,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            displayPhone,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: EColorConstants.authPlaceholderGray,
+                              fontFamily: 'Poppins',
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${_bookings.length} booking${_bookings.length == 1 ? '' : 's'} · '
+                      '${_activeCount()} active · ${_expiredCount()} expired',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: EColorConstants.authPlaceholderGray,
+                        fontFamily: 'Poppins',
                       ),
                     ),
                   ],
                 ),
               ),
-              _StatusBadge(isActive: isActive),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            '${SubscriptionFormatters.formatDays(booking.selectedDays)} · ${booking.selectedTime ?? 'Time not set'}',
-            style: bodySmall?.copyWith(
-              color: EColorConstants.authPlaceholderGray,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Start date in yellow
-          if (booking.subscriptionStart != null)
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 14,
-                  color: Colors.amber.shade700,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Start: ${SubscriptionFormatters.formatDate(booking.subscriptionStart)}',
-                  style: bodySmall?.copyWith(
-                    color: Colors.amber.shade700,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          if (booking.subscriptionStart != null) const SizedBox(height: 4),
-          // Expires date
-          if (booking.subscriptionEnd != null)
-            Row(
-              children: [
-                Icon(
-                  isActive ? Icons.timer_outlined : Icons.warning_amber_rounded,
-                  size: 14,
-                  color: isActive ? EColorConstants.authPlaceholderGray : _expiredRed,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Expires: ${SubscriptionFormatters.formatDate(booking.subscriptionEnd)} (${booking.daysRemaining} days)',
-                  style: bodySmall?.copyWith(
-                    color: isActive ? _successGreen : _expiredRed,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          if (booking.totalSessions > 0) ...[
-            const SizedBox(height: 14),
-            _SessionProgressBar(
-              attended: booking.attendedSessions,
-              total: booking.totalSessions,
-            ),
-          ],
-          if (booking.isScheduledToday && isActive) ...[
-            const SizedBox(height: 14),
-            const Row(
-              children: [
-                Icon(
-                  Icons.check_circle_outline,
-                  color: _successGreen,
-                  size: 18,
-                ),
-                SizedBox(width: 6),
-                Text(
-                  'Scheduled for TODAY',
-                  style: TextStyle(
-                    color: _successGreen,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: (isBusy || booking.alreadyCheckedInToday)
-                    ? null
-                    : onMarkAttendance,
-                icon: Icon(
-                  booking.alreadyCheckedInToday
-                      ? Icons.check_circle
-                      : Icons.how_to_reg_outlined,
-                  size: 18,
-                ),
-                label: Text(
-                  booking.alreadyCheckedInToday
-                      ? 'Already checked in ✓'
-                      : 'Mark Attended',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: booking.alreadyCheckedInToday
-                      ? Colors.grey.shade300
-                      : EColorConstants.primaryColor,
-                  foregroundColor: booking.alreadyCheckedInToday
-                      ? EColorConstants.authPlaceholderGray
-                      : Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade200,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ],
-          if (!isActive) ...[
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              height: 42,
-              child: ElevatedButton(
-                onPressed: isBusy ? null : onRenew,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: EColorConstants.primaryColor,
-                  disabledBackgroundColor: EColorConstants.authPlaceholderGray,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: isBusy
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Renew Subscription',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-              ),
-            ),
-          ],
         ],
-      ),
-    );
-  }
-}
-
-class _SessionProgressBar extends StatelessWidget {
-  const _SessionProgressBar({
-    required this.attended,
-    required this.total,
-  });
-
-  final int attended;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = total > 0 ? attended / total : 0.0;
-    final bodySmall = Theme.of(context).textTheme.bodySmall;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Progress',
-              style: bodySmall?.copyWith(
-                color: EColorConstants.authPlaceholderGray,
-              ),
-            ),
-            Text(
-              '$attended / $total',
-              style: bodySmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
-            backgroundColor: Colors.grey.shade200,
-            valueColor: const AlwaysStoppedAnimation<Color>(
-              EColorConstants.primaryColor,
-            ),
-            minHeight: 6,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.isActive});
-
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isActive ? Colors.amber.shade700 : const Color(0xFFD32F2F);
-    final bgColor = isActive ? Colors.amber.shade50 : const Color(0xFFD32F2F).withOpacity(0.12);
-    final borderColor = isActive ? Colors.amber.shade200 : const Color(0xFFD32F2F).withOpacity(0.35);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: borderColor),
-      ),
-      child: Text(
-        isActive ? 'Active' : 'Expired',
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          fontFamily: 'Poppins',
-        ),
       ),
     );
   }

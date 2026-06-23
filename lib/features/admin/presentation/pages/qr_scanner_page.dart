@@ -86,14 +86,11 @@ class _QrScannerPageState extends State<QrScannerPage> {
         return;
       }
 
-      await Navigator.of(context).push(
+      await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => ScannedUserProfilePage(qrCode: code),
         ),
       );
-
-      if (!mounted) return;
-      await _resumeScanning();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -129,17 +126,28 @@ class _QrScannerPageState extends State<QrScannerPage> {
           SafeArea(
             child: Column(
               children: [
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  child: Text(
-                    'Scan Member QR',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Poppins',
-                    ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'Scan Member QR',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
                   ),
                 ),
                 const Spacer(),

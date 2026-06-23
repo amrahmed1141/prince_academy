@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/features/admin/data/models/session_draft.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_header.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/custom_bottom_navigation.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_tab_layout.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_dashed_upload.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
@@ -18,7 +19,7 @@ import 'package:prince_academy/features/admin/presentation/widgets/session_draft
 import 'package:prince_academy/features/admin/presentation/widgets/session_frequency_selector.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_card.dart';
 import 'package:prince_academy/features/admin/presentation/pages/qr_scanner_page.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/custom_bottom_navigation.dart';
+import 'package:prince_academy/features/admin/presentation/pages/tracking/tracking_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_profile.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_card.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
@@ -129,6 +130,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     });
   }
 
+  void _openQrScanner() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const QrScannerPage(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -150,12 +160,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 isLoadingSessions: _isLoadingSessions,
                 sessionsError: _sessionsError,
               ),
-              const QrScannerPage(),
+              const TrackingPage(),
             ],
           ),
-          GlassBottomNavigation(
-            currentIndex: _currentIndex,
-            onTap: (index) => setState(() => _currentIndex = index),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: AdminGlassNavBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) {
+                setState(() => _currentIndex = index);
+              },
+              onQrPressed: _openQrScanner,
+            ),
           ),
         ],
       ),

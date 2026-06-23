@@ -3,103 +3,152 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 
-class GlassBottomNavigation extends StatelessWidget {
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-  final bool isFloating;
+class AdminGlassNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+  final VoidCallback onQrPressed;
 
-  const GlassBottomNavigation({
+  const AdminGlassNavBar({
     super.key,
-    required this.currentIndex,
-    required this.onTap,
-    this.isFloating = true,
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+    required this.onQrPressed,
   });
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      _NavItem(label: 'Add Info', icon: Iconsax.add_circle),
-      _NavItem(label: 'Scan QR', icon: Icons.qr_code_scanner),
-    ];
-
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          0,
-          24,
-          isFloating ? 30 : MediaQuery.of(context).padding.bottom + 12,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              decoration: BoxDecoration(
-                color: EColorConstants.primaryColor,
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.15),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: EColorConstants.primaryColor.withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(items.length, (index) {
-                  final item = items[index];
-                  final selected = currentIndex == index;
-                  return GestureDetector(
-                    onTap: () => onTap(index),
-                    behavior: HitTestBehavior.opaque,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? Colors.white
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: selected ? [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          )
-                        ] : null,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            item.icon,
-                            size: 22,
-                            color: selected ? EColorConstants.primaryColor : Colors.white,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            item.label,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                              color: selected ? EColorConstants.primaryColor : Colors.white,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ],
-                      ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(36),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                height: 72,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(36),
+                  border: Border.all(color: Colors.black.withOpacity(0.05)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
                     ),
-                  );
-                }),
+                  ],
+                ),
+                child: Row(
+                  children: List.generate(2, (index) {
+                    final icon = index == 0 ? Iconsax.home_1 : Iconsax.chart;
+                    final label = index == 0 ? 'Home' : 'Tracking';
+                    return Expanded(
+                      child: _AdminNavPillItem(
+                        icon: icon,
+                        label: label,
+                        isSelected: selectedIndex == index,
+                        onTap: () => onDestinationSelected(index),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        _AdminQrFabButton(onPressed: onQrPressed),
+      ],
+    );
+  }
+}
+
+class _AdminNavPillItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _AdminNavPillItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final unselectedColor = Colors.grey.shade500;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: isSelected ? Colors.grey.shade200 : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: isSelected
+                  ? EColorConstants.authTextDarkBrown
+                  : unselectedColor,
+            ),
+          ),
+          const SizedBox(height: 1),
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 220),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected
+                  ? EColorConstants.authTextDarkBrown
+                  : unselectedColor,
+              fontFamily: 'Poppins',
+            ),
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminQrFabButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _AdminQrFabButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipOval(
+      child: Material(
+        color: EColorConstants.authTextDarkBrown,
+        child: InkWell(
+          onTap: onPressed,
+          child: const SizedBox(
+            width: 56,
+            height: 56,
+            child: Center(
+              child: Icon(
+                Icons.qr_code_scanner,
+                color: Colors.white,
+                size: 28,
               ),
             ),
           ),
@@ -107,10 +156,4 @@ class GlassBottomNavigation extends StatelessWidget {
       ),
     );
   }
-}
-
-class _NavItem {
-  final String label;
-  final IconData icon;
-  const _NavItem({required this.label, required this.icon});
 }

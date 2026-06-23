@@ -30,7 +30,7 @@ class AdminSmoothScrollView extends StatelessWidget {
   const AdminSmoothScrollView({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.fromLTRB(20, 0, 20, 100),
+    this.padding = const EdgeInsets.fromLTRB(20, 0, 20, 24),
     this.onRefresh,
     this.refreshColor,
   });
