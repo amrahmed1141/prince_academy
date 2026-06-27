@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/features/admin/data/models/branch_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
 import 'package:prince_academy/features/admin/data/models/session_draft.dart';
+import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/branch_selector_field.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_dropdown_field.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_text_field.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_draft_row.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_frequency_selector.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/branch_management_dialog.dart';
 
 class EditSessionPage extends StatefulWidget {
   final CoachSessionModel session;
@@ -31,6 +35,9 @@ class _EditSessionPageState extends State<EditSessionPage> {
   late final TextEditingController _priceController;
   late int _sessionsPerWeek;
   late List<SessionSlot> _sessionSlots;
+  String? _selectedBranchId;
+  List<Branch> _branches = [];
+  bool _isLoadingBranches = false;
   bool _isSaving = false;
 
   static const _weekDays = SessionDraft.weekDays;
@@ -57,12 +64,54 @@ class _EditSessionPageState extends State<EditSessionPage> {
     if (_sessionSlots.length != _sessionsPerWeek) {
       _sessionSlots = SessionDraft.resizeSlots(_sessionSlots, _sessionsPerWeek);
     }
+
+    _selectedBranchId = widget.session.branchId;
+    _fetchBranches();
+  }
+
+  Future<void> _fetchBranches() async {
+    setState(() => _isLoadingBranches = true);
+    try {
+      final branches = await sl<BranchRepository>().getAllBranches();
+      if (!mounted) return;
+      setState(() {
+        _branches = branches;
+        if (_selectedBranchId == null && widget.session.branchName != null) {
+          for (final branch in branches) {
+            if (branch.name == widget.session.branchName) {
+              _selectedBranchId = branch.id;
+              break;
+            }
+          }
+        }
+        if (_selectedBranchId == null && branches.isNotEmpty) {
+          _selectedBranchId = branches.first.id;
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Failed to load branches: $e', Colors.redAccent);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingBranches = false);
+      }
+    }
   }
 
   @override
   void dispose() {
     _priceController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showAddBranchDialog() async {
+    await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => const BranchManagementDialog(),
+    );
+
+    await _fetchBranches();
   }
 
   void _onSessionsPerWeekChanged(int count) {
@@ -99,6 +148,11 @@ class _EditSessionPageState extends State<EditSessionPage> {
       return;
     }
 
+    if (_selectedBranchId == null) {
+      _showSnackBar('Please select a branch', Colors.orange);
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     try {
@@ -107,6 +161,7 @@ class _EditSessionPageState extends State<EditSessionPage> {
 
       await sl<CoachRepository>().updateSession(
         sessionId: widget.session.id,
+        branchId: _selectedBranchId,
         timeSlot: _selectedTimeSlot,
         pricePerSession: price,
         sessionsPerWeek: _sessionsPerWeek,
@@ -230,6 +285,16 @@ class _EditSessionPageState extends State<EditSessionPage> {
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 20),
+                    BranchSelectorField(
+                      branches: _branches,
+                      selectedBranchId: _selectedBranchId,
+                      isLoading: _isLoadingBranches,
+                      onChanged: (value) {
+                        setState(() => _selectedBranchId = value);
+                      },
+                      onAddBranch: _showAddBranchDialog,
                     ),
                     const SizedBox(height: 20),
                     AdminDropdownField<String>(

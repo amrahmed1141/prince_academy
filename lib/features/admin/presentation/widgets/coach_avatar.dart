@@ -8,12 +8,14 @@ class CoachAvatar extends StatelessWidget {
   final String name;
   final String? photoUrl;
   final double radius;
+  final BorderRadiusGeometry? borderRadius;
 
   const CoachAvatar({
     super.key,
     required this.name,
     this.photoUrl,
     this.radius = 22,
+    this.borderRadius,
   });
 
   @override
@@ -22,17 +24,25 @@ class CoachAvatar extends StatelessWidget {
     final resolved = CoachPhotoHelper.resolve(photoUrl);
 
     if (resolved == null) {
-      return _FallbackAvatar(initial: initial, radius: radius);
+      return _FallbackAvatar(
+        initial: initial,
+        radius: radius,
+        borderRadius: borderRadius,
+      );
     }
 
     if (CoachPhotoHelper.isAssetPath(resolved)) {
       return _ClipAvatar(
         radius: radius,
+        borderRadius: borderRadius,
         child: Image.asset(
           resolved,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _FallbackAvatar(initial: initial, radius: radius),
+          errorBuilder: (_, __, ___) => _FallbackAvatar(
+            initial: initial,
+            radius: radius,
+            borderRadius: borderRadius,
+          ),
         ),
       );
     }
@@ -40,11 +50,15 @@ class CoachAvatar extends StatelessWidget {
     if (CoachPhotoHelper.isLocalFile(resolved)) {
       return _ClipAvatar(
         radius: radius,
+        borderRadius: borderRadius,
         child: Image.file(
           File(resolved),
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _FallbackAvatar(initial: initial, radius: radius),
+          errorBuilder: (_, __, ___) => _FallbackAvatar(
+            initial: initial,
+            radius: radius,
+            borderRadius: borderRadius,
+          ),
         ),
       );
     }
@@ -54,6 +68,7 @@ class CoachAvatar extends StatelessWidget {
       source: photoUrl,
       radius: radius,
       initial: initial,
+      borderRadius: borderRadius,
     );
   }
 }
@@ -64,12 +79,14 @@ class _NetworkCoachAvatar extends StatefulWidget {
     required this.source,
     required this.radius,
     required this.initial,
+    this.borderRadius,
   });
 
   final String url;
   final String? source;
   final double radius;
   final String initial;
+  final BorderRadiusGeometry? borderRadius;
 
   @override
   State<_NetworkCoachAvatar> createState() => _NetworkCoachAvatarState();
@@ -117,11 +134,16 @@ class _NetworkCoachAvatarState extends State<_NetworkCoachAvatar> {
   @override
   Widget build(BuildContext context) {
     if (_loadFailed) {
-      return _FallbackAvatar(initial: widget.initial, radius: widget.radius);
+      return _FallbackAvatar(
+        initial: widget.initial,
+        radius: widget.radius,
+        borderRadius: widget.borderRadius,
+      );
     }
 
     return _ClipAvatar(
       radius: widget.radius,
+      borderRadius: widget.borderRadius,
       child: Image.network(
         _displayUrl,
         fit: BoxFit.cover,
@@ -136,7 +158,11 @@ class _NetworkCoachAvatarState extends State<_NetworkCoachAvatar> {
               if (mounted) setState(() => _loadFailed = true);
             });
           }
-          return _FallbackAvatar(initial: widget.initial, radius: widget.radius);
+          return _FallbackAvatar(
+            initial: widget.initial,
+            radius: widget.radius,
+            borderRadius: widget.borderRadius,
+          );
         },
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
@@ -163,17 +189,23 @@ class _ClipAvatar extends StatelessWidget {
   const _ClipAvatar({
     required this.radius,
     required this.child,
+    this.borderRadius,
   });
 
   final double radius;
   final Widget child;
+  final BorderRadiusGeometry? borderRadius;
 
   @override
   Widget build(BuildContext context) {
-    return ClipOval(
+    final size = radius * 2;
+    final clip = borderRadius ?? BorderRadius.circular(radius);
+
+    return ClipRRect(
+      borderRadius: clip,
       child: SizedBox(
-        width: radius * 2,
-        height: radius * 2,
+        width: size,
+        height: size,
         child: child,
       ),
     );
@@ -184,23 +216,33 @@ class _FallbackAvatar extends StatelessWidget {
   const _FallbackAvatar({
     required this.initial,
     required this.radius,
+    this.borderRadius,
   });
 
   final String initial;
   final double radius;
+  final BorderRadiusGeometry? borderRadius;
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: Colors.black87,
-      child: Text(
-        initial,
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: radius * 0.7,
-          fontFamily: 'Poppins',
+    final size = radius * 2;
+    final clip = borderRadius ?? BorderRadius.circular(radius);
+
+    return ClipRRect(
+      borderRadius: clip,
+      child: Container(
+        width: size,
+        height: size,
+        color: Colors.black87,
+        alignment: Alignment.center,
+        child: Text(
+          initial,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: radius * 0.7,
+            fontFamily: 'Poppins',
+          ),
         ),
       ),
     );

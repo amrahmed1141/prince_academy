@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
+import 'package:prince_academy/features/admin/data/models/branch_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
 import 'package:prince_academy/features/admin/data/models/day_attendance_model.dart';
 import 'package:prince_academy/features/admin/data/models/user_booking_detail_model.dart';
@@ -21,22 +22,33 @@ class TrackingLoading extends TrackingState {
 
 class TrackingLoaded extends TrackingState {
   final List<CoachUserStats> coaches;
+  final List<Branch> branches;
   final List<ActiveUser> users;
   final List<ActiveUser> filteredUsers;
   final String? selectedCoachId;
+  final String? selectedBranchId;
   final String? searchQuery;
   final bool isSearching;
   final bool isFiltering;
 
   const TrackingLoaded({
     required this.coaches,
+    this.branches = const [],
     required this.users,
     required this.filteredUsers,
     this.selectedCoachId,
+    this.selectedBranchId,
     this.searchQuery,
     this.isSearching = false,
     this.isFiltering = false,
   });
+
+  List<CoachUserStats> get displayCoaches {
+    if (selectedBranchId == null) return coaches;
+    return coaches
+        .where((coach) => coach.branchId == selectedBranchId)
+        .toList();
+  }
 
   String? get selectedCoachName {
     if (selectedCoachId == null) return null;
@@ -46,12 +58,23 @@ class TrackingLoaded extends TrackingState {
     return null;
   }
 
+  String? get selectedBranchName {
+    if (selectedBranchId == null) return null;
+    for (final branch in branches) {
+      if (branch.id == selectedBranchId) return branch.name;
+    }
+    return null;
+  }
+
   TrackingLoaded copyWith({
     List<CoachUserStats>? coaches,
+    List<Branch>? branches,
     List<ActiveUser>? users,
     List<ActiveUser>? filteredUsers,
     String? selectedCoachId,
     bool clearCoachFilter = false,
+    String? selectedBranchId,
+    bool clearBranchFilter = false,
     String? searchQuery,
     bool clearSearchQuery = false,
     bool? isSearching,
@@ -59,10 +82,13 @@ class TrackingLoaded extends TrackingState {
   }) {
     return TrackingLoaded(
       coaches: coaches ?? this.coaches,
+      branches: branches ?? this.branches,
       users: users ?? this.users,
       filteredUsers: filteredUsers ?? this.filteredUsers,
       selectedCoachId:
           clearCoachFilter ? null : selectedCoachId ?? this.selectedCoachId,
+      selectedBranchId:
+          clearBranchFilter ? null : selectedBranchId ?? this.selectedBranchId,
       searchQuery: clearSearchQuery ? null : searchQuery ?? this.searchQuery,
       isSearching: isSearching ?? this.isSearching,
       isFiltering: isFiltering ?? this.isFiltering,
@@ -72,9 +98,11 @@ class TrackingLoaded extends TrackingState {
   @override
   List<Object?> get props => [
         coaches,
+        branches,
         users,
         filteredUsers,
         selectedCoachId,
+        selectedBranchId,
         searchQuery,
         isSearching,
         isFiltering,
@@ -84,9 +112,11 @@ class TrackingLoaded extends TrackingState {
 class UserDetailLoading extends TrackingLoaded {
   const UserDetailLoading({
     required super.coaches,
+    super.branches,
     required super.users,
     required super.filteredUsers,
     super.selectedCoachId,
+    super.selectedBranchId,
     super.searchQuery,
     super.isSearching,
     super.isFiltering,
@@ -104,6 +134,7 @@ class UserDetailLoaded extends TrackingLoaded {
   const UserDetailLoaded({
     required this.userId,
     required super.coaches,
+    super.branches,
     required super.users,
     required super.filteredUsers,
     required this.activeBookings,
@@ -112,6 +143,7 @@ class UserDetailLoaded extends TrackingLoaded {
     this.selectedBookingId,
     this.isLoadingAttendance = false,
     super.selectedCoachId,
+    super.selectedBranchId,
     super.searchQuery,
     super.isSearching,
     super.isFiltering,
@@ -135,6 +167,7 @@ class UserDetailLoaded extends TrackingLoaded {
       selectedBookingId: selectedBookingId ?? this.selectedBookingId,
       isLoadingAttendance: isLoadingAttendance ?? this.isLoadingAttendance,
       selectedCoachId: selectedCoachId,
+      selectedBranchId: selectedBranchId,
       searchQuery: searchQuery,
       isSearching: isSearching,
       isFiltering: isFiltering,

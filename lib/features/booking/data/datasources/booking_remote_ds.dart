@@ -12,7 +12,7 @@ class BookingRemoteDs {
   Future<CoachSessionModel?> getActiveSessionForCoach(String coachId) async {
     final response = await _supabase
         .from('coach_sessions')
-        .select('*, coaches(name, specialty, photo_url)')
+        .select('*, coaches(name, specialty, photo_url), branches(name)')
         .eq('coach_id', coachId)
         .eq('is_active', true)
         .order('created_at', ascending: false)

@@ -7,7 +7,7 @@ enum AdminSessionTileStatus { completed, upcoming, missed }
 class AdminSessionListTile extends StatelessWidget {
   final String coachName;
   final String dateTimeLabel;
-  final String location;
+  final String? location;
   final AdminSessionTileStatus status;
   final bool canReAttend;
   final bool canUnmark;
@@ -20,7 +20,7 @@ class AdminSessionListTile extends StatelessWidget {
     super.key,
     required this.coachName,
     required this.dateTimeLabel,
-    this.location = 'Prince Academy - Main Gym',
+    this.location,
     required this.status,
     this.canReAttend = false,
     this.canUnmark = false,
@@ -32,6 +32,8 @@ class AdminSessionListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final branchLabel = location?.trim();
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -84,27 +86,29 @@ class AdminSessionListTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      Iconsax.location,
-                      size: 14,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        location,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontFamily: 'Poppins',
+                if (branchLabel != null && branchLabel.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Iconsax.location,
+                        size: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          branchLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontFamily: 'Poppins',
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

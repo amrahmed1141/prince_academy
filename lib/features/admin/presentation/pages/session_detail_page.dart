@@ -14,6 +14,7 @@ class SessionDetailPage extends StatefulWidget {
   final String coachName;
   final String coachSpecialty;
   final String? sessionTime;
+  final String? branchName;
 
   const SessionDetailPage({
     super.key,
@@ -21,6 +22,7 @@ class SessionDetailPage extends StatefulWidget {
     required this.coachName,
     required this.coachSpecialty,
     this.sessionTime,
+    this.branchName,
   });
 
   @override
@@ -212,6 +214,7 @@ class _SessionDetailPageState extends State<SessionDetailPage>
                 emptyMessage: 'No completed sessions yet',
                 coachName: widget.coachName,
                 sessionTime: widget.sessionTime,
+                branchName: widget.branchName,
                 type: _SessionListType.completed,
                 bookingId: widget.bookingId,
                 isUnmarking: state.isUnmarking,
@@ -221,6 +224,7 @@ class _SessionDetailPageState extends State<SessionDetailPage>
                 emptyMessage: 'No upcoming sessions',
                 coachName: widget.coachName,
                 sessionTime: widget.sessionTime,
+                branchName: widget.branchName,
                 type: _SessionListType.upcoming,
               ),
               _SessionList(
@@ -228,6 +232,7 @@ class _SessionDetailPageState extends State<SessionDetailPage>
                 emptyMessage: 'No missed sessions',
                 coachName: widget.coachName,
                 sessionTime: widget.sessionTime,
+                branchName: widget.branchName,
                 type: _SessionListType.missed,
                 bookingId: widget.bookingId,
                 isReAttending: state.isReAttending,
@@ -293,6 +298,7 @@ class _SessionList extends StatelessWidget {
   final String emptyMessage;
   final String coachName;
   final String? sessionTime;
+  final String? branchName;
   final _SessionListType type;
   final String? bookingId;
   final bool isReAttending;
@@ -303,6 +309,7 @@ class _SessionList extends StatelessWidget {
     required this.emptyMessage,
     required this.coachName,
     required this.sessionTime,
+    this.branchName,
     required this.type,
     this.bookingId,
     this.isReAttending = false,
@@ -333,6 +340,7 @@ class _SessionList extends StatelessWidget {
           session: session,
           coachName: coachName,
           sessionTime: session.sessionTime ?? sessionTime,
+          branchName: branchName,
           type: type,
           bookingId: bookingId,
           isReAttending: isReAttending,
@@ -347,6 +355,7 @@ class _SessionTile extends StatelessWidget {
   final SessionDetail session;
   final String coachName;
   final String? sessionTime;
+  final String? branchName;
   final _SessionListType type;
   final String? bookingId;
   final bool isReAttending;
@@ -356,6 +365,7 @@ class _SessionTile extends StatelessWidget {
     required this.session,
     required this.coachName,
     required this.sessionTime,
+    this.branchName,
     required this.type,
     this.bookingId,
     this.isReAttending = false,
@@ -442,6 +452,7 @@ class _SessionTile extends StatelessWidget {
     return AdminSessionListTile(
       coachName: coachName,
       dateTimeLabel: dateTimeLabel,
+      location: session.branchName ?? branchName,
       status: _tileStatus,
       canReAttend: type == _SessionListType.missed && session.canReAttend,
       canUnmark: type == _SessionListType.completed && session.canUnmark,

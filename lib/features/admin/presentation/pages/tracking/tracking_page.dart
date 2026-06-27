@@ -6,6 +6,7 @@ import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
+import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_event.dart';
@@ -19,8 +20,10 @@ class TrackingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => TrackingBloc(repository: sl<CoachRepository>())
-        ..add(const LoadTrackingData()),
+      create: (_) => TrackingBloc(
+        repository: sl<CoachRepository>(),
+        branchRepository: sl<BranchRepository>(),
+      )..add(const LoadTrackingData()),
       child: const TrackingView(),
     );
   }
@@ -164,7 +167,53 @@ class _TrackingViewState extends State<TrackingView> {
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.location_city_outlined,
+                    size: 16,
+                    color: EColorConstants.primaryColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _BranchFilterChip(
+                            label: 'ALL BRANCHES',
+                            isSelected: state.selectedBranchId == null,
+                            onTap: () {
+                              context
+                                  .read<TrackingBloc>()
+                                  .add(const FilterByBranch(null));
+                            },
+                          ),
+                          ...state.branches.map(
+                            (branch) => _BranchFilterChip(
+                              label: branch.name.toUpperCase(),
+                              isSelected: state.selectedBranchId == branch.id,
+                              onTap: () {
+                                context
+                                    .read<TrackingBloc>()
+                                    .add(FilterByBranch(branch.id));
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -177,9 +226,9 @@ class _TrackingViewState extends State<TrackingView> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    state.coaches.isEmpty
+                    state.displayCoaches.isEmpty
                         ? 'COACH OVERVIEW'
-                        : 'COACH OVERVIEW (${state.coaches.length})',
+                        : 'COACH OVERVIEW (${state.displayCoaches.length})',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -203,11 +252,11 @@ class _TrackingViewState extends State<TrackingView> {
           const SliverToBoxAdapter(child: SizedBox(height: 12)),
           SliverToBoxAdapter(
             child: SizedBox(
-              height: 132,
+              height: 180,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: state.coaches.length + 1,
+                itemCount: state.displayCoaches.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return _AllCoachChip(
@@ -220,7 +269,7 @@ class _TrackingViewState extends State<TrackingView> {
                     );
                   }
 
-                  final coach = state.coaches[index - 1];
+                  final coach = state.displayCoaches[index - 1];
                   return _CoachOverviewCard(
                     coach: coach,
                     isSelected: state.selectedCoachId == coach.coachId,
@@ -273,6 +322,17 @@ class _TrackingViewState extends State<TrackingView> {
                     const SizedBox(height: 6),
                     Text(
                       'Filtered by ${state.selectedCoachName}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: EColorConstants.authPlaceholderGray,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ],
+                  if (state.selectedBranchName != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Branch: ${state.selectedBranchName}',
                       style: const TextStyle(
                         fontSize: 11,
                         color: EColorConstants.authPlaceholderGray,
@@ -341,8 +401,56 @@ class _TrackingViewState extends State<TrackingView> {
                 childCount: state.filteredUsers.length,
               ),
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
+      ),
+    );
+  }
+}
+
+class _BranchFilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _BranchFilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? EColorConstants.primaryColor.withOpacity(0.12)
+                : EColorConstants.authCardWhite,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? EColorConstants.primaryColor
+                  : EColorConstants.authFieldBorder,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+              color: isSelected
+                  ? EColorConstants.primaryColor
+                  : EColorConstants.authTextDarkBrown,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -365,9 +473,9 @@ class _CoachOverviewCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 240,
+        width: 156,
         margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
               ? EColorConstants.primaryColor.withOpacity(0.08)
@@ -379,66 +487,86 @@ class _CoachOverviewCard extends StatelessWidget {
                 : EColorConstants.authFieldBorder,
             width: isSelected ? 1.5 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                CoachAvatar(
-                  name: coach.coachName,
-                  photoUrl: coach.coachPhoto,
-                  radius: 20,
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: EColorConstants.authFieldBorder,
+                  width: 2,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        coach.coachName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: EColorConstants.authTextDarkBrown,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                      Text(
-                        '${coach.totalSubscribers} users',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: EColorConstants.authPlaceholderGray,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ],
+              ),
+              child: CoachAvatar(
+                name: coach.coachName,
+                photoUrl: coach.coachPhoto,
+                radius: 30,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    coach.coachName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: EColorConstants.authTextDarkBrown,
+                      fontFamily: 'Poppins',
+                    ),
                   ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Iconsax.verify5,
+                  size: 15,
+                  color: EColorConstants.primaryColor,
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 2),
             Text(
               coach.coachSpecialty,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: EColorConstants.primaryColor,
+                color: EColorConstants.authPlaceholderGray,
                 fontFamily: 'Poppins',
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
+            Text(
+              '${coach.totalSubscribers} users',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: EColorConstants.authPlaceholderGray,
+                fontFamily: 'Poppins',
+              ),
+            ),
+            const Spacer(),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _StatusDot(
                   color: const Color(0xFF2E7D32),
                   label: '${coach.activeSubscribers} active',
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 _StatusDot(
                   color: const Color(0xFFD32F2F),
                   label: '${coach.expiredSubscribers} expired',
@@ -466,7 +594,7 @@ class _AllCoachChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 72,
+        width: 90,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: isSelected
@@ -477,27 +605,51 @@ class _AllCoachChip extends StatelessWidget {
             color: isSelected
                 ? EColorConstants.primaryColor
                 : EColorConstants.authFieldBorder,
+            width: isSelected ? 1.5 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Iconsax.people,
-              size: 22,
-              color: isSelected
-                  ? EColorConstants.primaryColor
-                  : EColorConstants.authPlaceholderGray,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: EColorConstants.primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Iconsax.people,
+                size: 24,
+                color: isSelected
+                    ? EColorConstants.primaryColor
+                    : EColorConstants.authPlaceholderGray,
+              ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             Text(
               'All',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: isSelected
                     ? EColorConstants.primaryColor
                     : EColorConstants.authTextDarkBrown,
+                fontFamily: 'Poppins',
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Coaches',
+              style: TextStyle(
+                fontSize: 10,
+                color: EColorConstants.authPlaceholderGray,
                 fontFamily: 'Poppins',
               ),
             ),
@@ -669,19 +821,28 @@ class _StatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String displayLabel = label;
+    if (label.contains(' ')) {
+      final parts = label.split(' ');
+      if (parts.length == 2 && parts[1].length >= 3) {
+        displayLabel = '${parts[0]} ${parts[1].substring(0, 3)}';
+      }
+    }
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 8,
-          height: 8,
+          width: 6,
+          height: 6,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        if (label.isNotEmpty)
+        const SizedBox(width: 4),
+        if (displayLabel.isNotEmpty)
           Text(
-            label,
+            displayLabel,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: FontWeight.w600,
               color: color,
               fontFamily: 'Poppins',

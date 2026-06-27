@@ -44,6 +44,7 @@ class SessionSlot {
 
 class SessionDraft {
   final String? coachId;
+  final String? branchId;
   final String timeSlot;
   final double pricePerSession;
   final int sessionsPerWeek;
@@ -51,6 +52,7 @@ class SessionDraft {
 
   const SessionDraft({
     this.coachId,
+    this.branchId,
     required this.timeSlot,
     required this.pricePerSession,
     required this.sessionsPerWeek,
@@ -91,9 +93,10 @@ class SessionDraft {
     'Fitness',
   ];
 
-  factory SessionDraft.initial({String? coachId}) {
+  factory SessionDraft.initial({String? coachId, String? branchId}) {
     return SessionDraft(
       coachId: coachId,
+      branchId: branchId,
       timeSlot: defaultTimeSlot,
       pricePerSession: 0,
       sessionsPerWeek: 1,
@@ -115,6 +118,7 @@ class SessionDraft {
 
     return SessionDraft(
       coachId: json['coach_id'] as String?,
+      branchId: json['branch_id'] as String?,
       timeSlot: json['time_slot'] as String? ?? defaultTimeSlot,
       pricePerSession: (json['price_per_session'] as num?)?.toDouble() ?? 0,
       sessionsPerWeek: json['sessions_per_week'] as int? ?? 1,
@@ -125,6 +129,7 @@ class SessionDraft {
   Map<String, dynamic> toJson() {
     return {
       if (coachId != null) 'coach_id': coachId,
+      if (branchId != null) 'branch_id': branchId,
       'time_slot': timeSlot,
       'price_per_session': pricePerSession,
       'sessions_per_week': sessionsPerWeek,
@@ -138,6 +143,7 @@ class SessionDraft {
 
   SessionDraft copyWith({
     String? coachId,
+    String? branchId,
     String? timeSlot,
     double? pricePerSession,
     int? sessionsPerWeek,
@@ -145,6 +151,7 @@ class SessionDraft {
   }) {
     return SessionDraft(
       coachId: coachId ?? this.coachId,
+      branchId: branchId ?? this.branchId,
       timeSlot: timeSlot ?? this.timeSlot,
       pricePerSession: pricePerSession ?? this.pricePerSession,
       sessionsPerWeek: sessionsPerWeek ?? this.sessionsPerWeek,

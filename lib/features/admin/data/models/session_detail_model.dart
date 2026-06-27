@@ -6,6 +6,7 @@ class SessionDetail {
   final bool canReAttend;
   final bool canUnmark;
   final String? sessionTime;
+  final String? branchName;
 
   const SessionDetail({
     required this.sessionDate,
@@ -15,6 +16,7 @@ class SessionDetail {
     required this.canReAttend,
     this.canUnmark = false,
     this.sessionTime,
+    this.branchName,
   });
 
   factory SessionDetail.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class SessionDetail {
       canReAttend: json['can_re_attend'] as bool? ?? false,
       canUnmark: json['can_unmark'] as bool? ?? false,
       sessionTime: json['session_time'] as String?,
+      branchName: json['branch_name'] as String?,
     );
   }
 

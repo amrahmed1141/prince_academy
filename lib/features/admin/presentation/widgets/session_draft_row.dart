@@ -2,6 +2,61 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/features/admin/data/models/session_draft.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_form_styles.dart';
+
+class SessionDetailsPanel extends StatelessWidget {
+  final List<SessionSlot> slots;
+  final List<String> weekDays;
+  final List<String> classTypes;
+  final bool enabled;
+  final void Function(int index, SessionSlot slot) onSlotChanged;
+
+  const SessionDetailsPanel({
+    super.key,
+    required this.slots,
+    required this.weekDays,
+    required this.classTypes,
+    required this.enabled,
+    required this.onSlotChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AdminFormStyles.sectionTitle('Session Details'),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: AdminFormStyles.sessionDetailsPanelDecoration,
+          child: Column(
+            children: List.generate(slots.length, (index) {
+              return Column(
+                children: [
+                  if (index > 0) ...[
+                    const SizedBox(height: 14),
+                    Divider(height: 1, color: Colors.brown.shade100),
+                    const SizedBox(height: 14),
+                  ],
+                  SessionDraftRow(
+                    index: index,
+                    slot: slots[index],
+                    weekDays: weekDays,
+                    classTypes: classTypes,
+                    enabled: enabled,
+                    onChanged: (slot) => onSlotChanged(index, slot),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class SessionDraftRow extends StatelessWidget {
   final int index;
@@ -23,71 +78,86 @@ class SessionDraftRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(top: index == 0 ? 0 : 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Session ${index + 1}',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: EColorConstants.authTextDarkBrown,
-              fontFamily: 'Poppins',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: const Color(0xFFE8DDD0)),
+              ),
+              child: Text(
+                'Session ${index + 1}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: EColorConstants.authTextDarkBrown,
+                  fontFamily: 'Poppins',
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stackFields = constraints.maxWidth < 340;
+            const Spacer(),
+            Icon(
+              Icons.drag_indicator,
+              size: 22,
+              color: Colors.grey.shade400,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stackFields = constraints.maxWidth < 340;
 
-              final dayField = _buildDropdown(
-                label: 'Day',
-                value: slot.day,
-                prefixIcon: Iconsax.calendar_1,
-                items: weekDays,
-                onChanged: (value) {
-                  if (value != null) {
-                    onChanged(slot.copyWith(day: value));
-                  }
-                },
-              );
+            final dayField = _buildDropdown(
+              label: 'Day',
+              value: slot.day,
+              prefixIcon: Iconsax.calendar_1,
+              items: weekDays,
+              onChanged: (value) {
+                if (value != null) {
+                  onChanged(slot.copyWith(day: value));
+                }
+              },
+            );
 
-              final typeField = _buildDropdown(
-                label: 'Class Type',
-                value: slot.classType,
-                prefixIcon: Iconsax.category,
-                items: classTypes,
-                onChanged: (value) {
-                  if (value != null) {
-                    onChanged(slot.copyWith(classType: value));
-                  }
-                },
-              );
+            final typeField = _buildDropdown(
+              label: 'Class Type',
+              value: slot.classType,
+              prefixIcon: Iconsax.category,
+              items: classTypes,
+              onChanged: (value) {
+                if (value != null) {
+                  onChanged(slot.copyWith(classType: value));
+                }
+              },
+            );
 
-              if (stackFields) {
-                return Column(
-                  children: [
-                    dayField,
-                    const SizedBox(height: 10),
-                    typeField,
-                  ],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            if (stackFields) {
+              return Column(
                 children: [
-                  Expanded(child: dayField),
-                  const SizedBox(width: 10),
-                  Expanded(child: typeField),
+                  dayField,
+                  const SizedBox(height: 12),
+                  typeField,
                 ],
               );
-            },
-          ),
-        ],
-      ),
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: dayField),
+                const SizedBox(width: 12),
+                Expanded(child: typeField),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -101,49 +171,12 @@ class SessionDraftRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: EColorConstants.authPlaceholderGray,
-            fontFamily: 'Poppins',
-          ),
-        ),
-        const SizedBox(height: 6),
+        AdminFormStyles.fieldLabel(label),
+        const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: value,
           isExpanded: true,
-          decoration: InputDecoration(
-            prefixIcon: Icon(
-              prefixIcon,
-              size: 18,
-              color: EColorConstants.primaryColor,
-            ),
-            filled: true,
-            fillColor: EColorConstants.authFieldBackground,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: EColorConstants.primaryColor.withOpacity(0.3),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: EColorConstants.primaryColor.withOpacity(0.3),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: EColorConstants.primaryColor,
-                width: 1.5,
-              ),
-            ),
-          ),
+          decoration: AdminFormStyles.fieldDecoration(prefixIcon: prefixIcon),
           selectedItemBuilder: (context) {
             return items.map((item) {
               return Align(
@@ -153,7 +186,7 @@ class SessionDraftRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     fontFamily: 'Poppins',
                     color: EColorConstants.authTextDarkBrown,

@@ -13,6 +13,8 @@ class CoachSessionModel {
   final String? coachName;
   final String? coachSpecialty;
   final String? coachPhotoUrl;
+  final String? branchId;
+  final String? branchName;
 
   CoachSessionModel({
     required this.id,
@@ -29,6 +31,8 @@ class CoachSessionModel {
     this.coachName,
     this.coachSpecialty,
     this.coachPhotoUrl,
+    this.branchId,
+    this.branchName,
   });
 
   factory CoachSessionModel.fromJson(Map<String, dynamic> json) {
@@ -36,6 +40,12 @@ class CoachSessionModel {
     Map<String, dynamic>? coachMap;
     if (coachesData is Map<String, dynamic>) {
       coachMap = coachesData;
+    }
+
+    final branchesData = json['branches'];
+    Map<String, dynamic>? branchMap;
+    if (branchesData is Map<String, dynamic>) {
+      branchMap = branchesData;
     }
 
     return CoachSessionModel(
@@ -53,6 +63,8 @@ class CoachSessionModel {
       coachName: coachMap?['name'] as String?,
       coachSpecialty: coachMap?['specialty'] as String?,
       coachPhotoUrl: coachMap?['photo_url'] as String?,
+      branchId: json['branch_id'] as String?,
+      branchName: json['branch_name'] as String? ?? branchMap?['name'] as String?,
     );
   }
 
@@ -105,6 +117,8 @@ class CoachSessionModel {
     String? coachName,
     String? coachSpecialty,
     String? coachPhotoUrl,
+    String? branchId,
+    String? branchName,
   }) {
     return CoachSessionModel(
       id: id ?? this.id,
@@ -121,6 +135,8 @@ class CoachSessionModel {
       coachName: coachName ?? this.coachName,
       coachSpecialty: coachSpecialty ?? this.coachSpecialty,
       coachPhotoUrl: coachPhotoUrl ?? this.coachPhotoUrl,
+      branchId: branchId ?? this.branchId,
+      branchName: branchName ?? this.branchName,
     );
   }
 

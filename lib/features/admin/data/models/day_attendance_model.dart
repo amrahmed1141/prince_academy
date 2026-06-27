@@ -3,12 +3,14 @@ class DayAttendance {
   final DateTime sessionDate;
   final String status;
   final bool isToday;
+  final String? branchName;
 
   const DayAttendance({
     required this.dayName,
     required this.sessionDate,
     required this.status,
     required this.isToday,
+    this.branchName,
   });
 
   bool get isAttended => status.toLowerCase() == 'attended';
@@ -19,6 +21,7 @@ class DayAttendance {
       sessionDate: _parseDate(json['session_date']) ?? DateTime.now(),
       status: json['status'] as String? ?? 'no_session',
       isToday: json['is_today'] as bool? ?? false,
+      branchName: json['branch_name'] as String?,
     );
   }
 

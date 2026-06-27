@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/branch_badge.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/delete_confirmation_sheet.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/specialty_chip.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
@@ -12,6 +13,7 @@ class CoachListCard extends StatelessWidget {
   final String specialty;
   final int sessionCount;
   final String? imagePath;
+  final String? branchName;
   final VoidCallback onDelete;
   final VoidCallback? onEdit;
 
@@ -22,6 +24,7 @@ class CoachListCard extends StatelessWidget {
     required this.specialty,
     required this.sessionCount,
     this.imagePath,
+    this.branchName,
     required this.onDelete,
     this.onEdit,
   });
@@ -129,89 +132,97 @@ class CoachListCard extends StatelessWidget {
             ),
           ],
         ),
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            CoachAvatar(
-              name: name,
-              photoUrl: imagePath,
-              radius: 26,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            BranchBadge(branchName: branchName),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  CoachNameWithVerify(name: name),
-                  const SizedBox(height: 6),
-                  SpecialtyChip(specialty: specialty),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(
-                        Iconsax.calendar_1,
-                        size: 13,
-                        color: EColorConstants.authPlaceholderGray,
+                  CoachAvatar(
+                    name: name,
+                    photoUrl: imagePath,
+                    radius: 26,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CoachNameWithVerify(name: name),
+                        const SizedBox(height: 6),
+                        SpecialtyChip(specialty: specialty),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Iconsax.calendar_1,
+                              size: 13,
+                              color: EColorConstants.authPlaceholderGray,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                '$sessionCount Session${sessionCount == 1 ? '' : 's'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: EColorConstants.authPlaceholderGray,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(
+                      Iconsax.more,
+                      size: 18,
+                      color: EColorConstants.authPlaceholderGray,
+                    ),
+                    onSelected: (value) async {
+                      if (value == 'edit') {
+                        onEdit?.call();
+                      } else if (value == 'delete') {
+                        final confirmed = await DeleteConfirmationSheet.show(
+                          context: context,
+                          title: 'Delete Coach?',
+                          subtitle: 'This will permanently delete $name and all their sessions.',
+                        );
+                        if (confirmed) onDelete();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 18, color: EColorConstants.primaryColor),
+                            SizedBox(width: 8),
+                            Text('Edit', style: TextStyle(fontFamily: 'Poppins')),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          '$sessionCount Session${sessionCount == 1 ? '' : 's'}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: EColorConstants.authPlaceholderGray,
-                            fontFamily: 'Poppins',
-                          ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                            const SizedBox(width: 8),
+                            Text('Delete', style: TextStyle(color: Colors.red, fontFamily: 'Poppins')),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
-            ),
-            PopupMenuButton<String>(
-              icon: const Icon(
-                Iconsax.more,
-                size: 18,
-                color: EColorConstants.authPlaceholderGray,
-              ),
-              onSelected: (value) async {
-                if (value == 'edit') {
-                  onEdit?.call();
-                } else if (value == 'delete') {
-                  final confirmed = await DeleteConfirmationSheet.show(
-                    context: context,
-                    title: 'Delete Coach?',
-                    subtitle: 'This will permanently delete $name and all their sessions.',
-                  );
-                  if (confirmed) onDelete();
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_outlined, size: 18, color: EColorConstants.primaryColor),
-                      SizedBox(width: 8),
-                      Text('Edit', style: TextStyle(fontFamily: 'Poppins')),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                      const SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(color: Colors.red, fontFamily: 'Poppins')),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ],
         ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_form_styles.dart';
 
 class AdminDropdownField<T> extends StatelessWidget {
   final String label;
@@ -9,6 +9,7 @@ class AdminDropdownField<T> extends StatelessWidget {
   final IconData prefixIcon;
   final bool enabled;
   final ValueChanged<T?> onChanged;
+  final String? errorText;
 
   const AdminDropdownField({
     super.key,
@@ -19,6 +20,7 @@ class AdminDropdownField<T> extends StatelessWidget {
     required this.prefixIcon,
     this.enabled = true,
     required this.onChanged,
+    this.errorText,
   });
 
   @override
@@ -26,55 +28,21 @@ class AdminDropdownField<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: EColorConstants.authTextDarkBrown,
-            fontFamily: 'Poppins',
-          ),
-        ),
-        const SizedBox(height: 6),
+        AdminFormStyles.fieldLabel(label),
+        const SizedBox(height: 8),
         DropdownButtonFormField<T>(
           value: value,
           isExpanded: true,
-          decoration: InputDecoration(
-            prefixIcon: Icon(
-              prefixIcon,
-              size: 18,
-              color: EColorConstants.primaryColor,
-            ),
-            filled: true,
-            fillColor: EColorConstants.authFieldBackground,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: EColorConstants.primaryColor.withOpacity(0.3),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: EColorConstants.primaryColor.withOpacity(0.3),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: EColorConstants.primaryColor,
-                width: 1.2,
-              ),
-            ),
+          decoration: AdminFormStyles.fieldDecoration(
+            prefixIcon: prefixIcon,
+            errorText: errorText,
           ),
           hint: const Text(
             'Select option',
             style: TextStyle(
-              color: EColorConstants.authPlaceholderGray,
+              color: Color(0xFF8E8E93),
               fontFamily: 'Poppins',
-              fontSize: 14,
+              fontSize: 13,
             ),
           ),
           items: items
@@ -85,7 +53,8 @@ class AdminDropdownField<T> extends StatelessWidget {
                     itemLabel(item),
                     style: const TextStyle(
                       fontFamily: 'Poppins',
-                      fontSize: 14,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),

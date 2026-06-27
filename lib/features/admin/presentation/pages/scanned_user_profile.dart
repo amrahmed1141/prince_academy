@@ -28,6 +28,7 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
   String? _error;
   List<AdminScanProfile> _bookings = [];
   final Set<String> _busyBookingIds = {};
+  String? _selectedCoachId;
 
   @override
   void initState() {
@@ -67,10 +68,32 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
       _bookings.where((b) => b.subscriptionStatus.toLowerCase() == 'active').length;
 
   int _expiredCount() =>
-      _bookings.where((b) => b.subscriptionStatus.toLowerCase() == 'expired').length;
+      _filteredBookings.where((b) => b.subscriptionStatus.toLowerCase() == 'expired').length;
+
+  List<AdminScanProfile> get _filteredBookings {
+    if (_selectedCoachId == null) return _bookings;
+    return _bookings.where((b) => b.coachId == _selectedCoachId).toList();
+  }
+
+  List<({String coachId, String coachName, String specialty})> get _uniqueCoaches {
+    final seen = <String>{};
+    final coaches = <({String coachId, String coachName, String specialty})>[];
+    for (final booking in _bookings) {
+      if (seen.add(booking.coachId)) {
+        coaches.add((
+          coachId: booking.coachId,
+          coachName: booking.coachName,
+          specialty: booking.coachSpecialty?.trim().isNotEmpty == true
+              ? booking.coachSpecialty!
+              : 'MMA',
+        ));
+      }
+    }
+    return coaches;
+  }
 
   int get _todaySessionCount =>
-      _bookings.where((b) => b.isScheduledToday && b.isActive).length;
+      _filteredBookings.where((b) => b.isScheduledToday && b.isActive).length;
 
   Future<void> _loadData() async {
     setState(() {
@@ -107,6 +130,7 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
       specialty: booking.coachSpecialty?.trim().isNotEmpty == true
           ? booking.coachSpecialty!
           : 'MMA',
+      branchName: booking.branchName,
       selectedDays: booking.selectedDays,
       selectedTime: booking.selectedTime,
       subscriptionStart: booking.subscriptionStart,
@@ -208,6 +232,7 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
               ? booking.coachSpecialty!
               : 'MMA',
           sessionTime: booking.selectedTime,
+          branchName: booking.branchName,
         ),
       ),
     );
@@ -239,30 +264,95 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
                       ),
                       slivers: [
                         SliverToBoxAdapter(child: _buildHeader()),
+                        SliverToBoxAdapter(child: _buildCoachFilterChips()),
                         SliverToBoxAdapter(child: _buildTodaySummary()),
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final booking = _bookings[index];
-                              return MemberBookingCard(
-                                data: _toCardData(booking),
-                                isMarkingAttendance:
-                                    _busyBookingIds.contains(booking.bookingId),
-                                onMarkAttendance: booking.isScheduledToday &&
-                                        booking.isActive
-                                    ? () => _markAttendance(booking)
-                                    : null,
-                                onViewSessions: () => _openSessionDetail(booking),
-                              );
-                            },
-                            childCount: _bookings.length,
+                        if (_filteredBookings.isEmpty)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Center(
+                                child: Text(
+                                  'No bookings match this filter.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade600,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final booking = _filteredBookings[index];
+                                return MemberBookingCard(
+                                  data: _toCardData(booking),
+                                  isMarkingAttendance:
+                                      _busyBookingIds.contains(booking.bookingId),
+                                  onMarkAttendance: booking.isScheduledToday &&
+                                          booking.isActive
+                                      ? () => _markAttendance(booking)
+                                      : null,
+                                  onViewSessions: () => _openSessionDetail(booking),
+                                );
+                              },
+                              childCount: _filteredBookings.length,
+                            ),
                           ),
-                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 24)),
                       ],
                     ),
                   ),
+      ),
+    );
+  }
+
+  Widget _buildCoachFilterChips() {
+    final coaches = _uniqueCoaches;
+    if (coaches.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'SELECT BOOKING',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              color: EColorConstants.authPlaceholderGray,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 72,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _CoachFilterChip(
+                  label: 'All',
+                  subtitle: 'Bookings',
+                  isSelected: _selectedCoachId == null,
+                  onTap: () => setState(() => _selectedCoachId = null),
+                ),
+                ...coaches.map(
+                  (coach) => _CoachFilterChip(
+                    label: coach.coachName,
+                    subtitle: coach.specialty,
+                    isSelected: _selectedCoachId == coach.coachId,
+                    onTap: () => setState(() => _selectedCoachId = coach.coachId),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -414,6 +504,82 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CoachFilterChip extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CoachFilterChip({
+    required this.label,
+    required this.subtitle,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 100,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? EColorConstants.primaryColor.withOpacity(0.1)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? EColorConstants.primaryColor
+                  : EColorConstants.authFieldBorder,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isSelected)
+                const Icon(
+                  Icons.check,
+                  size: 14,
+                  color: EColorConstants.primaryColor,
+                ),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected
+                      ? EColorConstants.primaryColor
+                      : EColorConstants.authTextDarkBrown,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: EColorConstants.authPlaceholderGray,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -16,6 +16,7 @@ class BookingModel {
   final String? id;
   final String coachId;
   final String? sessionId;
+  final String? branchId;
   final String? coachName;
   final String? coachImage;
   final String? sessionType;
@@ -29,6 +30,7 @@ class BookingModel {
     this.id,
     required this.coachId,
     this.sessionId,
+    this.branchId,
     this.coachName,
     this.coachImage,
     this.sessionType,
@@ -44,6 +46,7 @@ class BookingModel {
       id: json['id'] as String?,
       coachId: json['coach_id'] as String? ?? '',
       sessionId: json['session_id'] as String?,
+      branchId: json['branch_id'] as String?,
       selectedDays: _parseStringList(json['selected_days']),
       selectedTime: json['selected_time'] as String?,
       paymentMethod: json['payment_method'] as String?,
@@ -57,6 +60,7 @@ class BookingModel {
       if (id != null) 'id': id,
       'coach_id': coachId,
       if (sessionId != null) 'session_id': sessionId,
+      if (branchId != null) 'branch_id': branchId,
       'selected_days': selectedDays,
       if (selectedTime != null) 'selected_time': selectedTime,
       if (paymentMethod != null) 'payment_method': paymentMethod,
@@ -70,6 +74,7 @@ class BookingModel {
       'user_id': userId,
       'coach_id': coachId,
       if (sessionId != null) 'session_id': sessionId,
+      if (branchId != null) 'branch_id': branchId,
       'selected_days': selectedDays,
       'selected_time': selectedTime,
       'payment_method': paymentMethod,
@@ -82,6 +87,7 @@ class BookingModel {
     String? id,
     String? coachId,
     String? sessionId,
+    String? branchId,
     String? coachName,
     String? coachImage,
     String? sessionType,
@@ -95,6 +101,7 @@ class BookingModel {
       id: id ?? this.id,
       coachId: coachId ?? this.coachId,
       sessionId: sessionId ?? this.sessionId,
+      branchId: branchId ?? this.branchId,
       coachName: coachName ?? this.coachName,
       coachImage: coachImage ?? this.coachImage,
       sessionType: sessionType ?? this.sessionType,

@@ -174,6 +174,8 @@ class _BookingHistoryView extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _DetailRow(label: 'Coach', value: booking.coachName),
+                if (booking.branchName != null && booking.branchName!.isNotEmpty)
+                  _DetailRow(label: 'Branch', value: booking.branchName!),
                 if (booking.coachSpecialty != null &&
                     booking.coachSpecialty!.isNotEmpty)
                   _DetailRow(
@@ -422,6 +424,29 @@ class _BookingHistoryCard extends StatelessWidget {
                         _StatusBadge(status: status),
                       ],
                     ),
+                    if (booking.branchName != null &&
+                        booking.branchName!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 14,
+                            color: _AppColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              booking.branchName!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: _AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       '${booking.totalSessions} sessions • ${booking.paymentStatusText}',

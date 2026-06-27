@@ -29,21 +29,28 @@ class ClassTypeFilterDropdown extends StatelessWidget {
         : kClassTypeFilterOptions.first;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: EColorConstants.authCardWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: EColorConstants.authFieldBorder),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           isDense: true,
           isExpanded: true,
           value: selected,
-          icon: const Icon(
+          icon: Icon(
             Iconsax.arrow_down_1,
             size: 14,
-            color: EColorConstants.authPlaceholderGray,
+            color: Colors.grey.shade600,
+          ),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: EColorConstants.authTextDarkBrown,
+            fontFamily: 'Poppins',
           ),
           items: kClassTypeFilterOptions.map((option) {
             return DropdownMenuItem(
@@ -52,12 +59,6 @@ class ClassTypeFilterDropdown extends StatelessWidget {
                 option,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: EColorConstants.authTextDarkBrown,
-                  fontFamily: 'Poppins',
-                ),
               ),
             );
           }).toList(),

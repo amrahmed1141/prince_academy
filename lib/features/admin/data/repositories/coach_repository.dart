@@ -22,7 +22,7 @@ class CoachRepository {
     try {
       final response = await _supabase
           .from('coaches')
-          .select()
+          .select('*, branches(name)')
           .order('created_at', ascending: false);
       return (response as List)
           .map((e) => CoachModel.fromMap(Map<String, dynamic>.from(e as Map)))
@@ -103,7 +103,7 @@ class CoachRepository {
     try {
       final response = await _supabase
           .from('coach_sessions')
-          .select()
+          .select('*, branches(name)')
           .eq('coach_id', coachId)
           .eq('is_active', true)
           .order('created_at', ascending: false);
@@ -117,7 +117,7 @@ class CoachRepository {
     try {
       final response = await _supabase
           .from('coach_sessions')
-          .select('*, coaches(name, specialty, photo_url)')
+          .select('*, coaches(name, specialty, photo_url), branches(name)')
           .eq('is_active', true)
           .order('created_at', ascending: false);
       return _mapSessionList(response);
@@ -131,6 +131,9 @@ class CoachRepository {
 
     if (draft.coachId == null || draft.coachId!.isEmpty) {
       throw Exception('Coach is required.');
+    }
+    if (draft.branchId == null || draft.branchId!.isEmpty) {
+      throw Exception('Branch is required.');
     }
     if (draft.timeSlot.isEmpty) {
       throw Exception('Time slot is required.');
@@ -159,6 +162,7 @@ class CoachRepository {
       final firstDay = draft.sessions.first.day;
       final payload = {
         'coach_id': draft.coachId,
+        'branch_id': draft.branchId,
         'sessions_per_week': draft.sessionsPerWeek,
         'session_type': draft.sessions.map((s) => s.classType).join(', '),
         'session_date': _formatDateForDb(_getNextWeekdayDate(firstDay)),
@@ -245,6 +249,7 @@ class CoachRepository {
 
   Future<void> updateSession({
     required String sessionId,
+    String? branchId,
     String? timeSlot,
     double? pricePerSession,
     int? sessionsPerWeek,
@@ -254,6 +259,7 @@ class CoachRepository {
     await _requireAdmin();
     try {
       await _supabase.from('coach_sessions').update({
+        if (branchId != null) 'branch_id': branchId,
         if (timeSlot != null) 'time_slots': [timeSlot],
         if (pricePerSession != null) 'price_per_session': pricePerSession,
         if (sessionsPerWeek != null) 'sessions_per_week': sessionsPerWeek,
@@ -342,6 +348,24 @@ class CoachRepository {
           .toSet();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'load coach subscribers'));
+    }
+  }
+
+  Future<Set<String>> getUserIdsForBranch(String branchId) async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase
+          .from('user_attendance_history')
+          .select('user_id')
+          .eq('branch_id', branchId);
+
+      return (response as List)
+          .map((row) => (row as Map)['user_id'] as String?)
+          .whereType<String>()
+          .toSet();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load branch subscribers'));
     }
   }
 

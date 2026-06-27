@@ -3,6 +3,8 @@ class CoachUserStats {
   final String coachName;
   final String? coachPhoto;
   final String coachSpecialty;
+  final String? branchId;
+  final String? branchName;
   final int totalSubscribers;
   final int activeSubscribers;
   final int expiredSubscribers;
@@ -12,6 +14,8 @@ class CoachUserStats {
     required this.coachName,
     this.coachPhoto,
     required this.coachSpecialty,
+    this.branchId,
+    this.branchName,
     required this.totalSubscribers,
     required this.activeSubscribers,
     required this.expiredSubscribers,
@@ -23,6 +27,8 @@ class CoachUserStats {
       coachName: json['coach_name'] as String? ?? 'Coach',
       coachPhoto: json['coach_photo'] as String?,
       coachSpecialty: json['coach_specialty'] as String? ?? 'MMA',
+      branchId: json['branch_id'] as String?,
+      branchName: json['branch_name'] as String?,
       totalSubscribers: (json['total_subscribers'] as num?)?.toInt() ?? 0,
       activeSubscribers: (json['active_subscribers'] as num?)?.toInt() ?? 0,
       expiredSubscribers: (json['expired_subscribers'] as num?)?.toInt() ?? 0,

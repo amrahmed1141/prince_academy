@@ -4,6 +4,8 @@ class UserBookingDetail {
   final String coachName;
   final String? coachPhoto;
   final String coachSpecialty;
+  final String? branchId;
+  final String? branchName;
   final List<String> selectedDays;
   final String selectedTime;
   final DateTime? subscriptionStart;
@@ -20,6 +22,8 @@ class UserBookingDetail {
     required this.coachName,
     this.coachPhoto,
     required this.coachSpecialty,
+    this.branchId,
+    this.branchName,
     required this.selectedDays,
     required this.selectedTime,
     this.subscriptionStart,
@@ -40,6 +44,8 @@ class UserBookingDetail {
       coachName: json['coach_name'] as String? ?? 'Coach',
       coachPhoto: json['coach_photo'] as String?,
       coachSpecialty: json['coach_specialty'] as String? ?? '',
+      branchId: json['branch_id'] as String?,
+      branchName: json['branch_name'] as String?,
       selectedDays: (json['selected_days'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??

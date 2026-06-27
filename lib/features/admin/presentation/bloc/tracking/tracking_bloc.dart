@@ -1,18 +1,25 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
+import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_event.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_state.dart';
 
 class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   final CoachRepository repository;
+  final BranchRepository branchRepository;
 
   Set<String> _coachUserIds = {};
+  Set<String> _branchUserIds = {};
 
-  TrackingBloc({required this.repository}) : super(const TrackingInitial()) {
+  TrackingBloc({
+    required this.repository,
+    required this.branchRepository,
+  }) : super(const TrackingInitial()) {
     on<LoadTrackingData>(_onLoadTrackingData);
     on<SearchUsers>(_onSearchUsers);
     on<FilterByCoach>(_onFilterByCoach);
+    on<FilterByBranch>(_onFilterByBranch);
     on<LoadUserDetail>(_onLoadUserDetail);
     on<LoadWeeklyAttendance>(_onLoadWeeklyAttendance);
   }
@@ -26,10 +33,12 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     try {
       final coaches = await repository.getCoachUserStats();
       final users = await repository.getActiveUsersWithQr();
+      final branches = await branchRepository.getAllBranches();
 
       emit(
         TrackingLoaded(
           coaches: coaches,
+          branches: branches,
           users: users,
           filteredUsers: users,
         ),
@@ -50,10 +59,14 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
     try {
       final users = event.query.trim().isEmpty
-          ? await _usersForCoach(currentState.selectedCoachId)
-          : await _searchUsersForCoach(
+          ? await _usersForFilters(
+              currentState.selectedCoachId,
+              currentState.selectedBranchId,
+            )
+          : await _searchUsersForFilters(
               event.query,
               currentState.selectedCoachId,
+              currentState.selectedBranchId,
             );
 
       emit(
@@ -79,7 +92,10 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     emit(currentState.copyWith(isFiltering: true));
 
     try {
-      final filteredUsers = await _usersForCoach(event.coachId);
+      final filteredUsers = await _usersForFilters(
+        event.coachId,
+        currentState.selectedBranchId,
+      );
       final searched = _applyLocalSearch(
         filteredUsers,
         currentState.searchQuery,
@@ -98,6 +114,38 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     }
   }
 
+  Future<void> _onFilterByBranch(
+    FilterByBranch event,
+    Emitter<TrackingState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! TrackingLoaded) return;
+
+    emit(currentState.copyWith(isFiltering: true));
+
+    try {
+      final filteredUsers = await _usersForFilters(
+        currentState.selectedCoachId,
+        event.branchId,
+      );
+      final searched = _applyLocalSearch(
+        filteredUsers,
+        currentState.searchQuery,
+      );
+
+      emit(
+        currentState.copyWith(
+          filteredUsers: searched,
+          selectedBranchId: event.branchId,
+          clearBranchFilter: event.branchId == null,
+          isFiltering: false,
+        ),
+      );
+    } catch (e) {
+      emit(currentState.copyWith(isFiltering: false));
+    }
+  }
+
   Future<void> _onLoadUserDetail(
     LoadUserDetail event,
     Emitter<TrackingState> emit,
@@ -108,9 +156,11 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     emit(
       UserDetailLoading(
         coaches: currentState.coaches,
+        branches: currentState.branches,
         users: currentState.users,
         filteredUsers: currentState.filteredUsers,
         selectedCoachId: currentState.selectedCoachId,
+        selectedBranchId: currentState.selectedBranchId,
         searchQuery: currentState.searchQuery,
         isSearching: currentState.isSearching,
         isFiltering: currentState.isFiltering,
@@ -128,11 +178,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       final detailState = UserDetailLoaded(
         userId: event.userId,
         coaches: currentState.coaches,
+        branches: currentState.branches,
         users: currentState.users,
         filteredUsers: currentState.filteredUsers,
         activeBookings: activeBookings,
         expiredBookings: expiredBookings,
         selectedCoachId: currentState.selectedCoachId,
+        selectedBranchId: currentState.selectedBranchId,
         searchQuery: currentState.searchQuery,
         isSearching: currentState.isSearching,
         isFiltering: currentState.isFiltering,
@@ -184,34 +236,55 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     }
   }
 
-  Future<List<ActiveUser>> _usersForCoach(String? coachId) async {
-    final allUsers = await repository.getActiveUsersWithQr();
+  Future<List<ActiveUser>> _usersForFilters(
+    String? coachId,
+    String? branchId,
+  ) async {
+    var users = await repository.getActiveUsersWithQr();
 
-    if (coachId == null) {
+    if (coachId != null) {
+      _coachUserIds = await repository.getUserIdsForCoach(coachId);
+      users = users.where((user) => _coachUserIds.contains(user.userId)).toList();
+    } else {
       _coachUserIds = {};
-      return allUsers;
     }
 
-    _coachUserIds = await repository.getUserIdsForCoach(coachId);
-    return allUsers
-        .where((user) => _coachUserIds.contains(user.userId))
-        .toList();
+    if (branchId != null) {
+      _branchUserIds = await repository.getUserIdsForBranch(branchId);
+      users = users.where((user) => _branchUserIds.contains(user.userId)).toList();
+    } else {
+      _branchUserIds = {};
+    }
+
+    return users;
   }
 
-  Future<List<ActiveUser>> _searchUsersForCoach(
+  Future<List<ActiveUser>> _searchUsersForFilters(
     String query,
     String? coachId,
+    String? branchId,
   ) async {
-    final results = await repository.searchActiveUsers(query);
-    if (coachId == null) return results;
+    var results = await repository.searchActiveUsers(query);
 
-    if (_coachUserIds.isEmpty) {
-      _coachUserIds = await repository.getUserIdsForCoach(coachId);
+    if (coachId != null) {
+      if (_coachUserIds.isEmpty) {
+        _coachUserIds = await repository.getUserIdsForCoach(coachId);
+      }
+      results = results
+          .where((user) => _coachUserIds.contains(user.userId))
+          .toList();
     }
 
-    return results
-        .where((user) => _coachUserIds.contains(user.userId))
-        .toList();
+    if (branchId != null) {
+      if (_branchUserIds.isEmpty) {
+        _branchUserIds = await repository.getUserIdsForBranch(branchId);
+      }
+      results = results
+          .where((user) => _branchUserIds.contains(user.userId))
+          .toList();
+    }
+
+    return results;
   }
 
   List<ActiveUser> _applyLocalSearch(

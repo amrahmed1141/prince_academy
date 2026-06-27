@@ -43,7 +43,7 @@ class CoachOverviewSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 132,
+          height: 190,
           child: ListView(
             scrollDirection: Axis.horizontal,
             children: [
@@ -80,7 +80,7 @@ class _AllCoachChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 72,
+        width: 90,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: isSelected
@@ -91,23 +91,47 @@ class _AllCoachChip extends StatelessWidget {
             color: isSelected
                 ? EColorConstants.primaryColor
                 : EColorConstants.authFieldBorder,
+            width: isSelected ? 1.5 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Iconsax.people,
-              size: 22,
-              color: EColorConstants.primaryColor,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: EColorConstants.primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Iconsax.people,
+                size: 24,
+                color: EColorConstants.primaryColor,
+              ),
             ),
-            SizedBox(height: 6),
-            Text(
+            const SizedBox(height: 10),
+            const Text(
               'All',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: EColorConstants.authTextDarkBrown,
+                fontFamily: 'Poppins',
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Coaches',
+              style: TextStyle(
+                fontSize: 10,
+                color: EColorConstants.authPlaceholderGray,
                 fontFamily: 'Poppins',
               ),
             ),

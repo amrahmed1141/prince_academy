@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart';
 import 'package:prince_academy/features/auth/data/repositories/auth_repo_impl.dart';
+import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/session_detail_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_bloc.dart';
@@ -19,6 +20,7 @@ final sl = GetIt.I;
 Future<void> setupDI() async {
   sl.registerLazySingleton<SupabaseClient>(() => Supabase.instance.client);
 
+  sl.registerLazySingleton<BranchRepository>(() => BranchRepository(sl()));
   sl.registerLazySingleton<CoachRepository>(() => CoachRepository(sl()));
   sl.registerLazySingleton<HomeCoachRepository>(() => HomeCoachRepository(sl()));
 
@@ -33,6 +35,9 @@ Future<void> setupDI() async {
   sl.registerFactory<AuthBloc>(() => AuthBloc(sl()));
   sl.registerFactory<BookingBloc>(() => BookingBloc(sl()));
   sl.registerFactory<BookingHistoryBloc>(() => BookingHistoryBloc(sl()));
-  sl.registerFactory<TrackingBloc>(() => TrackingBloc(repository: sl()));
+  sl.registerFactory<TrackingBloc>(() => TrackingBloc(
+        repository: sl(),
+        branchRepository: sl(),
+      ));
   sl.registerFactory<SessionDetailBloc>(() => SessionDetailBloc(repository: sl()));
 }

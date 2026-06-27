@@ -2,12 +2,16 @@ import 'package:prince_academy/features/home/data/models/coach_session_model.dar
 
 class CoachWithSessions {
   final String coachId;
+  final String? branchId;
+  final String? branchName;
   final String name;
   final String? photoUrl;
   final List<CoachSessionModel> schedules;
 
   const CoachWithSessions({
     required this.coachId,
+    this.branchId,
+    this.branchName,
     required this.name,
     this.photoUrl,
     required this.schedules,
@@ -15,22 +19,30 @@ class CoachWithSessions {
 
   bool get hasMultipleSchedules => schedules.length > 1;
 
+  String get groupKey => '${coachId}_${branchId ?? 'none'}';
+
   static List<CoachWithSessions> group(List<CoachSessionModel> rows) {
     final grouped = <String, CoachWithSessions>{};
 
     for (final row in rows) {
-      if (!grouped.containsKey(row.coachId)) {
-        grouped[row.coachId] = CoachWithSessions(
+      final key = '${row.coachId}_${row.branchId ?? 'none'}';
+
+      if (!grouped.containsKey(key)) {
+        grouped[key] = CoachWithSessions(
           coachId: row.coachId,
+          branchId: row.branchId,
+          branchName: row.branchName,
           name: row.coachName ?? 'Unknown Coach',
           photoUrl: row.coachPhotoUrl,
           schedules: [],
         );
       }
 
-      final existing = grouped[row.coachId]!;
-      grouped[row.coachId] = CoachWithSessions(
+      final existing = grouped[key]!;
+      grouped[key] = CoachWithSessions(
         coachId: existing.coachId,
+        branchId: existing.branchId ?? row.branchId,
+        branchName: existing.branchName ?? row.branchName,
         name: existing.name,
         photoUrl: existing.photoUrl ?? row.coachPhotoUrl,
         schedules: [...existing.schedules, row],

@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/class_type_colors.dart';
 import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_form_styles.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/coach_name_with_verify.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/delete_confirmation_sheet.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
 const _weekShortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const _weekFullNames = {
+  'Sun': 'SUNDAY',
+  'Mon': 'MONDAY',
+  'Tue': 'TUESDAY',
+  'Wed': 'WEDNESDAY',
+  'Thu': 'THURSDAY',
+  'Fri': 'FRIDAY',
+  'Sat': 'SATURDAY',
+};
 
 class _DaySlot {
   final String classType;
@@ -38,30 +47,25 @@ class GroupedCoachSessionCard extends StatelessWidget {
     final coachName = coachWithSessions.name;
     final schedules = coachWithSessions.schedules;
     final daySchedule = _mergeDaySchedule(schedules);
-    final activeDays = _weekShortDays
-        .where((day) => daySchedule[day] != null)
-        .toList();
+    final activeDays =
+        _weekShortDays.where((day) => daySchedule[day] != null).toList();
     final maxPrice = _maxPrice(schedules);
-    final totalSessionsPerWeek = _totalSessionsPerWeek(schedules);
-    final pricesVary = _pricesVary(schedules);
-    final priceLabel = maxPrice > 0
-        ? '${maxPrice.toStringAsFixed(0)} EGP'
-        : 'Price not set';
-    final frequencyLabel =
-        totalSessionsPerWeek > 0 ? '${totalSessionsPerWeek}x / week' : '— / week';
+    final priceLabel =
+        maxPrice > 0 ? '${maxPrice.toStringAsFixed(0)} EGP' : 'Price not set';
 
     final firstSession = schedules.isNotEmpty ? schedules.first : null;
+    final branchName = coachWithSessions.branchName ?? firstSession?.branchName;
 
     return Dismissible(
-      key: ValueKey('session_${coachWithSessions.coachId}'),
+      key: ValueKey('session_${coachWithSessions.groupKey}'),
       direction: DismissDirection.horizontal,
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.endToStart) {
-          // LEFT swipe → DELETE
           final confirmed = await DeleteConfirmationSheet.show(
             context: context,
             title: 'Delete Session?',
-            subtitle: "This will remove $coachName's training schedule permanently.",
+            subtitle:
+                "This will remove $coachName's training schedule permanently.",
           );
           if (confirmed) {
             onDelete();
@@ -69,211 +73,306 @@ class GroupedCoachSessionCard extends StatelessWidget {
           }
           return false;
         } else {
-          // RIGHT swipe → EDIT
-          if (firstSession != null) {
-            onEdit?.call(firstSession);
-          }
-          return false; // Don't dismiss, just navigate
+          if (firstSession != null) onEdit?.call(firstSession);
+          return false;
         }
       },
-      background: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+      background: _swipeBackground(
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 24),
-        decoration: BoxDecoration(
-          color: EColorConstants.primaryColor,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(Icons.edit_outlined, color: Colors.white, size: 28),
-            SizedBox(height: 4),
-            Text(
-              'Edit',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ],
-        ),
+        color: EColorConstants.primaryColor,
+        icon: Icons.edit_outlined,
+        label: 'Edit',
       ),
-      secondaryBackground: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+      secondaryBackground: _swipeBackground(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.red.shade300, Colors.red.shade600],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 26),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Delete',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ],
-        ),
+        color: Colors.red.shade500,
+        icon: Icons.delete_outline_rounded,
+        label: 'Delete',
+        gradient: true,
       ),
       child: GestureDetector(
         onTap: () {
-          if (firstSession != null) {
-            onEdit?.call(firstSession);
-          }
+          if (firstSession != null) onEdit?.call(firstSession);
         },
         child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: EColorConstants.primaryColor.withOpacity(0.15),
-            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade200),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  CoachAvatar(
-                    name: coachName,
-                    photoUrl: coachWithSessions.photoUrl,
-                    radius: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: CoachNameWithVerify(name: coachName),
-                  ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(
-                      Iconsax.more,
-                      size: 18,
-                      color: EColorConstants.authPlaceholderGray,
-                    ),
-                    onSelected: (value) async {
-                      if (value == 'edit') {
-                        if (firstSession != null) {
-                          onEdit?.call(firstSession);
-                        }
-                      } else if (value == 'delete') {
-                        final confirmed = await DeleteConfirmationSheet.show(
-                          context: context,
-                          title: 'Delete Session?',
-                          subtitle: "This will remove $coachName's training schedule permanently.",
-                        );
-                        if (confirmed) onDelete();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_outlined, size: 18, color: EColorConstants.primaryColor),
-                            SizedBox(width: 8),
-                            Text('Edit Session', style: TextStyle(fontFamily: 'Poppins')),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                            const SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.red, fontFamily: 'Poppins')),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  _InfoPill(
-                    icon: Iconsax.money,
-                    iconColor: const Color(0xFFFFC107),
-                    iconBgColor: Colors.white,
-                    label: priceLabel,
-                    labelColor: maxPrice > 0
-                        ? EColorConstants.authTextDarkBrown
-                        : EColorConstants.authPlaceholderGray,
-                  ),
-                  const SizedBox(width: 12),
-                  _InfoPill(
-                    icon: Icons.calendar_today_rounded,
-                    iconColor: const Color(0xFF2196F3),
-                    iconBgColor: Colors.white,
-                    label: frequencyLabel,
-                  ),
-                ],
-              ),
-              if (pricesVary) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'Prices vary by session type',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: EColorConstants.authPlaceholderGray,
-                        fontSize: 10,
-                        fontFamily: 'Poppins',
-                      ),
-                ),
-              ],
-              if (activeDays.isNotEmpty) ...[
-                const SizedBox(height: 10),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (int i = 0; i < activeDays.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 8),
-                      Expanded(
-                        child: _DayColumn(
-                          day: activeDays[i],
-                          classType: daySchedule[activeDays[i]]!.classType,
-                          time: daySchedule[activeDays[i]]!.time,
-                        ),
+                    _CoachAvatarWithBadge(
+                      name: coachName,
+                      photoUrl: coachWithSessions.photoUrl,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            coachName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1A2744),
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.location_on_outlined,
+                                size: 14,
+                                color: Colors.brown.shade300,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  branchName ?? 'No branch assigned',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.brown.shade300,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ],
                 ),
+                if (activeDays.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Divider(height: 1, color: Colors.brown.shade100),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      for (int i = 0; i < activeDays.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 10),
+                        Expanded(
+                          child: _DayColumn(
+                            day: activeDays[i],
+                            classType: daySchedule[activeDays[i]]!.classType,
+                            time: daySchedule[activeDays[i]]!.time,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Divider(height: 1, color: Colors.brown.shade100),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Price',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: EColorConstants.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          priceLabel,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: EColorConstants.primaryColor,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _swipeBackground({
+    required Alignment alignment,
+    required Color color,
+    required IconData icon,
+    required String label,
+    bool gradient = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      alignment: alignment,
+      padding: EdgeInsets.only(
+        left: alignment == Alignment.centerLeft ? 24 : 0,
+        right: alignment == Alignment.centerRight ? 24 : 0,
+      ),
+      decoration: BoxDecoration(
+        color: gradient ? null : color,
+        gradient: gradient
+            ? LinearGradient(
+                colors: [Colors.red.shade300, Colors.red.shade600],
+              )
+            : null,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white, size: 26),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoachAvatarWithBadge extends StatelessWidget {
+  const _CoachAvatarWithBadge({
+    required this.name,
+    this.photoUrl,
+  });
+
+  final String name;
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CoachAvatar(
+            name: name,
+            photoUrl: photoUrl,
+            radius: 29,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        Positioned(
+          right: -3,
+          bottom: -3,
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: EColorConstants.primaryColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: const Icon(Icons.check, size: 11, color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.label,
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color iconColor;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: AdminFormStyles.statChipFill,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.9,
+              color: Colors.grey.shade600,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 14, color: iconColor),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: EColorConstants.authTextDarkBrown,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -352,7 +451,7 @@ String _toShortDay(String fullDay) {
 double _maxPrice(List<CoachSessionModel> schedules) {
   if (schedules.isEmpty) return 0;
   return schedules
-      .map((schedule) => schedule.pricePerSession)
+      .map((session) => session.pricePerSession)
       .fold<double>(0, (max, price) => price > max ? price : max);
 }
 
@@ -360,69 +459,8 @@ int _totalSessionsPerWeek(List<CoachSessionModel> schedules) {
   if (schedules.isEmpty) return 0;
   return schedules.fold<int>(
     0,
-    (sum, schedule) => sum + schedule.sessionsPerWeek,
+    (sum, session) => sum + session.sessionsPerWeek,
   );
-}
-
-bool _pricesVary(List<CoachSessionModel> schedules) {
-  if (schedules.length <= 1) return false;
-  final prices = schedules.map((s) => s.pricePerSession).toSet();
-  return prices.length > 1;
-}
-
-class _InfoPill extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBgColor;
-  final String label;
-  final Color? labelColor;
-
-  const _InfoPill({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBgColor,
-    required this.label,
-    this.labelColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: EColorConstants.primaryColor.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: iconBgColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 2,
-                ),
-              ],
-            ),
-            child: Icon(icon, size: 14, color: iconColor),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: labelColor ?? EColorConstants.authTextDarkBrown,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'Poppins',
-                ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _DayColumn extends StatelessWidget {
@@ -438,56 +476,60 @@ class _DayColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dayLabel = _weekFullNames[day] ?? day.toUpperCase();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          day,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: EColorConstants.authPlaceholderGray,
-                fontFamily: 'Poppins',
-              ),
+          dayLabel,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+            color: Colors.grey.shade600,
+            fontFamily: 'Poppins',
+          ),
         ),
-        const SizedBox(height: 4),
-        Container(
-          height: 1.5,
-          width: 24,
-          color: EColorConstants.primaryColor.withOpacity(0.15),
-        ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           decoration: BoxDecoration(
             color: ClassTypeColors.background(classType),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Text(
-            classType,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                classType,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
                   color: ClassTypeColors.foreground(classType),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
                   fontFamily: 'Poppins',
                 ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          time,
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: EColorConstants.authPlaceholderGray,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
               ),
+              const SizedBox(height: 3),
+              Text(
+                time,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color:
+                      ClassTypeColors.foreground(classType).withOpacity(0.85),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 9,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -508,11 +550,7 @@ class SessionCoachDropdownTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        CoachAvatar(
-          name: name,
-          photoUrl: photoUrl,
-          radius: 16,
-        ),
+        CoachAvatar(name: name, photoUrl: photoUrl, radius: 16),
         const SizedBox(width: 10),
         Expanded(
           child: Text(

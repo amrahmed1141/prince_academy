@@ -151,6 +151,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
       final booking = BookingModel(
         coachId: current.session.coachId,
         sessionId: current.session.id,
+        branchId: current.session.branchId,
         coachName: current.coachName,
         coachImage: current.coachImage,
         sessionType: current.session.sessionType,

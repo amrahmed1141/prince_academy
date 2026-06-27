@@ -16,7 +16,7 @@ class AdminTabSelector extends StatelessWidget {
 
   static const List<IconData> _defaultIcons = [
     Iconsax.profile_add,
-    Iconsax.calendar,
+    Iconsax.calendar_1,
   ];
 
   @override
@@ -32,39 +32,32 @@ class AdminTabSelector extends StatelessWidget {
 
           return Expanded(
             child: Padding(
-              padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
+              padding: EdgeInsets.only(left: index == 0 ? 0 : 10),
               child: GestureDetector(
                 onTap: () => onChanged?.call(index),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
+                  duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? EColorConstants.primaryColor
-                        : EColorConstants.authCardWhite,
-                    borderRadius: BorderRadius.circular(16),
+                        : const Color(0xFFF3EDE4),
+                    borderRadius: BorderRadius.circular(22),
                     border: Border.all(
-                      color: isSelected
-                          ? EColorConstants.primaryColor
-                          : EColorConstants.authFieldBorder,
+                      color: EColorConstants.primaryColor,
+                      width: 1.4,
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color:
-                                  EColorConstants.primaryColor.withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
+                              color: EColorConstants.primaryColor
+                                  .withOpacity(0.22),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
                             ),
                           ]
-                        : [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                        : null,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -87,7 +80,7 @@ class AdminTabSelector extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: isSelected
                                 ? Colors.white
-                                : EColorConstants.authTextDarkBrown,
+                                : EColorConstants.primaryColor,
                             fontFamily: 'Poppins',
                           ),
                         ),

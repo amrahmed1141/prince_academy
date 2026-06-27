@@ -112,6 +112,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
       specialty: booking.coachSpecialty.isNotEmpty
           ? booking.coachSpecialty
           : 'MMA',
+      branchName: booking.branchName,
       selectedDays: booking.selectedDays,
       selectedTime: booking.selectedTime,
       subscriptionStart: booking.subscriptionStart,
@@ -171,6 +172,8 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
             coachName: current.coachName,
             coachSpecialty: current.coachSpecialty,
             coachPhoto: current.coachPhoto,
+            branchId: current.branchId,
+            branchName: current.branchName,
             selectedDays: current.selectedDays,
             selectedTime: current.selectedTime,
             subscriptionStart: current.subscriptionStart,
@@ -223,6 +226,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
               ? booking.coachSpecialty
               : 'MMA',
           sessionTime: booking.selectedTime,
+          branchName: booking.branchName,
         ),
       ),
     );

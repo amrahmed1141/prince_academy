@@ -29,6 +29,15 @@ class FilterByCoach extends TrackingEvent {
   List<Object?> get props => [coachId];
 }
 
+class FilterByBranch extends TrackingEvent {
+  final String? branchId;
+
+  const FilterByBranch(this.branchId);
+
+  @override
+  List<Object?> get props => [branchId];
+}
+
 class LoadUserDetail extends TrackingEvent {
   final String userId;
 

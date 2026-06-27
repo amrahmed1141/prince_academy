@@ -5,6 +5,8 @@ class BookingHistoryModel {
   final String coachName;
   final String? coachPhoto;
   final String? coachSpecialty;
+  final String? branchId;
+  final String? branchName;
   final List<String> selectedDays;
   final String? selectedTime;
   final double totalPrice;
@@ -24,6 +26,8 @@ class BookingHistoryModel {
     required this.coachName,
     this.coachPhoto,
     this.coachSpecialty,
+    this.branchId,
+    this.branchName,
     this.selectedDays = const [],
     this.selectedTime,
     this.totalPrice = 0,
@@ -45,6 +49,8 @@ class BookingHistoryModel {
       coachName: json['coach_name'] as String? ?? 'Coach',
       coachPhoto: json['coach_photo'] as String?,
       coachSpecialty: json['coach_specialty'] as String?,
+      branchId: json['branch_id'] as String?,
+      branchName: json['branch_name'] as String?,
       selectedDays: _parseStringList(json['selected_days']),
       selectedTime: json['selected_time'] as String?,
       totalPrice: (json['total_price'] as num?)?.toDouble() ?? 0,
@@ -67,6 +73,8 @@ class BookingHistoryModel {
       'coach_name': coachName,
       'coach_photo': coachPhoto,
       'coach_specialty': coachSpecialty,
+      'branch_id': branchId,
+      'branch_name': branchName,
       'selected_days': selectedDays,
       'selected_time': selectedTime,
       'total_price': totalPrice,
@@ -88,6 +96,8 @@ class BookingHistoryModel {
     String? coachName,
     String? coachPhoto,
     String? coachSpecialty,
+    String? branchId,
+    String? branchName,
     List<String>? selectedDays,
     String? selectedTime,
     double? totalPrice,
@@ -107,6 +117,8 @@ class BookingHistoryModel {
       coachName: coachName ?? this.coachName,
       coachPhoto: coachPhoto ?? this.coachPhoto,
       coachSpecialty: coachSpecialty ?? this.coachSpecialty,
+      branchId: branchId ?? this.branchId,
+      branchName: branchName ?? this.branchName,
       selectedDays: selectedDays ?? this.selectedDays,
       selectedTime: selectedTime ?? this.selectedTime,
       totalPrice: totalPrice ?? this.totalPrice,

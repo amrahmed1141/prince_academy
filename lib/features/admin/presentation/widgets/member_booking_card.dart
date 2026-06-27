@@ -11,6 +11,7 @@ class MemberBookingCardData {
   final String coachName;
   final String? coachPhoto;
   final String specialty;
+  final String? branchName;
   final List<String> selectedDays;
   final String? selectedTime;
   final DateTime? subscriptionStart;
@@ -27,6 +28,7 @@ class MemberBookingCardData {
     required this.coachName,
     this.coachPhoto,
     required this.specialty,
+    this.branchName,
     this.selectedDays = const [],
     this.selectedTime,
     this.subscriptionStart,
@@ -149,6 +151,31 @@ class MemberBookingCard extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 14),
             child: Divider(height: 1),
           ),
+          if (data.branchName != null && data.branchName!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  const Icon(
+                    Iconsax.location,
+                    size: 14,
+                    color: EColorConstants.authPlaceholderGray,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      data.branchName!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: EColorConstants.authTextDarkBrown,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (!isExpired && data.subscriptionStart != null) ...[
             _InfoRow(
               icon: Iconsax.calendar_1,
