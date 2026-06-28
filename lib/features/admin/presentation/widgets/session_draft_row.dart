@@ -100,12 +100,7 @@ class SessionDraftRow extends StatelessWidget {
                 ),
               ),
             ),
-            const Spacer(),
-            Icon(
-              Icons.drag_indicator,
-              size: 22,
-              color: Colors.grey.shade400,
-            ),
+
           ],
         ),
         const SizedBox(height: 14),
