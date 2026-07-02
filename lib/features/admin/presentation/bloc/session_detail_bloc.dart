@@ -47,7 +47,12 @@ class SessionDetailBloc extends Bloc<SessionDetailEvent, SessionDetailState> {
     final current = state;
     if (current is! SessionDetailLoaded) return;
 
-    emit(current.copyWith(isReAttending: true, clearReAttendMessage: true));
+    emit(
+      current.copyWith(
+        pendingReAttendDate: event.sessionDate,
+        clearReAttendMessage: true,
+      ),
+    );
 
     try {
       final success = await repository.reAttendSession(
@@ -58,7 +63,7 @@ class SessionDetailBloc extends Bloc<SessionDetailEvent, SessionDetailState> {
       if (!success) {
         emit(
           current.copyWith(
-            isReAttending: false,
+            clearPendingReAttend: true,
             reAttendMessage: 'already_marked',
           ),
         );
@@ -73,8 +78,9 @@ class SessionDetailBloc extends Bloc<SessionDetailEvent, SessionDetailState> {
     } catch (e) {
       emit(
         current.copyWith(
-          isReAttending: false,
-          reAttendMessage: 'error:${e.toString().replaceFirst('Exception: ', '')}',
+          clearPendingReAttend: true,
+          reAttendMessage:
+              'error:${e.toString().replaceFirst('Exception: ', '')}',
         ),
       );
     }
@@ -87,7 +93,12 @@ class SessionDetailBloc extends Bloc<SessionDetailEvent, SessionDetailState> {
     final current = state;
     if (current is! SessionDetailLoaded) return;
 
-    emit(current.copyWith(isUnmarking: true, clearReAttendMessage: true));
+    emit(
+      current.copyWith(
+        pendingUnmarkDate: event.sessionDate,
+        clearReAttendMessage: true,
+      ),
+    );
 
     try {
       final success = await repository.unmarkSession(
@@ -98,7 +109,7 @@ class SessionDetailBloc extends Bloc<SessionDetailEvent, SessionDetailState> {
       if (!success) {
         emit(
           current.copyWith(
-            isUnmarking: false,
+            clearPendingUnmark: true,
             reAttendMessage: 'not_marked',
           ),
         );
@@ -113,8 +124,9 @@ class SessionDetailBloc extends Bloc<SessionDetailEvent, SessionDetailState> {
     } catch (e) {
       emit(
         current.copyWith(
-          isUnmarking: false,
-          reAttendMessage: 'error:${e.toString().replaceFirst('Exception: ', '')}',
+          clearPendingUnmark: true,
+          reAttendMessage:
+              'error:${e.toString().replaceFirst('Exception: ', '')}',
         ),
       );
     }

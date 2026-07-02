@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
@@ -66,8 +67,14 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final dark = EHelperFunction.isDarkMode(context);
 
-    return Scaffold(
+    return Container(
+      decoration: dark ? null : AppGradients.screenDecoration(),
+      color: dark ? Colors.black : null,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
           appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
             title: const Text('Profile'),
             actions: [
               IconButton(
@@ -78,7 +85,6 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ],
           ),
-          backgroundColor: dark ? Colors.black : const Color(0xFFF7F7F7),
           body: ListenableBuilder(
             listenable: _qrService,
             builder: (context, _) {
@@ -266,7 +272,8 @@ class _ProfilePageState extends State<ProfilePage> {
               );
             },
           ),
-        );
+        ),
+    );
   }
 }
 

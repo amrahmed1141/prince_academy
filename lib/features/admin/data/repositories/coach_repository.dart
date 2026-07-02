@@ -1,5 +1,8 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:prince_academy/core/base/stream_repository.dart';
+import 'package:prince_academy/core/cache/ttl_cache.dart';
+import 'package:prince_academy/core/helpers/image_resize_helper.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
@@ -13,16 +16,32 @@ import 'package:prince_academy/features/admin/data/models/user_qr_profile_model.
 import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
-class CoachRepository {
+class CoachRepository extends StreamRepository<List<CoachModel>> {
+  CoachRepository(this._supabase) : super();
+
   final SupabaseClient _supabase;
 
-  CoachRepository(this._supabase);
+  static const _coachListColumns =
+      'id, name, specialty, photo_url, is_active, branch_id, created_at, updated_at, branches(name)';
 
-  Future<List<CoachModel>> fetchCoaches() async {
+  static const _activeUserColumns =
+      'user_id, full_name, phone, qr_code, total_bookings, active_bookings, expired_bookings, latest_subscription_end';
+
+  static const int defaultPageSize = 50;
+
+  final TtlCache<List<ActiveUser>> _activeUsersCache = TtlCache();
+
+  void invalidateCaches() {
+    invalidateStreamCache();
+    _activeUsersCache.invalidate();
+  }
+
+  @override
+  Future<List<CoachModel>> fetchFromApi() async {
     try {
       final response = await _supabase
           .from('coaches')
-          .select('*, branches(name)')
+          .select(_coachListColumns)
           .order('created_at', ascending: false);
       return (response as List)
           .map((e) => CoachModel.fromMap(Map<String, dynamic>.from(e as Map)))
@@ -32,17 +51,30 @@ class CoachRepository {
     }
   }
 
+  Future<List<CoachModel>> fetchCoaches({bool force = false}) async {
+    if (!force && hasValidCache && cachedValue != null) {
+      return cachedValue!;
+    }
+    return refresh();
+  }
+
   Future<String> uploadCoachPhoto(File file, String fileName) async {
+    final resized = await ImageResizeHelper.resizeCoachPhoto(file);
+    final uploadFile = resized;
+    final uploadName = uploadFile.path.toLowerCase().endsWith('.jpg')
+        ? fileName.replaceAll(RegExp(r'\.[^.]+$'), '.jpg')
+        : fileName;
+
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final cleanFileName = fileName.replaceAll(RegExp(r'\s+'), '_');
+    final cleanFileName = uploadName.replaceAll(RegExp(r'\s+'), '_');
     final path = 'coaches/${timestamp}_$cleanFileName';
 
     await _supabase.storage.from('coach-photos').upload(
           path,
-          file,
+          uploadFile,
           fileOptions: FileOptions(
             upsert: true,
-            contentType: _mimeTypeForFile(fileName),
+            contentType: _mimeTypeForFile(uploadName),
           ),
         );
     return _supabase.storage.from('coach-photos').getPublicUrl(path);
@@ -277,7 +309,12 @@ class CoachRepository {
     await _requireAdmin();
 
     try {
-      final response = await _supabase.from('coach_user_stats').select();
+      final response = await _supabase
+          .from('coach_user_stats')
+          .select(
+            'coach_id, coach_name, coach_photo, coach_specialty, branch_id, '
+            'branch_name, total_subscribers, active_subscribers, expired_subscribers',
+          );
 
       return (response as List)
           .map(
@@ -291,19 +328,43 @@ class CoachRepository {
     }
   }
 
-  Future<List<ActiveUser>> getActiveUsersWithQr() async {
+  Future<List<ActiveUser>> getActiveUsersWithQr({
+    bool force = false,
+    int? limit,
+    int offset = 0,
+  }) async {
     await _requireAdmin();
 
-    try {
-      final response = await _supabase.from('active_users_with_qr').select();
+    if (!force && offset == 0 && (limit == null || limit >= defaultPageSize)) {
+      final cached = _activeUsersCache.value;
+      if (cached != null) return cached;
+    }
 
-      return (response as List)
+    try {
+      var query = _supabase
+          .from('active_users_with_qr')
+          .select(_activeUserColumns)
+          .order('full_name');
+
+      if (limit != null) {
+        query = query.range(offset, offset + limit - 1);
+      }
+
+      final response = await query;
+
+      final users = (response as List)
           .map(
             (json) => ActiveUser.fromJson(
               Map<String, dynamic>.from(json as Map),
             ),
           )
           .toList();
+
+      if (!force && offset == 0 && (limit == null || limit >= defaultPageSize)) {
+        _activeUsersCache.set(users);
+      }
+
+      return users;
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'load active users'));
     }
@@ -315,11 +376,13 @@ class CoachRepository {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return getActiveUsersWithQr();
 
+    final escaped = trimmed.replaceAll(RegExp(r'[%_,]'), '');
+
     try {
       final response = await _supabase
           .from('active_users_with_qr')
-          .select()
-          .or('full_name.ilike.%$trimmed%,phone.ilike.%$trimmed%');
+          .select(_activeUserColumns)
+          .or('full_name.ilike.%$escaped%,phone.ilike.%$escaped%');
 
       return (response as List)
           .map(
@@ -461,7 +524,10 @@ class CoachRepository {
         },
       );
 
-      if (response is bool) return response;
+      if (response is bool) {
+        if (response) invalidateCaches();
+        return response;
+      }
       return false;
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 're-attend session'));
@@ -487,7 +553,10 @@ class CoachRepository {
         },
       );
 
-      if (response is bool) return response;
+      if (response is bool) {
+        if (response) invalidateCaches();
+        return response;
+      }
       return false;
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'unmark session'));
@@ -573,6 +642,7 @@ class CoachRepository {
         'status': 'attended',
         'scanned_by': adminId,
       });
+      invalidateCaches();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'mark attendance'));
     }
@@ -645,6 +715,10 @@ class CoachRepository {
     }
     if (e.code == '42501') {
       return 'Permission denied. Check Row Level Security policies for coach_sessions.';
+    }
+    if (e.message.contains('updated_at') &&
+        e.message.contains('attendance')) {
+      return 'Database needs update. Run supabase/fix_re_attend_updated_at.sql in Supabase SQL Editor.';
     }
     return 'Failed to $action: ${e.message}';
   }

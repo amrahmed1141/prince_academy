@@ -26,11 +26,15 @@ class UserQrService extends ChangeNotifier {
     scheduleMicrotask(notifyListeners);
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool silent = false}) async {
     if (_refreshInFlight) return;
 
+    final showLoading = !silent && !hasQrCode;
     _refreshInFlight = true;
-    _isLoading = true;
+    if (showLoading) {
+      _isLoading = true;
+      _notifySafely();
+    }
 
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;

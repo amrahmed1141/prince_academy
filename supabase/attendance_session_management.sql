@@ -3,16 +3,42 @@
 -- Fixes: re_attend_session "updated_at does not exist" error
 -- Adds: unmark_session (undo wrong attendance mark)
 -- Updates: get_booking_sessions with can_unmark flag
+--
+-- Run the ENTIRE script in Supabase → SQL Editor → Run.
+-- Safe to re-run (idempotent). Re-run if Re-Attend breaks again.
 -- ═══════════════════════════════════════════════════════════════
+
+-- ───────────────────────────────────────────────────────────────
+-- 0. Schema — attendance must have updated_at (RPC / triggers use it)
+-- ───────────────────────────────────────────────────────────────
+ALTER TABLE public.attendance
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+
+ALTER TABLE public.attendance
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 -- Unique index so ON CONFLICT (booking_id, attended_on) works
 CREATE UNIQUE INDEX IF NOT EXISTS attendance_booking_date_unique
   ON public.attendance (booking_id, attended_on);
 
--- Drop old signatures before recreating (return type may change)
-DROP FUNCTION IF EXISTS public.get_booking_sessions(uuid);
-DROP FUNCTION IF EXISTS public.re_attend_session(uuid, date);
-DROP FUNCTION IF EXISTS public.unmark_session(uuid, date);
+-- Drop ALL overloads of these functions (stale versions cause the updated_at error)
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT oid::regprocedure AS func
+    FROM pg_proc
+    WHERE pronamespace = 'public'::regnamespace
+      AND proname IN (
+        'get_booking_sessions',
+        're_attend_session',
+        'unmark_session'
+      )
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.func;
+  END LOOP;
+END $$;
 
 -- ───────────────────────────────────────────────────────────────
 -- 1. get_booking_sessions — all session dates + status flags
@@ -138,7 +164,6 @@ GRANT EXECUTE ON FUNCTION public.get_booking_sessions(uuid) TO authenticated;
 
 -- ───────────────────────────────────────────────────────────────
 -- 2. re_attend_session — mark a missed/forgotten session attended
---    NO updated_at column used
 -- ───────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.re_attend_session(
   p_booking_id uuid,
@@ -207,7 +232,8 @@ BEGIN
   ON CONFLICT (booking_id, attended_on) DO UPDATE
   SET
     status = 'attended',
-    scanned_by = v_admin_id;
+    scanned_by = v_admin_id,
+    updated_at = now();
 
   RETURN true;
 END;

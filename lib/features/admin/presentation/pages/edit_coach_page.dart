@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/helpers/image_resize_helper.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
@@ -198,9 +199,9 @@ class _EditCoachPageState extends State<EditCoachPage> {
                             ),
                           )
                         : CoachAvatar(
-                            name: widget.coach.name,
+                            coachName: widget.coach.name,
                             photoUrl: widget.coach.photoUrl,
-                            radius: 50,
+                            size: 100,
                           ),
                   ),
                   GestureDetector(

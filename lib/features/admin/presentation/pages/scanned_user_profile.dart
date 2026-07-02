@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/features/admin/data/models/admin_scan_profile_model.dart';
@@ -248,11 +249,7 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
       backgroundColor: EColorConstants.authFieldBackground,
       body: SafeArea(
         child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: EColorConstants.primaryColor,
-                ),
-              )
+            ? const ScannedProfileShimmer()
             : _error != null
                 ? _buildErrorState()
                 : RefreshIndicator(

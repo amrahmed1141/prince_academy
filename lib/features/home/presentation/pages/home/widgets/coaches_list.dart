@@ -3,6 +3,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/home_coach_card.dart';
@@ -17,16 +18,18 @@ class CoachesList extends StatefulWidget {
 }
 
 class _CoachesListState extends State<CoachesList> {
-  List<CoachModel> _coaches = [];
+  List<CoachModel> _allCoaches = [];
+  List<CoachModel> _filteredCoaches = [];
   Map<String, String> _classTypesByCoachId = {};
-  bool _isLoading = true;
+  Map<String, int> _studentCountsByCoachId = {};
+  bool _isInitialLoading = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     widget.selectedCategoryNotifier.addListener(_onCategoryChanged);
-    _loadCoaches();
+    _loadCoaches(initial: true);
   }
 
   @override
@@ -35,7 +38,7 @@ class _CoachesListState extends State<CoachesList> {
     if (oldWidget.selectedCategoryNotifier != widget.selectedCategoryNotifier) {
       oldWidget.selectedCategoryNotifier.removeListener(_onCategoryChanged);
       widget.selectedCategoryNotifier.addListener(_onCategoryChanged);
-      _loadCoaches();
+      _applyCategoryFilter();
     }
   }
 
@@ -46,7 +49,7 @@ class _CoachesListState extends State<CoachesList> {
   }
 
   void _onCategoryChanged() {
-    _loadCoaches();
+    _applyCategoryFilter();
   }
 
   String? _mapCategoryToSpecialty(String? categoryName) {
@@ -66,58 +69,69 @@ class _CoachesListState extends State<CoachesList> {
     }
   }
 
-  Future<void> _loadCoaches() async {
+  Future<void> _loadCoaches({bool initial = false, bool force = false}) async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (initial) {
+      setState(() {
+        _isInitialLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final repository = sl<HomeCoachRepository>();
-      final specialty = _mapCategoryToSpecialty(widget.selectedCategoryNotifier.value);
-      
-      List<CoachModel> result;
-      if (specialty == null) {
-        result = await repository.getActiveCoaches();
-      } else {
-        result = await repository.getCoachesBySpecialty(specialty);
-      }
-
+      final allCoaches = await repository.getActiveCoaches(force: force);
+      final coachIds = allCoaches.map((c) => c.id).toList();
       final classTypes = await repository.getPrimaryClassTypesForCoaches(
-        result.map((c) => c.id).toList(),
+        coachIds,
+        force: force,
+      );
+      final studentCounts = await repository.getStudentCountsForCoaches(
+        coachIds,
+        force: force,
       );
 
-      if (mounted) {
-        setState(() {
-          _coaches = result;
-          _classTypesByCoachId = classTypes;
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _allCoaches = allCoaches;
+        _classTypesByCoachId = classTypes;
+        _studentCountsByCoachId = studentCounts;
+        _isInitialLoading = false;
+      });
+      _applyCategoryFilter();
     } catch (e) {
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
-          _isLoading = false;
+          _isInitialLoading = false;
         });
       }
     }
+  }
+
+  void _applyCategoryFilter() {
+    if (!mounted) return;
+    final specialty =
+        _mapCategoryToSpecialty(widget.selectedCategoryNotifier.value);
+
+    final filtered = specialty == null
+        ? _allCoaches
+        : _allCoaches
+            .where((c) => c.specialty.toLowerCase() == specialty.toLowerCase())
+            .toList();
+
+    setState(() => _filteredCoaches = filtered);
   }
 
   @override
   Widget build(BuildContext context) {
     final dark = EHelperFunction.isDarkMode(context);
 
-    if (_isLoading) {
+    if (_isInitialLoading) {
       return const SliverToBoxAdapter(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: CircularProgressIndicator(
-              color: EColorConstants.primaryColor,
-            ),
-          ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: CoachListShimmer(itemCount: 5),
         ),
       );
     }
@@ -147,11 +161,12 @@ class _CoachesListState extends State<CoachesList> {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
-                  onPressed: _loadCoaches,
+                  onPressed: () => _loadCoaches(force: true),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: EColorConstants.primaryColor,
                   ),
-                  child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                  child:
+                      const Text('Retry', style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),
@@ -160,7 +175,7 @@ class _CoachesListState extends State<CoachesList> {
       );
     }
 
-    if (_coaches.isEmpty) {
+    if (_filteredCoaches.isEmpty) {
       return SliverToBoxAdapter(
         child: Center(
           child: Padding(
@@ -192,14 +207,20 @@ class _CoachesListState extends State<CoachesList> {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
-          final coach = _coaches[index];
-          return HomeCoachCard(
-            coach: coach,
-            classType: _classTypesByCoachId[coach.id],
-            dark: dark,
+          final coach = _filteredCoaches[index];
+          return RepaintBoundary(
+            child: HomeCoachCard(
+              key: ValueKey(coach.id),
+              coach: coach,
+              classType: _classTypesByCoachId[coach.id],
+              studentCount: _studentCountsByCoachId[coach.id] ?? 0,
+              dark: dark,
+            ),
           );
         },
-        childCount: _coaches.length,
+        childCount: _filteredCoaches.length,
+        addAutomaticKeepAlives: true,
+        addRepaintBoundaries: false,
       ),
     );
   }

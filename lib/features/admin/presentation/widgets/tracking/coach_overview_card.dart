@@ -54,9 +54,9 @@ class CoachOverviewCard extends StatelessWidget {
                 ),
               ),
               child: CoachAvatar(
-                name: coach.coachName,
+                coachName: coach.coachName,
                 photoUrl: coach.coachPhoto,
-                radius: 30,
+                size: 60,
               ),
             ),
             const SizedBox(height: 8),

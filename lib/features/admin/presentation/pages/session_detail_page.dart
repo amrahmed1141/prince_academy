@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/session_detail_model.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/session_detail_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/session_detail_event.dart';
@@ -128,8 +129,18 @@ class _SessionDetailPageState extends State<SessionDetailPage>
 
   Widget _buildBody(BuildContext context, SessionDetailState state) {
     if (state is SessionDetailLoading || state is SessionDetailInitial) {
-      return const Center(
-        child: CircularProgressIndicator(color: EColorConstants.primaryColor),
+      return const Column(
+        children: [
+          StatsShimmer(),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CoachListShimmer(itemCount: 2),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -217,7 +228,7 @@ class _SessionDetailPageState extends State<SessionDetailPage>
                 branchName: widget.branchName,
                 type: _SessionListType.completed,
                 bookingId: widget.bookingId,
-                isUnmarking: state.isUnmarking,
+                pendingUnmarkDate: state.pendingUnmarkDate,
               ),
               _SessionList(
                 sessions: state.upcoming,
@@ -235,7 +246,7 @@ class _SessionDetailPageState extends State<SessionDetailPage>
                 branchName: widget.branchName,
                 type: _SessionListType.missed,
                 bookingId: widget.bookingId,
-                isReAttending: state.isReAttending,
+                pendingReAttendDate: state.pendingReAttendDate,
               ),
             ],
           ),
@@ -301,8 +312,8 @@ class _SessionList extends StatelessWidget {
   final String? branchName;
   final _SessionListType type;
   final String? bookingId;
-  final bool isReAttending;
-  final bool isUnmarking;
+  final DateTime? pendingReAttendDate;
+  final DateTime? pendingUnmarkDate;
 
   const _SessionList({
     required this.sessions,
@@ -312,9 +323,15 @@ class _SessionList extends StatelessWidget {
     this.branchName,
     required this.type,
     this.bookingId,
-    this.isReAttending = false,
-    this.isUnmarking = false,
+    this.pendingReAttendDate,
+    this.pendingUnmarkDate,
   });
+
+  static bool _isSameDay(DateTime a, DateTime b) {
+    final al = a.toLocal();
+    final bl = b.toLocal();
+    return al.year == bl.year && al.month == bl.month && al.day == bl.day;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -336,7 +353,13 @@ class _SessionList extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final session = sessions[index];
+        final isReAttending = pendingReAttendDate != null &&
+            _isSameDay(pendingReAttendDate!, session.sessionDate);
+        final isUnmarking = pendingUnmarkDate != null &&
+            _isSameDay(pendingUnmarkDate!, session.sessionDate);
+
         return _SessionTile(
+          key: ValueKey(session.sessionDate.toIso8601String()),
           session: session,
           coachName: coachName,
           sessionTime: session.sessionTime ?? sessionTime,
@@ -362,6 +385,7 @@ class _SessionTile extends StatelessWidget {
   final bool isUnmarking;
 
   const _SessionTile({
+    super.key,
     required this.session,
     required this.coachName,
     required this.sessionTime,

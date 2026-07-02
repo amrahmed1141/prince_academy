@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 
 class CoachHeaderCard extends StatelessWidget {
@@ -9,33 +10,10 @@ class CoachHeaderCard extends StatelessWidget {
   final MMABookingModel info;
 
   Widget _buildCoachImage(String path) {
-    if (path.isEmpty) {
-      return Container(
-        width: 70,
-        height: 70,
-        color: Colors.grey[300],
-        child: const Icon(Iconsax.user, color: Colors.grey, size: 24),
-      );
-    }
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      return Image.network(
-        path,
-        width: 70,
-        height: 70,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
-          width: 70,
-          height: 70,
-          color: Colors.grey[300],
-          child: const Icon(Iconsax.user, color: Colors.grey, size: 24),
-        ),
-      );
-    }
-    return Image.asset(
-      path,
-      width: 70,
-      height: 70,
-      fit: BoxFit.cover,
+    return CoachAvatar(
+      coachName: info.coachName,
+      photoUrl: path.isEmpty ? null : path,
+      size: 70,
     );
   }
 

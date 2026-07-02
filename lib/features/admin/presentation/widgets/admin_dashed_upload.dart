@@ -2,16 +2,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_form_styles.dart';
 
 class AdminDashedUpload extends StatelessWidget {
   final String? imagePath;
   final VoidCallback onTap;
+  final bool fullWidth;
 
   const AdminDashedUpload({
     super.key,
     this.imagePath,
     required this.onTap,
+    this.fullWidth = false,
   });
 
   @override
@@ -23,15 +25,15 @@ class AdminDashedUpload extends StatelessWidget {
       child: CustomPaint(
         painter: _DashedBorderPainter(
           color: EColorConstants.authFieldBorder,
-          radius: 14,
+          radius: fullWidth ? 16 : 14,
         ),
         child: Container(
-          width: 108,
-          height: 142,
+          width: fullWidth ? double.infinity : 108,
+          height: fullWidth ? 150 : 142,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            color: EColorConstants.authFieldBackground.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(fullWidth ? 16 : 14),
+            color: AdminFormStyles.sessionPanelFill,
             image: hasImage
                 ? DecorationImage(
                     image: _imageProvider(imagePath!),
@@ -43,14 +45,14 @@ class AdminDashedUpload extends StatelessWidget {
               ? Align(
                   alignment: Alignment.bottomRight,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(6),
                     decoration: const BoxDecoration(
                       color: EColorConstants.primaryColor,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Iconsax.edit_2,
-                      size: 12,
+                      size: 14,
                       color: Colors.white,
                     ),
                   ),
@@ -60,56 +62,52 @@ class AdminDashedUpload extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: EColorConstants.primaryColor.withOpacity(0.1),
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Iconsax.gallery_add,
-                        size: 20,
+                        Iconsax.gallery,
+                        size: 22,
                         color: EColorConstants.primaryColor,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     const Text(
                       'Upload Photo',
                       textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        height: 1.2,
-                        color: EColorConstants.authTextDarkBrown,
+                        color: EColorConstants.primaryColor,
                         fontFamily: 'Poppins',
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    const Text(
-                      'JPG • PNG • WEBP',
+                    const SizedBox(height: 4),
+                    Text(
+                      fullWidth
+                          ? 'JPG · PNG · RECOMMENDED 1:1'
+                          : 'JPG · PNG · WEBP',
                       textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 8,
-                        height: 1.2,
+                      style: const TextStyle(
+                        fontSize: 10,
                         color: EColorConstants.authPlaceholderGray,
                         fontFamily: 'Poppins',
                       ),
                     ),
-                    const Text(
-                      'Recommended 1:1',
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 8,
-                        height: 1.2,
-                        color: EColorConstants.authPlaceholderGray,
-                        fontFamily: 'Poppins',
+                    if (!fullWidth) ...[
+                      const Text(
+                        'Recommended 1:1',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 8,
+                          height: 1.2,
+                          color: EColorConstants.authPlaceholderGray,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
         ),
@@ -118,12 +116,11 @@ class AdminDashedUpload extends StatelessWidget {
   }
 
   ImageProvider _imageProvider(String path) {
-    final resolved = CoachPhotoHelper.resolve(path) ?? path;
-    if (resolved.startsWith('assets/')) return AssetImage(resolved);
-    if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
-      return NetworkImage(resolved);
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return NetworkImage(path);
     }
-    return FileImage(File(resolved));
+    if (path.startsWith('assets/')) return AssetImage(path);
+    return FileImage(File(path));
   }
 }
 

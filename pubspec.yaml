@@ -46,6 +46,9 @@ dependencies:
   # v5.x requires Dart >=3.3.0; v4.0.1 is the latest compatible with SDK 3.2.3
   mobile_scanner: ^4.0.1
   uuid: ^4.4.0
+  intl: ^0.19.0
+  image: ^4.8.0
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_lints: ^4.0.0

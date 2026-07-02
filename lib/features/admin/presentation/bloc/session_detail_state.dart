@@ -24,8 +24,8 @@ class SessionDetailLoaded extends SessionDetailState {
   final int totalSessions;
   final int completedCount;
   final int remainingCount;
-  final bool isReAttending;
-  final bool isUnmarking;
+  final DateTime? pendingReAttendDate;
+  final DateTime? pendingUnmarkDate;
   final String? reAttendMessage;
 
   const SessionDetailLoaded({
@@ -36,8 +36,8 @@ class SessionDetailLoaded extends SessionDetailState {
     required this.totalSessions,
     required this.completedCount,
     required this.remainingCount,
-    this.isReAttending = false,
-    this.isUnmarking = false,
+    this.pendingReAttendDate,
+    this.pendingUnmarkDate,
     this.reAttendMessage,
   });
 
@@ -48,8 +48,10 @@ class SessionDetailLoaded extends SessionDetailState {
     int? totalSessions,
     int? completedCount,
     int? remainingCount,
-    bool? isReAttending,
-    bool? isUnmarking,
+    DateTime? pendingReAttendDate,
+    DateTime? pendingUnmarkDate,
+    bool clearPendingReAttend = false,
+    bool clearPendingUnmark = false,
     String? reAttendMessage,
     bool clearReAttendMessage = false,
   }) {
@@ -61,11 +63,26 @@ class SessionDetailLoaded extends SessionDetailState {
       totalSessions: totalSessions ?? this.totalSessions,
       completedCount: completedCount ?? this.completedCount,
       remainingCount: remainingCount ?? this.remainingCount,
-      isReAttending: isReAttending ?? this.isReAttending,
-      isUnmarking: isUnmarking ?? this.isUnmarking,
+      pendingReAttendDate: clearPendingReAttend
+          ? null
+          : pendingReAttendDate ?? this.pendingReAttendDate,
+      pendingUnmarkDate:
+          clearPendingUnmark ? null : pendingUnmarkDate ?? this.pendingUnmarkDate,
       reAttendMessage:
           clearReAttendMessage ? null : reAttendMessage ?? this.reAttendMessage,
     );
+  }
+
+  bool isReAttending(DateTime date) =>
+      pendingReAttendDate != null && _isSameDay(pendingReAttendDate!, date);
+
+  bool isUnmarking(DateTime date) =>
+      pendingUnmarkDate != null && _isSameDay(pendingUnmarkDate!, date);
+
+  static bool _isSameDay(DateTime a, DateTime b) {
+    final al = a.toLocal();
+    final bl = b.toLocal();
+    return al.year == bl.year && al.month == bl.month && al.day == bl.day;
   }
 
   @override
@@ -77,8 +94,8 @@ class SessionDetailLoaded extends SessionDetailState {
         totalSessions,
         completedCount,
         remainingCount,
-        isReAttending,
-        isUnmarking,
+        pendingReAttendDate,
+        pendingUnmarkDate,
         reAttendMessage,
       ];
 }

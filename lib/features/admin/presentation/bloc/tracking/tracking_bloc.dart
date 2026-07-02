@@ -9,14 +9,17 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   final CoachRepository repository;
   final BranchRepository branchRepository;
 
-  Set<String> _coachUserIds = {};
-  Set<String> _branchUserIds = {};
+  final Map<String, Set<String>> _coachUserIdsCache = {};
+  final Map<String, Set<String>> _branchUserIdsCache = {};
+  int _serverPage = 0;
+  bool _hasMoreFromServer = true;
 
   TrackingBloc({
     required this.repository,
     required this.branchRepository,
   }) : super(const TrackingInitial()) {
     on<LoadTrackingData>(_onLoadTrackingData);
+    on<LoadMoreSubscribers>(_onLoadMoreSubscribers);
     on<SearchUsers>(_onSearchUsers);
     on<FilterByCoach>(_onFilterByCoach);
     on<FilterByBranch>(_onFilterByBranch);
@@ -28,22 +31,45 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     LoadTrackingData event,
     Emitter<TrackingState> emit,
   ) async {
-    emit(const TrackingLoading());
+    final current = state;
+    if (event.silent && current is TrackingLoaded) {
+      emit(current.copyWith(isRefreshing: true));
+    } else {
+      emit(const TrackingLoading());
+    }
 
     try {
       final coaches = await repository.getCoachUserStats();
-      final users = await repository.getActiveUsersWithQr();
       final branches = await branchRepository.getAllBranches();
+      _serverPage = 0;
+      _hasMoreFromServer = true;
+      _coachUserIdsCache.clear();
+      _branchUserIdsCache.clear();
 
+      final users = await repository.getActiveUsersWithQr(
+        force: true,
+        limit: TrackingLoaded.subscriberPageSize,
+        offset: 0,
+      );
+      _hasMoreFromServer = users.length >= TrackingLoaded.subscriberPageSize;
+
+      final filtered = _applyLocalSearch(users, null);
       emit(
         TrackingLoaded(
           coaches: coaches,
           branches: branches,
           users: users,
-          filteredUsers: users,
+          filteredUsers: filtered,
+          hasMoreSubscribers:
+              filtered.length > TrackingLoaded.subscriberPageSize ||
+                  _hasMoreFromServer,
         ),
       );
     } catch (e) {
+      if (event.silent && current is TrackingLoaded) {
+        emit(current.copyWith(isRefreshing: false));
+        return;
+      }
       emit(TrackingError('Failed to load tracking data: $e'));
     }
   }
@@ -55,30 +81,89 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     final currentState = state;
     if (currentState is! TrackingLoaded) return;
 
-    emit(currentState.copyWith(isSearching: true));
+    final query = event.query.trim();
+    final filtered = await _filterUsers(
+      currentState.users,
+      coachId: currentState.selectedCoachId,
+      branchId: currentState.selectedBranchId,
+      query: query.isEmpty ? null : query,
+    );
 
-    try {
-      final users = event.query.trim().isEmpty
-          ? await _usersForFilters(
-              currentState.selectedCoachId,
-              currentState.selectedBranchId,
-            )
-          : await _searchUsersForFilters(
-              event.query,
-              currentState.selectedCoachId,
-              currentState.selectedBranchId,
-            );
+    emit(
+      currentState.copyWith(
+        filteredUsers: filtered,
+        searchQuery: query.isEmpty ? null : query,
+        clearSearchQuery: query.isEmpty,
+        isSearching: false,
+        resetPagination: true,
+        hasMoreSubscribers:
+            filtered.length > TrackingLoaded.subscriberPageSize ||
+                _hasMoreFromServer,
+      ),
+    );
+  }
 
+  Future<void> _onLoadMoreSubscribers(
+    LoadMoreSubscribers event,
+    Emitter<TrackingState> emit,
+  ) async {
+    final current = state;
+    if (current is! TrackingLoaded ||
+        current.isLoadingMore ||
+        !current.hasMoreSubscribers) {
+      return;
+    }
+
+    if (current.visibleSubscriberCount < current.filteredUsers.length) {
+      final nextVisible =
+          current.visibleSubscriberCount + TrackingLoaded.subscriberPageSize;
       emit(
-        currentState.copyWith(
-          filteredUsers: users,
-          searchQuery: event.query.trim().isEmpty ? null : event.query,
-          clearSearchQuery: event.query.trim().isEmpty,
-          isSearching: false,
+        current.copyWith(
+          visibleSubscriberCount: nextVisible,
+          hasMoreSubscribers:
+              current.filteredUsers.length > nextVisible || _hasMoreFromServer,
         ),
       );
-    } catch (e) {
-      emit(currentState.copyWith(isSearching: false));
+      return;
+    }
+
+    if (!_hasMoreFromServer) return;
+
+    emit(current.copyWith(isLoadingMore: true));
+
+    try {
+      _serverPage++;
+      final offset = _serverPage * TrackingLoaded.subscriberPageSize;
+      final nextPage = await repository.getActiveUsersWithQr(
+        force: true,
+        limit: TrackingLoaded.subscriberPageSize,
+        offset: offset,
+      );
+      _hasMoreFromServer =
+          nextPage.length >= TrackingLoaded.subscriberPageSize;
+
+      final allUsers = [...current.users, ...nextPage];
+      final filtered = await _filterUsers(
+        allUsers,
+        coachId: current.selectedCoachId,
+        branchId: current.selectedBranchId,
+        query: current.searchQuery,
+      );
+      final nextVisible =
+          current.visibleSubscriberCount + TrackingLoaded.subscriberPageSize;
+
+      emit(
+        current.copyWith(
+          users: allUsers,
+          filteredUsers: filtered,
+          visibleSubscriberCount: nextVisible,
+          isLoadingMore: false,
+          hasMoreSubscribers:
+              filtered.length > nextVisible || _hasMoreFromServer,
+        ),
+      );
+    } catch (_) {
+      emit(current.copyWith(isLoadingMore: false));
     }
   }
 
@@ -89,29 +174,25 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     final currentState = state;
     if (currentState is! TrackingLoaded) return;
 
-    emit(currentState.copyWith(isFiltering: true));
+    final filtered = await _filterUsers(
+      currentState.users,
+      coachId: event.coachId,
+      branchId: currentState.selectedBranchId,
+      query: currentState.searchQuery,
+    );
 
-    try {
-      final filteredUsers = await _usersForFilters(
-        event.coachId,
-        currentState.selectedBranchId,
-      );
-      final searched = _applyLocalSearch(
-        filteredUsers,
-        currentState.searchQuery,
-      );
-
-      emit(
-        currentState.copyWith(
-          filteredUsers: searched,
-          selectedCoachId: event.coachId,
-          clearCoachFilter: event.coachId == null,
-          isFiltering: false,
-        ),
-      );
-    } catch (e) {
-      emit(currentState.copyWith(isFiltering: false));
-    }
+    emit(
+      currentState.copyWith(
+        filteredUsers: filtered,
+        selectedCoachId: event.coachId,
+        clearCoachFilter: event.coachId == null,
+        isFiltering: false,
+        resetPagination: true,
+        hasMoreSubscribers:
+            filtered.length > TrackingLoaded.subscriberPageSize ||
+                _hasMoreFromServer,
+      ),
+    );
   }
 
   Future<void> _onFilterByBranch(
@@ -121,29 +202,64 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     final currentState = state;
     if (currentState is! TrackingLoaded) return;
 
-    emit(currentState.copyWith(isFiltering: true));
+    final filtered = await _filterUsers(
+      currentState.users,
+      coachId: currentState.selectedCoachId,
+      branchId: event.branchId,
+      query: currentState.searchQuery,
+    );
 
-    try {
-      final filteredUsers = await _usersForFilters(
-        currentState.selectedCoachId,
-        event.branchId,
-      );
-      final searched = _applyLocalSearch(
-        filteredUsers,
-        currentState.searchQuery,
-      );
+    emit(
+      currentState.copyWith(
+        filteredUsers: filtered,
+        selectedBranchId: event.branchId,
+        clearBranchFilter: event.branchId == null,
+        isFiltering: false,
+        resetPagination: true,
+        hasMoreSubscribers:
+            filtered.length > TrackingLoaded.subscriberPageSize ||
+                _hasMoreFromServer,
+      ),
+    );
+  }
 
-      emit(
-        currentState.copyWith(
-          filteredUsers: searched,
-          selectedBranchId: event.branchId,
-          clearBranchFilter: event.branchId == null,
-          isFiltering: false,
-        ),
-      );
-    } catch (e) {
-      emit(currentState.copyWith(isFiltering: false));
+  Future<List<ActiveUser>> _filterUsers(
+    List<ActiveUser> users, {
+    String? coachId,
+    String? branchId,
+    String? query,
+  }) async {
+    var result = users;
+
+    if (coachId != null) {
+      final ids = await _coachUserIds(coachId);
+      result = result.where((u) => ids.contains(u.userId)).toList();
     }
+
+    if (branchId != null) {
+      final ids = await _branchUserIds(branchId);
+      result = result.where((u) => ids.contains(u.userId)).toList();
+    }
+
+    return _applyLocalSearch(result, query);
+  }
+
+  Future<Set<String>> _coachUserIds(String coachId) async {
+    if (_coachUserIdsCache.containsKey(coachId)) {
+      return _coachUserIdsCache[coachId]!;
+    }
+    final ids = await repository.getUserIdsForCoach(coachId);
+    _coachUserIdsCache[coachId] = ids;
+    return ids;
+  }
+
+  Future<Set<String>> _branchUserIds(String branchId) async {
+    if (_branchUserIdsCache.containsKey(branchId)) {
+      return _branchUserIdsCache[branchId]!;
+    }
+    final ids = await repository.getUserIdsForBranch(branchId);
+    _branchUserIdsCache[branchId] = ids;
+    return ids;
   }
 
   Future<void> _onLoadUserDetail(
@@ -164,6 +280,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         searchQuery: currentState.searchQuery,
         isSearching: currentState.isSearching,
         isFiltering: currentState.isFiltering,
+        isRefreshing: currentState.isRefreshing,
       ),
     );
 
@@ -188,6 +305,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         searchQuery: currentState.searchQuery,
         isSearching: currentState.isSearching,
         isFiltering: currentState.isFiltering,
+        isRefreshing: currentState.isRefreshing,
       );
 
       emit(detailState);
@@ -234,57 +352,6 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     } catch (e) {
       emit(currentState.copyWithDetail(isLoadingAttendance: false));
     }
-  }
-
-  Future<List<ActiveUser>> _usersForFilters(
-    String? coachId,
-    String? branchId,
-  ) async {
-    var users = await repository.getActiveUsersWithQr();
-
-    if (coachId != null) {
-      _coachUserIds = await repository.getUserIdsForCoach(coachId);
-      users = users.where((user) => _coachUserIds.contains(user.userId)).toList();
-    } else {
-      _coachUserIds = {};
-    }
-
-    if (branchId != null) {
-      _branchUserIds = await repository.getUserIdsForBranch(branchId);
-      users = users.where((user) => _branchUserIds.contains(user.userId)).toList();
-    } else {
-      _branchUserIds = {};
-    }
-
-    return users;
-  }
-
-  Future<List<ActiveUser>> _searchUsersForFilters(
-    String query,
-    String? coachId,
-    String? branchId,
-  ) async {
-    var results = await repository.searchActiveUsers(query);
-
-    if (coachId != null) {
-      if (_coachUserIds.isEmpty) {
-        _coachUserIds = await repository.getUserIdsForCoach(coachId);
-      }
-      results = results
-          .where((user) => _coachUserIds.contains(user.userId))
-          .toList();
-    }
-
-    if (branchId != null) {
-      if (_branchUserIds.isEmpty) {
-        _branchUserIds = await repository.getUserIdsForBranch(branchId);
-      }
-      results = results
-          .where((user) => _branchUserIds.contains(user.userId))
-          .toList();
-    }
-
-    return results;
   }
 
   List<ActiveUser> _applyLocalSearch(

@@ -106,9 +106,9 @@ class MemberBookingCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CoachAvatar(
-                name: data.coachName,
+                coachName: data.coachName,
                 photoUrl: data.coachPhoto,
-                radius: 28,
+                size: 56,
               ),
               const SizedBox(width: 12),
               Expanded(

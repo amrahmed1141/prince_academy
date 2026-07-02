@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_details/booking.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
@@ -11,12 +10,14 @@ import 'package:prince_academy/features/home/presentation/pages/home/coach_profi
 class HomeCoachCard extends StatelessWidget {
   final CoachModel coach;
   final String? classType;
+  final int studentCount;
   final bool dark;
 
   const HomeCoachCard({
     super.key,
     required this.coach,
     this.classType,
+    this.studentCount = 0,
     required this.dark,
   });
 
@@ -54,9 +55,10 @@ class HomeCoachCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _CoachCircleAvatar(
-                  name: coach.name,
+                CoachAvatar(
+                  coachName: coach.name,
                   photoUrl: coach.photoUrl,
+                  size: 76,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -91,7 +93,12 @@ class HomeCoachCard extends StatelessWidget {
                         label: displayClassType,
                         dark: dark,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
+                      _StudentCountRow(
+                        count: studentCount,
+                        dark: dark,
+                      ),
+                      const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerRight,
                         child: GestureDetector(
@@ -155,6 +162,41 @@ class HomeCoachCard extends StatelessWidget {
   }
 }
 
+class _StudentCountRow extends StatelessWidget {
+  final int count;
+  final bool dark;
+
+  const _StudentCountRow({
+    required this.count,
+    required this.dark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count == 1 ? '1 student' : '$count students';
+
+    return Row(
+      children: [
+        Icon(
+          Iconsax.user,
+          size: 14,
+          color: dark ? Colors.white60 : Colors.grey[600],
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: dark ? Colors.white70 : Colors.grey[700],
+            fontFamily: 'Poppins',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ClassTypeChip extends StatelessWidget {
   final String label;
   final bool dark;
@@ -194,52 +236,5 @@ class _ClassTypeChip extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _CoachCircleAvatar extends StatelessWidget {
-  final String name;
-  final String? photoUrl;
-
-  const _CoachCircleAvatar({
-    required this.name,
-    this.photoUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const radius = 38.0;
-    final initial =
-        name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
-
-    if (photoUrl != null && photoUrl!.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundColor: Colors.grey[300],
-        backgroundImage: _imageProvider(photoUrl!),
-      );
-    }
-
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: Colors.grey[300],
-      child: Text(
-        initial,
-        style: const TextStyle(
-          color: Colors.black54,
-          fontWeight: FontWeight.w700,
-          fontSize: 24,
-          fontFamily: 'Poppins',
-        ),
-      ),
-    );
-  }
-
-  ImageProvider _imageProvider(String path) {
-    if (path.startsWith('assets/')) return AssetImage(path);
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      return NetworkImage(path);
-    }
-    return FileImage(File(path));
   }
 }

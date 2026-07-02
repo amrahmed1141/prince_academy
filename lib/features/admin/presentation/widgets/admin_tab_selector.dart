@@ -42,10 +42,12 @@ class AdminTabSelector extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? EColorConstants.primaryColor
-                        : const Color(0xFFF3EDE4),
+                        : EColorConstants.authCardWhite,
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(
-                      color: EColorConstants.primaryColor,
+                      color: isSelected
+                          ? EColorConstants.primaryColor
+                          : EColorConstants.authFieldBorder.withOpacity(0.6),
                       width: 1.4,
                     ),
                     boxShadow: isSelected

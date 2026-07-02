@@ -38,9 +38,26 @@ class TrackingView extends StatefulWidget {
 
 class _TrackingViewState extends State<TrackingView> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 240) {
+      context.read<TrackingBloc>().add(const LoadMoreSubscribers());
+    }
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -84,12 +101,15 @@ class _TrackingViewState extends State<TrackingView> {
     return RefreshIndicator(
       color: EColorConstants.primaryColor,
       onRefresh: () async {
-        context.read<TrackingBloc>().add(const LoadTrackingData());
+        context.read<TrackingBloc>().add(const LoadTrackingData(silent: true));
         await context.read<TrackingBloc>().stream.firstWhere(
-              (next) => next is TrackingLoaded || next is TrackingError,
+              (next) =>
+                  (next is TrackingLoaded && !next.isRefreshing) ||
+                  next is TrackingError,
             );
       },
       child: CustomScrollView(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
@@ -382,7 +402,24 @@ class _TrackingViewState extends State<TrackingView> {
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
-                  final user = state.filteredUsers[index];
+                  final visible = state.visibleUsers;
+                  if (index >= visible.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: EColorConstants.primaryColor,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final user = visible[index];
                   return _SubscriberCard(
                     user: user,
                     onTap: () {
@@ -398,7 +435,8 @@ class _TrackingViewState extends State<TrackingView> {
                     },
                   );
                 },
-                childCount: state.filteredUsers.length,
+                childCount: state.visibleUsers.length +
+                    (state.isLoadingMore || state.hasMoreSubscribers ? 1 : 0),
               ),
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -507,9 +545,9 @@ class _CoachOverviewCard extends StatelessWidget {
                 ),
               ),
               child: CoachAvatar(
-                name: coach.coachName,
+                coachName: coach.coachName,
                 photoUrl: coach.coachPhoto,
-                radius: 30,
+                size: 60,
               ),
             ),
             const SizedBox(height: 8),

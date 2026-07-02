@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -54,8 +55,14 @@ class _BookingScreenState extends State<BookingScreen> {
     final completedCount =
         enrollments.where((e) => e.status == _EnrollmentStatus.completed).length;
 
-    return Scaffold(
+    return Container(
+      decoration: dark ? null : AppGradients.screenDecoration(),
+      color: dark ? Colors.black : null,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: const Text('Booking History'),
         actions: [
           IconButton(
@@ -66,7 +73,6 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
         ],
       ),
-      backgroundColor: dark ? Colors.black : const Color(0xFFF7F7F7),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
         children: [
@@ -114,6 +120,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 )),
         ],
       ),
+    ),
     );
   }
 }

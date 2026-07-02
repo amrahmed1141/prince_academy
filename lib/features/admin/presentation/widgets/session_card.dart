@@ -283,14 +283,10 @@ class _CoachAvatarWithBadge extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: CoachAvatar(
-            name: name,
-            photoUrl: photoUrl,
-            radius: 29,
-            borderRadius: BorderRadius.circular(12),
-          ),
+        CoachAvatar(
+          coachName: name,
+          photoUrl: photoUrl,
+          size: 58,
         ),
         Positioned(
           right: -3,
@@ -550,7 +546,7 @@ class SessionCoachDropdownTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        CoachAvatar(name: name, photoUrl: photoUrl, radius: 16),
+        CoachAvatar(coachName: name, photoUrl: photoUrl, size: 32),
         const SizedBox(width: 10),
         Expanded(
           child: Text(

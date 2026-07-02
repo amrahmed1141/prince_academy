@@ -5,12 +5,11 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/app/bottom_navigation/models/bottom_nav_item_model.dart';
 
+/// Member bottom nav bar (without QR FAB — FAB is sibling in [NavigationBottom]).
 class GlassFloatingNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
-  final VoidCallback onQrPressed;
   final bool hasQrCode;
-  final bool isQrLoading;
 
   static const List<BottomNavItemModel> navItems = [
     BottomNavItemModel(icon: Iconsax.home_1, label: 'Home'),
@@ -23,59 +22,44 @@ class GlassFloatingNavBar extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onDestinationSelected,
-    required this.onQrPressed,
     this.hasQrCode = false,
-    this.isQrLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: ClipRRect(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(36),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          height: 72,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.7),
             borderRadius: BorderRadius.circular(36),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
-                height: 72,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(color: Colors.black.withOpacity(0.05)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: List.generate(navItems.length, (index) {
-                    final item = navItems[index];
-                    return Expanded(
-                      child: _NavPillItem(
-                        item: item,
-                        isSelected: selectedIndex == index,
-                        onTap: () => onDestinationSelected(index),
-                      ),
-                    );
-                  }),
-                ),
+            border: Border.all(color: Colors.black.withOpacity(0.05)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
               ),
-            ),
+            ],
+          ),
+          child: Row(
+            children: List.generate(navItems.length, (index) {
+              final item = navItems[index];
+              return Expanded(
+                child: _NavPillItem(
+                  item: item,
+                  isSelected: selectedIndex == index,
+                  onTap: () => onDestinationSelected(index),
+                ),
+              );
+            }),
           ),
         ),
-        const SizedBox(width: 12),
-        _QrFabButton(
-          onPressed: onQrPressed,
-          hasQrCode: hasQrCode,
-          isLoading: isQrLoading,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -137,50 +121,6 @@ class _NavPillItem extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _QrFabButton extends StatelessWidget {
-  const _QrFabButton({
-    required this.onPressed,
-    required this.hasQrCode,
-    required this.isLoading,
-  });
-
-  final VoidCallback onPressed;
-  final bool hasQrCode;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipOval(
-      child: Material(
-        color: EColorConstants.authTextDarkBrown,
-        child: InkWell(
-          onTap: isLoading ? null : onPressed,
-          child: SizedBox(
-            width: 56,
-            height: 56,
-            child: Center(
-              child: isLoading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.qr_code_2_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-            ),
-          ),
-        ),
       ),
     );
   }

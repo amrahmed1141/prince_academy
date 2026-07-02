@@ -142,9 +142,9 @@ class CoachListCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   CoachAvatar(
-                    name: name,
+                    coachName: name,
                     photoUrl: imagePath,
-                    radius: 26,
+                    size: 52,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

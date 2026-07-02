@@ -4,6 +4,7 @@ import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart'
 import 'package:prince_academy/features/auth/data/repositories/auth_repo_impl.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
+import 'package:prince_academy/features/admin/presentation/bloc/coach/coach_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/session_detail_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_bloc.dart';
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
@@ -14,6 +15,10 @@ import 'package:prince_academy/features/booking/presentation/bloc/booking_histor
 import 'package:prince_academy/core/services/user_qr_service.dart';
 import '../../features/auth/data/datasources/auth_remote_ds.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:prince_academy/features/home/presentation/bloc/home_bloc.dart';
+import 'package:prince_academy/features/sessions/data/repositories/sessions_repository.dart';
+import 'package:prince_academy/features/sessions/presentation/bloc/sessions_bloc.dart';
+import 'package:prince_academy/features/sessions/presentation/bloc/user_session_detail_bloc.dart';
 
 final sl = GetIt.I;
 
@@ -22,7 +27,9 @@ Future<void> setupDI() async {
 
   sl.registerLazySingleton<BranchRepository>(() => BranchRepository(sl()));
   sl.registerLazySingleton<CoachRepository>(() => CoachRepository(sl()));
-  sl.registerLazySingleton<HomeCoachRepository>(() => HomeCoachRepository(sl()));
+  sl.registerFactory<CoachBloc>(() => CoachBloc(repository: sl()));
+  sl.registerLazySingleton<HomeCoachRepository>(
+      () => HomeCoachRepository(sl()));
 
   sl.registerLazySingleton<BookingRemoteDs>(() => BookingRemoteDs(sl()));
   sl.registerLazySingleton<BookingRepository>(() => BookingRepository(sl()));
@@ -39,5 +46,17 @@ Future<void> setupDI() async {
         repository: sl(),
         branchRepository: sl(),
       ));
-  sl.registerFactory<SessionDetailBloc>(() => SessionDetailBloc(repository: sl()));
+  sl.registerFactory<SessionDetailBloc>(
+      () => SessionDetailBloc(repository: sl()));
+
+  sl.registerLazySingleton<SessionsRepository>(() => SessionsRepository(sl()));
+  sl.registerFactory<SessionsBloc>(() => SessionsBloc(repository: sl()));
+  sl.registerFactory<UserSessionDetailBloc>(
+    () => UserSessionDetailBloc(repository: sl()),
+  );
+  sl.registerFactory<HomeBloc>(() => HomeBloc(
+        sessionsRepository: sl(),
+        bookingRepository: sl(),
+        branchRepository: sl(),
+      ));
 }

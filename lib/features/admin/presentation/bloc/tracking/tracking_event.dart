@@ -8,7 +8,16 @@ abstract class TrackingEvent extends Equatable {
 }
 
 class LoadTrackingData extends TrackingEvent {
-  const LoadTrackingData();
+  final bool silent;
+
+  const LoadTrackingData({this.silent = false});
+
+  @override
+  List<Object?> get props => [silent];
+}
+
+class LoadMoreSubscribers extends TrackingEvent {
+  const LoadMoreSubscribers();
 }
 
 class SearchUsers extends TrackingEvent {

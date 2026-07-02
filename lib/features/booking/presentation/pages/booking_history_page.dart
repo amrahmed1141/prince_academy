@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
-import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
@@ -586,53 +586,22 @@ class _BookingLeadImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusUI = _BookingStatusUI.from(status);
-    final resolved = CoachPhotoHelper.resolve(photoUrl);
 
-    if (resolved == null) {
+    if (photoUrl == null || photoUrl!.trim().isEmpty) {
       return _StatusIconTile(statusUI: statusUI);
     }
 
-    if (CoachPhotoHelper.isAssetPath(resolved)) {
-      return _PhotoTile(
-        child: Image.asset(
-          resolved,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _StatusIconTile(statusUI: statusUI),
-        ),
-      );
-    }
-
-    if (CoachPhotoHelper.isLocalFile(resolved)) {
-      return _PhotoTile(
-        child: Image.file(
-          File(resolved),
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _StatusIconTile(statusUI: statusUI),
-        ),
-      );
-    }
-
-    return _PhotoTile(
-      child: _NetworkCoachThumbnail(
-        url: resolved,
-        source: photoUrl,
-        coachName: coachName,
-        statusUI: statusUI,
-      ),
-    );
-  }
-}
-
-class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
-      child: SizedBox(width: 42, height: 42, child: child),
+      child: SizedBox(
+        width: 42,
+        height: 42,
+        child: CoachAvatar(
+          coachName: coachName,
+          photoUrl: photoUrl,
+          size: 42,
+        ),
+      ),
     );
   }
 }
@@ -652,95 +621,6 @@ class _StatusIconTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Icon(statusUI.icon, color: statusUI.badgeColor, size: 20),
-    );
-  }
-}
-
-class _NetworkCoachThumbnail extends StatefulWidget {
-  const _NetworkCoachThumbnail({
-    required this.url,
-    required this.source,
-    required this.coachName,
-    required this.statusUI,
-  });
-
-  final String url;
-  final String? source;
-  final String coachName;
-  final _BookingStatusUI statusUI;
-
-  @override
-  State<_NetworkCoachThumbnail> createState() => _NetworkCoachThumbnailState();
-}
-
-class _NetworkCoachThumbnailState extends State<_NetworkCoachThumbnail> {
-  late String _displayUrl;
-  bool _triedSignedUrl = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _displayUrl = widget.url;
-  }
-
-  Future<void> _retryWithSignedUrl() async {
-    if (_triedSignedUrl) return;
-    _triedSignedUrl = true;
-    final signed = await CoachPhotoHelper.createSignedUrl(widget.source);
-    if (!mounted || signed == null || signed == _displayUrl) return;
-    setState(() => _displayUrl = signed);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final initial =
-        widget.coachName.trim().isNotEmpty ? widget.coachName.trim()[0].toUpperCase() : '?';
-
-    return _PhotoTile(
-      child: Image.network(
-        _displayUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) {
-          _retryWithSignedUrl();
-          return _LetterFallback(initial: initial);
-        },
-        loadingBuilder: (_, child, progress) {
-          if (progress == null) return child;
-          return ColoredBox(
-            color: widget.statusUI.badgeColor.withOpacity(0.08),
-            child: const Center(
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _LetterFallback extends StatelessWidget {
-  const _LetterFallback({required this.initial});
-
-  final String initial;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: _AppColors.primary.withOpacity(0.12),
-      child: Center(
-        child: Text(
-          initial,
-          style: const TextStyle(
-            color: _AppColors.primary,
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-          ),
-        ),
-      ),
     );
   }
 }

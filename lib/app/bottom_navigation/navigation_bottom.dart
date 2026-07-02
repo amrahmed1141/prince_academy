@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:prince_academy/app/bottom_navigation/widgets/glass_floating_nav_bar.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
-import 'package:prince_academy/features/home/presentation/pages/home/home.dart';
+import 'package:prince_academy/features/home/presentation/pages/home_page.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
 import 'package:prince_academy/features/profile/presentation/pages/profile/profile.dart';
 import 'package:prince_academy/features/profile/presentation/widgets/qr_code_bottom_sheet.dart';
-import 'package:prince_academy/features/sessions/session_screen.dart';
+import 'package:prince_academy/features/sessions/presentation/pages/sessions_page.dart';
 
 class NavigationBottom extends StatefulWidget {
   const NavigationBottom({super.key});
@@ -24,7 +24,7 @@ class _NavigationBottomState extends State<NavigationBottom> {
     super.initState();
     _qrService = sl<UserQrService>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _qrService.refresh();
+      _qrService.refresh(silent: _qrService.hasQrCode);
     });
   }
 
@@ -49,9 +49,9 @@ class _NavigationBottomState extends State<NavigationBottom> {
           IndexedStack(
             index: _currentIndex,
             children: [
-              const RepaintBoundary(child: HomeScreen()),
+              const RepaintBoundary(child: HomePage()),
               const RepaintBoundary(child: BookingHistoryPage()),
-              const RepaintBoundary(child: SessionScreen()),
+              const RepaintBoundary(child: SessionsPage()),
               RepaintBoundary(
                 child: ProfilePage(
                   isActive: _currentIndex == 3,
@@ -63,26 +63,79 @@ class _NavigationBottomState extends State<NavigationBottom> {
             left: 16,
             right: 16,
             bottom: 24,
-            child: ListenableBuilder(
-              listenable: _qrService,
-              builder: (context, _) {
-                return GlassFloatingNavBar(
-                  selectedIndex: _currentIndex,
-                  hasQrCode: _qrService.hasQrCode,
-                  isQrLoading: _qrService.isLoading,
-                  onQrPressed: _onQrFabPressed,
-                  onDestinationSelected: (index) {
-                    if (index == _currentIndex) return;
-                    setState(() => _currentIndex = index);
-                    if (index == 3) {
-                      _qrService.refresh();
-                    }
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: GlassFloatingNavBar(
+                    selectedIndex: _currentIndex,
+                    hasQrCode: _qrService.hasQrCode,
+                    onDestinationSelected: (index) {
+                      if (index == _currentIndex) return;
+                      setState(() => _currentIndex = index);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ListenableBuilder(
+                  listenable: _qrService,
+                  builder: (context, _) {
+                    return _QrFabButton(
+                      onPressed: _onQrFabPressed,
+                      hasQrCode: _qrService.hasQrCode,
+                      isLoading: _qrService.isLoading,
+                    );
                   },
-                );
-              },
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// QR FAB extracted so only this widget rebuilds on QR service updates.
+class _QrFabButton extends StatelessWidget {
+  const _QrFabButton({
+    required this.onPressed,
+    required this.hasQrCode,
+    required this.isLoading,
+  });
+
+  final VoidCallback onPressed;
+  final bool hasQrCode;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipOval(
+      child: Material(
+        color: const Color(0xFF3E2723),
+        child: InkWell(
+          onTap: isLoading ? null : onPressed,
+          child: SizedBox(
+            width: 56,
+            height: 56,
+            child: Center(
+              child: isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.qr_code_2_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+            ),
+          ),
+        ),
       ),
     );
   }

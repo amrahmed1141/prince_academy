@@ -40,6 +40,13 @@ class CoachSessionModel {
     Map<String, dynamic>? coachMap;
     if (coachesData is Map<String, dynamic>) {
       coachMap = coachesData;
+    } else if (coachesData is List && coachesData.isNotEmpty) {
+      final first = coachesData.first;
+      if (first is Map<String, dynamic>) {
+        coachMap = first;
+      } else if (first is Map) {
+        coachMap = Map<String, dynamic>.from(first);
+      }
     }
 
     final branchesData = json['branches'];

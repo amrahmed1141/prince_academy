@@ -262,9 +262,9 @@ class _EditSessionPageState extends State<EditSessionPage> {
                       child: Row(
                         children: [
                           CoachAvatar(
-                            name: widget.session.coachName ?? 'Coach',
+                            coachName: widget.session.coachName ?? 'Coach',
                             photoUrl: widget.session.coachPhotoUrl,
-                            radius: 18,
+                            size: 36,
                           ),
                           const SizedBox(width: 12),
                           Expanded(

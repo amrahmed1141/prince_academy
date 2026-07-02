@@ -30,6 +30,12 @@ class TrackingLoaded extends TrackingState {
   final String? searchQuery;
   final bool isSearching;
   final bool isFiltering;
+  final bool isRefreshing;
+  final int visibleSubscriberCount;
+  final bool hasMoreSubscribers;
+  final bool isLoadingMore;
+
+  static const int subscriberPageSize = 50;
 
   const TrackingLoaded({
     required this.coaches,
@@ -41,7 +47,15 @@ class TrackingLoaded extends TrackingState {
     this.searchQuery,
     this.isSearching = false,
     this.isFiltering = false,
+    this.isRefreshing = false,
+    this.visibleSubscriberCount = subscriberPageSize,
+    this.hasMoreSubscribers = false,
+    this.isLoadingMore = false,
   });
+
+  List<ActiveUser> get visibleUsers => filteredUsers.length <= visibleSubscriberCount
+      ? filteredUsers
+      : filteredUsers.sublist(0, visibleSubscriberCount);
 
   List<CoachUserStats> get displayCoaches {
     if (selectedBranchId == null) return coaches;
@@ -79,12 +93,24 @@ class TrackingLoaded extends TrackingState {
     bool clearSearchQuery = false,
     bool? isSearching,
     bool? isFiltering,
+    bool? isRefreshing,
+    int? visibleSubscriberCount,
+    bool? hasMoreSubscribers,
+    bool? isLoadingMore,
+    bool resetPagination = false,
   }) {
+    final nextFiltered = filteredUsers ?? this.filteredUsers;
+    final nextVisible = resetPagination
+        ? subscriberPageSize
+        : visibleSubscriberCount ?? this.visibleSubscriberCount;
+    final nextHasMore = hasMoreSubscribers ??
+        (nextFiltered.length > nextVisible);
+
     return TrackingLoaded(
       coaches: coaches ?? this.coaches,
       branches: branches ?? this.branches,
       users: users ?? this.users,
-      filteredUsers: filteredUsers ?? this.filteredUsers,
+      filteredUsers: nextFiltered,
       selectedCoachId:
           clearCoachFilter ? null : selectedCoachId ?? this.selectedCoachId,
       selectedBranchId:
@@ -92,6 +118,10 @@ class TrackingLoaded extends TrackingState {
       searchQuery: clearSearchQuery ? null : searchQuery ?? this.searchQuery,
       isSearching: isSearching ?? this.isSearching,
       isFiltering: isFiltering ?? this.isFiltering,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+      visibleSubscriberCount: nextVisible,
+      hasMoreSubscribers: nextHasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     );
   }
 
@@ -106,6 +136,10 @@ class TrackingLoaded extends TrackingState {
         searchQuery,
         isSearching,
         isFiltering,
+        isRefreshing,
+        visibleSubscriberCount,
+        hasMoreSubscribers,
+        isLoadingMore,
       ];
 }
 
@@ -120,6 +154,7 @@ class UserDetailLoading extends TrackingLoaded {
     super.searchQuery,
     super.isSearching,
     super.isFiltering,
+    super.isRefreshing,
   });
 }
 
@@ -147,6 +182,7 @@ class UserDetailLoaded extends TrackingLoaded {
     super.searchQuery,
     super.isSearching,
     super.isFiltering,
+    super.isRefreshing,
   });
 
   UserDetailLoaded copyWithDetail({

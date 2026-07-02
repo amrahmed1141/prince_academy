@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 
 class SessionScreen extends StatefulWidget {
   const SessionScreen({super.key});
@@ -80,8 +81,14 @@ class _SessionScreenState extends State<SessionScreen>
   Widget build(BuildContext context) {
     final dark = EHelperFunction.isDarkMode(context);
 
-    return Scaffold(
+    return Container(
+      decoration: dark ? null : AppGradients.screenDecoration(),
+      color: dark ? Colors.black : null,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: const Text('My Sessions'),
         actions: [
           IconButton(
@@ -145,6 +152,7 @@ class _SessionScreenState extends State<SessionScreen>
           ),
         ],
       ),
+    ),
     );
   }
 }
