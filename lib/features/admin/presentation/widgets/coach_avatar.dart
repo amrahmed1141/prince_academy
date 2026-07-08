@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 import 'package:shimmer/shimmer.dart';
 
 class CoachAvatar extends StatelessWidget {
@@ -15,17 +16,27 @@ class CoachAvatar extends StatelessWidget {
     this.size = 48,
   });
 
-  String? get _url {
-    final value = photoUrl?.trim();
-    if (value == null || value.isEmpty) return null;
-    return value;
-  }
+  String? get _resolvedUrl => CoachPhotoHelper.normalize(photoUrl);
 
   @override
   Widget build(BuildContext context) {
-    final url = _url;
+    final url = _resolvedUrl;
     if (url == null) {
       return _InitialsAvatar(name: coachName, size: size);
+    }
+
+    final localFile = CoachPhotoHelper.localFile(url);
+    if (localFile != null) {
+      return ClipOval(
+        child: Image.file(
+          localFile,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              _InitialsAvatar(name: coachName, size: size),
+        ),
+      );
     }
 
     final cacheSize = (size * 3).round().clamp(96, 512);

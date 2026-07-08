@@ -1,3 +1,5 @@
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
+
 class CoachSessionModel {
   final String id;
   final String coachId;
@@ -69,7 +71,7 @@ class CoachSessionModel {
       updatedAt: _parseDate(json['updated_at']),
       coachName: coachMap?['name'] as String?,
       coachSpecialty: coachMap?['specialty'] as String?,
-      coachPhotoUrl: coachMap?['photo_url'] as String?,
+      coachPhotoUrl: CoachPhotoHelper.normalize(coachMap?['photo_url'] as String?),
       branchId: json['branch_id'] as String?,
       branchName: json['branch_name'] as String? ?? branchMap?['name'] as String?,
     );

@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/features/admin/data/models/branch_model.dart';
@@ -342,26 +344,45 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
 
   List<CoachWithSessions> _groupedFilteredSessions(AdminHomeState admin) {
     final grouped = CoachWithSessions.group(_filteredSessions(admin));
-    if (admin.coaches.isEmpty) return grouped;
 
-    final photoByCoachId = {
+    final photoByCoachId = <String, String>{
       for (final coach in admin.coaches)
-        if (coach.photoUrl != null && coach.photoUrl!.trim().isNotEmpty)
-          coach.id: coach.photoUrl!.trim(),
+        if (CoachPhotoHelper.normalize(coach.photoUrl) != null)
+          coach.id: CoachPhotoHelper.normalize(coach.photoUrl)!,
     };
 
     return grouped.map((entry) {
-      final coachPhoto = photoByCoachId[entry.coachId];
-      if (coachPhoto == null) return entry;
+      final resolvedPhoto =
+          photoByCoachId[entry.coachId] ??
+          CoachPhotoHelper.normalize(entry.photoUrl);
+      if (resolvedPhoto == null || resolvedPhoto == entry.photoUrl) {
+        return entry;
+      }
       return CoachWithSessions(
         coachId: entry.coachId,
         branchId: entry.branchId,
         branchName: entry.branchName,
         name: entry.name,
-        photoUrl: coachPhoto,
+        photoUrl: resolvedPhoto,
         schedules: entry.schedules,
       );
     }).toList();
+  }
+
+  void _precacheCoachPhotos(BuildContext context, AdminHomeState admin) {
+    final urls = <String>{
+      for (final coach in admin.coaches)
+        if (CoachPhotoHelper.normalize(coach.photoUrl) != null)
+          CoachPhotoHelper.normalize(coach.photoUrl)!,
+      for (final session in admin.sessions)
+        if (CoachPhotoHelper.normalize(session.coachPhotoUrl) != null)
+          CoachPhotoHelper.normalize(session.coachPhotoUrl)!,
+    };
+
+    for (final url in urls) {
+      if (CoachPhotoHelper.isLocalPath(url)) continue;
+      precacheImage(AppImageCache.provider(url), context);
+    }
   }
 
   String? _coachBranchLabel(CoachModel coach, AdminHomeState admin) {
@@ -403,8 +424,13 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
     final dark = MediaQuery.of(context).platformBrightness == Brightness.dark;
 
     return BlocConsumer<AdminHomeBloc, AdminHomeState>(
-      listenWhen: (prev, next) => prev.message != next.message,
+      listenWhen: (prev, next) =>
+          prev.message != next.message ||
+          prev.coaches != next.coaches ||
+          prev.sessions != next.sessions,
       listener: (context, state) {
+        _precacheCoachPhotos(context, state);
+
         final message = state.message;
         if (message == null) return;
 

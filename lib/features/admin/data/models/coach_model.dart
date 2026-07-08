@@ -1,3 +1,5 @@
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
+
 class CoachModel {
   final String id;
   final String name;
@@ -32,7 +34,7 @@ class CoachModel {
       id: map['id'] as String,
       name: map['name'] as String,
       specialty: map['specialty'] as String,
-      photoUrl: map['photo_url'] as String?,
+      photoUrl: CoachPhotoHelper.normalize(map['photo_url'] as String?),
       branchId: map['branch_id'] as String?,
       branchName: map['branch_name'] as String? ?? branchMap?['name'] as String?,
       isActive: map['is_active'] as bool? ?? true,
