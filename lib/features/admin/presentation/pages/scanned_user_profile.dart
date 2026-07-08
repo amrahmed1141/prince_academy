@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:iconsax/iconsax.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
@@ -10,6 +9,8 @@ import 'package:prince_academy/features/admin/data/models/payment_verification_d
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/pages/payment_verification_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/session_detail_page.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_member_booking_list_helpers.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_member_profile_header.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/member_booking_card.dart';
 
 class ScannedUserProfilePage extends StatefulWidget {
@@ -32,6 +33,7 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
   List<AdminScanProfile> _bookings = [];
   final Set<String> _busyBookingIds = {};
   String? _selectedCoachId;
+  String? _statusFilter;
 
   @override
   void initState() {
@@ -67,16 +69,35 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
         .join();
   }
 
-  int _activeCount() => _bookings.where((b) => b.isActive).length;
-
-  int _expiredCount() => _filteredBookings
-      .where((b) => !b.isActive && !b.needsPaymentVerification)
-      .length;
-
-  List<AdminScanProfile> get _filteredBookings {
+  List<AdminScanProfile> get _coachFilteredBookings {
     if (_selectedCoachId == null) return _bookings;
     return _bookings.where((b) => b.coachId == _selectedCoachId).toList();
   }
+
+  List<AdminScanProfile> get _filteredBookings =>
+      filterBookingsByStatus(_coachFilteredBookings, _statusFilter);
+
+  List<AdminScanProfile> get _pendingPaymentBookings =>
+      pendingPaymentBookings(_filteredBookings);
+
+  List<AdminScanProfile> get _verticalBookings {
+    if (_statusFilter == 'pending') return const [];
+
+    final bookings = _statusFilter == null
+        ? _filteredBookings
+            .where((booking) => !booking.needsPaymentVerification)
+            .toList()
+        : _filteredBookings;
+
+    return sortMemberBookings(
+      bookings,
+      hasPendingInScope: _pendingPaymentBookings.isNotEmpty,
+    );
+  }
+
+  bool get _showHorizontalPending =>
+      _pendingPaymentBookings.isNotEmpty &&
+      (_statusFilter == null || _statusFilter == 'pending');
 
   List<({String coachId, String coachName, String specialty})> get _uniqueCoaches {
     final seen = <String>{};
@@ -278,27 +299,51 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
                               ),
                             ),
                           )
-                        else
-                          SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                final booking = _filteredBookings[index];
-                                return MemberBookingCard(
-                                  data: _toCardData(booking),
-                                  isMarkingAttendance:
-                                      _busyBookingIds.contains(booking.bookingId),
-                                  onMarkAttendance: booking.canMarkAttendanceToday
-                                      ? () => _markAttendance(booking)
-                                      : null,
-                                  onPaymentTap: booking.needsPaymentVerification
-                                      ? () => _openPaymentVerification(booking)
-                                      : null,
-                                  onViewSessions: () => _openSessionDetail(booking),
-                                );
-                              },
-                              childCount: _filteredBookings.length,
+                        else ...[
+                          if (_showHorizontalPending) ...[
+                            const SliverToBoxAdapter(
+                              child: AdminBookingSectionHeader(
+                                title: 'PENDING PAYMENTS',
+                              ),
                             ),
-                          ),
+                            SliverToBoxAdapter(
+                              child: _buildPendingHorizontalList(),
+                            ),
+                            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                          ],
+                          if (_verticalBookings.isNotEmpty) ...[
+                            if (_statusFilter == null)
+                              const SliverToBoxAdapter(
+                                child: AdminBookingSectionHeader(
+                                  title: 'BOOKINGS',
+                                ),
+                              ),
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final booking = _verticalBookings[index];
+                                  return MemberBookingCard(
+                                    data: _toCardData(booking),
+                                    isMarkingAttendance: _busyBookingIds
+                                        .contains(booking.bookingId),
+                                    onMarkAttendance:
+                                        booking.canMarkAttendanceToday
+                                            ? () => _markAttendance(booking)
+                                            : null,
+                                    onPaymentTap:
+                                        booking.needsPaymentVerification
+                                            ? () =>
+                                                _openPaymentVerification(booking)
+                                            : null,
+                                    onViewSessions: () =>
+                                        _openSessionDetail(booking),
+                                  );
+                                },
+                                childCount: _verticalBookings.length,
+                              ),
+                            ),
+                          ],
+                        ],
                         const SliverToBoxAdapter(child: SizedBox(height: 24)),
                       ],
                     ),
@@ -415,92 +460,44 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
     final displayPhone = _displayPhone(profile);
     final initials = _initials(displayName);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: _handleBack,
-                icon: const Icon(Icons.arrow_back),
-                color: EColorConstants.authTextDarkBrown,
-              ),
-              Expanded(
-                child: Text(
-                  displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: EColorConstants.authTextDarkBrown,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: EColorConstants.primaryColor,
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Iconsax.call,
-                          size: 14,
-                          color: EColorConstants.authPlaceholderGray,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            displayPhone,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: EColorConstants.authPlaceholderGray,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${_bookings.length} booking${_bookings.length == 1 ? '' : 's'} · '
-                      '${_activeCount()} active · ${_expiredCount()} expired',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: EColorConstants.authPlaceholderGray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+    return AdminMemberProfileHeader(
+      onBack: _handleBack,
+      displayName: displayName,
+      displayPhone: displayPhone,
+      initials: initials,
+      totalBookings: _bookings.length,
+      activeCount: countActiveBookings(_bookings),
+      pendingCount: countPendingBookings(_bookings),
+      expiredCount: countExpiredBookings(_bookings),
+      statusFilter: _statusFilter,
+      onStatusFilterChanged: (filter) => setState(() => _statusFilter = filter),
+    );
+  }
+
+  Widget _buildPendingHorizontalList() {
+    final pending = _pendingPaymentBookings;
+    final cardWidth = MediaQuery.sizeOf(context).width * 0.82;
+
+    return SizedBox(
+      height: 430,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: pending.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final booking = pending[index];
+          return SizedBox(
+            width: cardWidth,
+            child: MemberBookingCard(
+              data: _toCardData(booking),
+              isConfirmingPayment:
+                  _busyBookingIds.contains(booking.bookingId),
+              onPaymentTap: () => _openPaymentVerification(booking),
+              onViewSessions: () => _openSessionDetail(booking),
+            ),
+          );
+        },
       ),
     );
   }
