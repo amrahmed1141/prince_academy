@@ -290,6 +290,14 @@ class MemberBookingCard extends StatelessWidget {
               text:
                   'Status: ⏳ Pending Payment (${data.paymentMethod?.toLowerCase() == 'cash' ? 'Cash' : 'InstaPay'})',
               color: const Color(0xFFF9A825),
+            )
+          else if (data.paymentMethod != null &&
+              data.paymentMethod!.trim().isNotEmpty)
+            _InfoRow(
+              icon: Iconsax.money,
+              text:
+                  'Payment: ${data.paymentMethod!.toLowerCase() == 'cash' ? 'Cash' : 'InstaPay'} · Verified',
+              color: const Color(0xFF2E7D32),
             ),
           if (!isExpired && data.subscriptionStart != null) ...[
             _InfoRow(

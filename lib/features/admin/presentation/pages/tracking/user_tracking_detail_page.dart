@@ -4,10 +4,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
-import 'package:prince_academy/features/admin/data/models/coach_model.dart';
-import 'package:prince_academy/features/admin/data/models/today_booking_model.dart';
-import 'package:prince_academy/features/admin/data/models/user_booking_detail_model.dart';
+import 'package:prince_academy/features/admin/data/models/admin_scan_profile_model.dart';
+import 'package:prince_academy/features/admin/data/models/payment_verification_data.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
+import 'package:prince_academy/features/admin/presentation/pages/payment_verification_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/session_detail_page.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/member_booking_card.dart';
 
@@ -32,9 +32,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
 
   bool _isLoading = true;
   String? _error;
-  List<UserBookingDetail> _bookings = [];
-  List<TodayBooking> _todayBookings = [];
-  Map<String, String?> _coachPhotos = {};
+  List<AdminScanProfile> _bookings = [];
   final Set<String> _busyBookingIds = {};
 
   @override
@@ -50,27 +48,12 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
     });
 
     try {
-      final repository = sl<CoachRepository>();
-      final results = await Future.wait([
-        repository.getUserBookingDetails(widget.userId),
-        repository.getTodayBookings(widget.userId),
-        repository.fetchCoaches(),
-      ]);
-
-      final bookings = results[0] as List<UserBookingDetail>;
-      final todayBookings = results[1] as List<TodayBooking>;
-      final coaches = results[2] as List<CoachModel>;
-
-      final photoMap = <String, String?>{};
-      for (final coach in coaches) {
-        photoMap[coach.id] = coach.photoUrl;
-      }
+      final bookings =
+          await sl<CoachRepository>().getUserScanProfiles(widget.userId);
 
       if (!mounted) return;
       setState(() {
         _bookings = bookings;
-        _todayBookings = todayBookings;
-        _coachPhotos = photoMap;
         _isLoading = false;
       });
     } catch (e) {
@@ -82,51 +65,19 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
     }
   }
 
-  TodayBooking? _todayInfo(String bookingId) {
-    for (final today in _todayBookings) {
-      if (today.bookingId == bookingId) return today;
-    }
-    return null;
-  }
-
-  int _daysRemaining(DateTime? end) {
-    if (end == null) return 0;
-    final now = DateTime.now();
-    final endOfDay = DateTime(end.year, end.month, end.day);
-    final today = DateTime(now.year, now.month, now.day);
-    return endOfDay.difference(today).inDays;
-  }
-
   int get _todaySessionCount =>
-      _bookings.where((b) => b.isActive && _todayInfo(b.bookingId) != null).length;
+      _bookings.where((b) => b.canMarkAttendanceToday).length;
 
-  MemberBookingCardData _toCardData(UserBookingDetail booking) {
-    final today = _todayInfo(booking.bookingId);
-    final coachPhoto =
-        booking.coachPhoto ?? _coachPhotos[booking.coachId];
+  int get _activeCount => _bookings.where((b) => b.isActive).length;
 
-    return MemberBookingCardData(
-      bookingId: booking.bookingId,
-      coachName: booking.coachName,
-      coachPhoto: coachPhoto,
-      specialty: booking.coachSpecialty.isNotEmpty
-          ? booking.coachSpecialty
-          : 'MMA',
-      branchName: booking.branchName,
-      selectedDays: booking.selectedDays,
-      selectedTime: booking.selectedTime,
-      subscriptionStart: booking.subscriptionStart,
-      subscriptionEnd: booking.subscriptionEnd,
-      daysRemaining: _daysRemaining(booking.subscriptionEnd),
-      attendedSessions: booking.attendedSessions,
-      totalSessions: booking.totalSessions,
-      subscriptionStatus: booking.subscriptionStatus,
-      isScheduledToday: today != null,
-      alreadyCheckedInToday: today?.alreadyCheckedIn ?? false,
-    );
-  }
+  int get _expiredCount => _bookings
+      .where((b) => !b.isActive && !b.needsPaymentVerification)
+      .length;
 
-  Future<void> _markAttendance(UserBookingDetail booking) async {
+  int get _pendingCount =>
+      _bookings.where((b) => b.needsPaymentVerification).length;
+
+  Future<void> _markAttendance(AdminScanProfile booking) async {
     if (_busyBookingIds.contains(booking.bookingId)) return;
 
     final adminId = Supabase.instance.client.auth.currentUser?.id;
@@ -152,39 +103,17 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
       if (!mounted) return;
 
       setState(() {
-        final todayIdx = _todayBookings.indexWhere(
-          (t) => t.bookingId == booking.bookingId,
-        );
-        if (todayIdx != -1) {
-          _todayBookings[todayIdx] = _todayBookings[todayIdx].copyWith(
-            alreadyCheckedIn: true,
-          );
-        }
-
         final bookingIdx = _bookings.indexWhere(
           (b) => b.bookingId == booking.bookingId,
         );
         if (bookingIdx != -1) {
           final current = _bookings[bookingIdx];
-          _bookings[bookingIdx] = UserBookingDetail(
-            bookingId: current.bookingId,
-            coachId: current.coachId,
-            coachName: current.coachName,
-            coachSpecialty: current.coachSpecialty,
-            coachPhoto: current.coachPhoto,
-            branchId: current.branchId,
-            branchName: current.branchName,
-            selectedDays: current.selectedDays,
-            selectedTime: current.selectedTime,
-            subscriptionStart: current.subscriptionStart,
-            subscriptionEnd: current.subscriptionEnd,
-            totalSessions: current.totalSessions,
+          _bookings[bookingIdx] = current.copyWith(
+            alreadyCheckedInToday: true,
             attendedSessions: current.attendedSessions + 1,
             remainingSessions: current.remainingSessions > 0
                 ? current.remainingSessions - 1
                 : 0,
-            subscriptionStatus: current.subscriptionStatus,
-            totalPrice: current.totalPrice,
           );
         }
       });
@@ -216,14 +145,28 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
     }
   }
 
-  Future<void> _openSessionDetail(UserBookingDetail booking) async {
+  Future<void> _openPaymentVerification(AdminScanProfile booking) async {
+    final verified = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PaymentVerificationPage(
+          data: PaymentVerificationData.fromScanProfile(booking),
+        ),
+      ),
+    );
+
+    if (verified == true) {
+      await _loadBookings();
+    }
+  }
+
+  Future<void> _openSessionDetail(AdminScanProfile booking) async {
     final refreshed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => SessionDetailPage(
           bookingId: booking.bookingId,
           coachName: booking.coachName,
-          coachSpecialty: booking.coachSpecialty.isNotEmpty
-              ? booking.coachSpecialty
+          coachSpecialty: booking.coachSpecialty?.trim().isNotEmpty == true
+              ? booking.coachSpecialty!
               : 'MMA',
           sessionTime: booking.selectedTime,
           branchName: booking.branchName,
@@ -247,75 +190,76 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
         .join();
   }
 
-  int get _activeCount => _bookings.where((b) => b.isActive).length;
-
-  int get _expiredCount => _bookings.where((b) => !b.isActive).length;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: EColorConstants.authFieldBackground,
       body: SafeArea(
         child: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: EColorConstants.primaryColor,
-              ),
-            )
-          : _error != null
-              ? _ErrorBody(message: _error!, onRetry: _loadBookings)
-              : RefreshIndicator(
+            ? const Center(
+                child: CircularProgressIndicator(
                   color: EColorConstants.primaryColor,
-                  onRefresh: _loadBookings,
-                  child: CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(
-                      parent: BouncingScrollPhysics(),
-                    ),
-                    slivers: [
-                      SliverToBoxAdapter(child: _buildHeader()),
-                      SliverToBoxAdapter(child: _buildTodaySummary()),
-                      const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                      if (_bookings.isEmpty)
-                        const SliverToBoxAdapter(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Center(
-                              child: Text(
-                                'No bookings found for this member.',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  color: EColorConstants.authPlaceholderGray,
+                ),
+              )
+            : _error != null
+                ? _ErrorBody(message: _error!, onRetry: _loadBookings)
+                : RefreshIndicator(
+                    color: EColorConstants.primaryColor,
+                    onRefresh: _loadBookings,
+                    child: CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      slivers: [
+                        SliverToBoxAdapter(child: _buildHeader()),
+                        SliverToBoxAdapter(child: _buildTodaySummary()),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                        if (_bookings.isEmpty)
+                          const SliverToBoxAdapter(
+                            child: Padding(
+                              padding: EdgeInsets.all(32),
+                              child: Center(
+                                child: Text(
+                                  'No bookings found for this member.',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: EColorConstants.authPlaceholderGray,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        )
-                      else
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final booking = _bookings[index];
-                              final hasTodaySession =
-                                  booking.isActive &&
-                                  _todayInfo(booking.bookingId) != null;
+                          )
+                        else
+                          SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final booking = _bookings[index];
+                                final cardData =
+                                    MemberBookingCardData.fromScanProfile(
+                                  booking,
+                                );
 
-                              return MemberBookingCard(
-                                data: _toCardData(booking),
-                                isMarkingAttendance:
-                                    _busyBookingIds.contains(booking.bookingId),
-                                onMarkAttendance: hasTodaySession
-                                    ? () => _markAttendance(booking)
-                                    : null,
-                                onViewSessions: () => _openSessionDetail(booking),
-                              );
-                            },
-                            childCount: _bookings.length,
+                                return MemberBookingCard(
+                                  data: cardData,
+                                  isMarkingAttendance: _busyBookingIds
+                                      .contains(booking.bookingId),
+                                  onMarkAttendance: booking.canMarkAttendanceToday
+                                      ? () => _markAttendance(booking)
+                                      : null,
+                                  onPaymentTap: booking.needsPaymentVerification
+                                      ? () => _openPaymentVerification(booking)
+                                      : null,
+                                  onViewSessions: () =>
+                                      _openSessionDetail(booking),
+                                );
+                              },
+                              childCount: _bookings.length,
+                            ),
                           ),
-                        ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                    ],
+                        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                      ],
+                    ),
                   ),
-                ),
       ),
     );
   }
@@ -344,6 +288,13 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
   }
 
   Widget _buildHeader() {
+    final summaryParts = <String>[
+      '${_bookings.length} booking${_bookings.length == 1 ? '' : 's'}',
+      '$_activeCount active',
+      if (_pendingCount > 0) '$_pendingCount pending payment',
+      '$_expiredCount expired',
+    ];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
       child: Column(
@@ -418,8 +369,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
                       const SizedBox(height: 6),
                     ],
                     Text(
-                      '${_bookings.length} booking${_bookings.length == 1 ? '' : 's'} · '
-                      '$_activeCount active · $_expiredCount expired',
+                      summaryParts.join(' · '),
                       style: const TextStyle(
                         fontSize: 12,
                         color: EColorConstants.authPlaceholderGray,

@@ -6,7 +6,9 @@ import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/features/admin/data/models/admin_scan_profile_model.dart';
+import 'package:prince_academy/features/admin/data/models/payment_verification_data.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
+import 'package:prince_academy/features/admin/presentation/pages/payment_verification_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/session_detail_page.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/member_booking_card.dart';
 
@@ -65,11 +67,11 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
         .join();
   }
 
-  int _activeCount() =>
-      _bookings.where((b) => b.subscriptionStatus.toLowerCase() == 'active').length;
+  int _activeCount() => _bookings.where((b) => b.isActive).length;
 
-  int _expiredCount() =>
-      _filteredBookings.where((b) => b.subscriptionStatus.toLowerCase() == 'expired').length;
+  int _expiredCount() => _filteredBookings
+      .where((b) => !b.isActive && !b.needsPaymentVerification)
+      .length;
 
   List<AdminScanProfile> get _filteredBookings {
     if (_selectedCoachId == null) return _bookings;
@@ -94,7 +96,7 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
   }
 
   int get _todaySessionCount =>
-      _filteredBookings.where((b) => b.isScheduledToday && b.isActive).length;
+      _filteredBookings.where((b) => b.canMarkAttendanceToday).length;
 
   Future<void> _loadData() async {
     setState(() {
@@ -124,25 +126,21 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
   }
 
   MemberBookingCardData _toCardData(AdminScanProfile booking) {
-    return MemberBookingCardData(
-      bookingId: booking.bookingId,
-      coachName: booking.coachName,
-      coachPhoto: booking.coachPhoto,
-      specialty: booking.coachSpecialty?.trim().isNotEmpty == true
-          ? booking.coachSpecialty!
-          : 'MMA',
-      branchName: booking.branchName,
-      selectedDays: booking.selectedDays,
-      selectedTime: booking.selectedTime,
-      subscriptionStart: booking.subscriptionStart,
-      subscriptionEnd: booking.subscriptionEnd,
-      daysRemaining: booking.daysRemaining,
-      attendedSessions: booking.attendedSessions,
-      totalSessions: booking.totalSessions,
-      subscriptionStatus: booking.subscriptionStatus,
-      isScheduledToday: booking.isScheduledToday,
-      alreadyCheckedInToday: booking.alreadyCheckedInToday,
+    return MemberBookingCardData.fromScanProfile(booking);
+  }
+
+  Future<void> _openPaymentVerification(AdminScanProfile booking) async {
+    final verified = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PaymentVerificationPage(
+          data: PaymentVerificationData.fromScanProfile(booking),
+        ),
+      ),
     );
+
+    if (verified == true) {
+      await _loadData();
+    }
   }
 
   Future<void> _markAttendance(AdminScanProfile booking) async {
@@ -289,9 +287,11 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
                                   data: _toCardData(booking),
                                   isMarkingAttendance:
                                       _busyBookingIds.contains(booking.bookingId),
-                                  onMarkAttendance: booking.isScheduledToday &&
-                                          booking.isActive
+                                  onMarkAttendance: booking.canMarkAttendanceToday
                                       ? () => _markAttendance(booking)
+                                      : null,
+                                  onPaymentTap: booking.needsPaymentVerification
+                                      ? () => _openPaymentVerification(booking)
                                       : null,
                                   onViewSessions: () => _openSessionDetail(booking),
                                 );
