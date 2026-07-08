@@ -14,7 +14,6 @@ const _destinations = [
   _AdminNavDestination(icon: Iconsax.home_1, label: 'Home'),
   _AdminNavDestination(icon: Iconsax.chart, label: 'Tracking'),
   _AdminNavDestination(icon: Iconsax.wallet_3, label: 'Finance'),
-  _AdminNavDestination(icon: Iconsax.card, label: 'Payments'),
 ];
 
 class AdminGlassNavBar extends StatelessWidget {
@@ -130,10 +129,12 @@ class _AdminNavPillItem extends StatelessWidget {
                   : unselectedColor,
               fontFamily: 'Poppins',
             ),
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+              ),
             ),
           ),
         ],
