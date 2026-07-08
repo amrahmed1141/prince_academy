@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/core/di/injection.dart';
-import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
-import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/coach/coach_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/coach/coach_event.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_event.dart';
-import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_state.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_add_info_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/qr_scanner_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/tracking_page.dart';
@@ -38,7 +35,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => AdminHomeBloc(repository: sl())..add(const AdminHomeStarted()),
+          create: (_) => AdminHomeBloc(repository: sl(), sessionPreferences: sl())..add(const AdminHomeStarted()),
         ),
         BlocProvider(
           create: (_) => sl<CoachBloc>()..add(const CoachStarted()),

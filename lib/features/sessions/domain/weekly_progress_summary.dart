@@ -59,7 +59,14 @@ class WeeklyProgressSummary extends Equatable {
       ];
 }
 
-enum BookingDisplayStatus { active, expired, completed, pending }
+enum BookingDisplayStatus {
+  active,
+  expired,
+  completed,
+  pending,
+  pendingPayment,
+  missed,
+}
 
 class TodaySessionInfo extends Equatable {
   final String coachName;

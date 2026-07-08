@@ -1,3 +1,5 @@
+import 'package:equatable/equatable.dart';
+
 enum PaymentMethod { cash, instapay }
 
 extension PaymentMethodX on PaymentMethod {
@@ -10,6 +12,8 @@ extension PaymentMethodX on PaymentMethod {
         PaymentMethod.cash => 'Pay at the academy',
         PaymentMethod.instapay => 'Pay via InstaPay transfer',
       };
+
+  String get apiValue => name;
 }
 
 class BookingModel {
@@ -25,6 +29,12 @@ class BookingModel {
   final String? paymentMethod;
   final double totalPrice;
   final String status;
+  // ADDED: subscription & payment fields from create_booking_with_schedule
+  final DateTime? subscriptionStart;
+  final DateTime? subscriptionEnd;
+  final String? paymentStatus;
+  final String? paymentReference;
+  final DateTime? paymentDeadline;
 
   const BookingModel({
     this.id,
@@ -39,6 +49,11 @@ class BookingModel {
     this.paymentMethod,
     this.totalPrice = 0,
     this.status = 'pending',
+    this.subscriptionStart,
+    this.subscriptionEnd,
+    this.paymentStatus,
+    this.paymentReference,
+    this.paymentDeadline,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -52,6 +67,11 @@ class BookingModel {
       paymentMethod: json['payment_method'] as String?,
       totalPrice: (json['total_price'] as num?)?.toDouble() ?? 0,
       status: json['status'] as String? ?? 'pending',
+      subscriptionStart: _parseDate(json['subscription_start'] ?? json['start_date']),
+      subscriptionEnd: _parseDate(json['subscription_end']),
+      paymentStatus: json['payment_status'] as String?,
+      paymentReference: json['payment_reference'] as String?,
+      paymentDeadline: _parseDate(json['payment_deadline']),
     );
   }
 
@@ -66,6 +86,14 @@ class BookingModel {
       if (paymentMethod != null) 'payment_method': paymentMethod,
       'total_price': totalPrice,
       'status': status,
+      if (subscriptionStart != null)
+        'subscription_start': subscriptionStart!.toIso8601String(),
+      if (subscriptionEnd != null)
+        'subscription_end': subscriptionEnd!.toIso8601String(),
+      if (paymentStatus != null) 'payment_status': paymentStatus,
+      if (paymentReference != null) 'payment_reference': paymentReference,
+      if (paymentDeadline != null)
+        'payment_deadline': paymentDeadline!.toIso8601String(),
     };
   }
 
@@ -96,6 +124,11 @@ class BookingModel {
     String? paymentMethod,
     double? totalPrice,
     String? status,
+    DateTime? subscriptionStart,
+    DateTime? subscriptionEnd,
+    String? paymentStatus,
+    String? paymentReference,
+    DateTime? paymentDeadline,
   }) {
     return BookingModel(
       id: id ?? this.id,
@@ -110,6 +143,11 @@ class BookingModel {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       totalPrice: totalPrice ?? this.totalPrice,
       status: status ?? this.status,
+      subscriptionStart: subscriptionStart ?? this.subscriptionStart,
+      subscriptionEnd: subscriptionEnd ?? this.subscriptionEnd,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentReference: paymentReference ?? this.paymentReference,
+      paymentDeadline: paymentDeadline ?? this.paymentDeadline,
     );
   }
 
@@ -119,6 +157,12 @@ class BookingModel {
       return value.map((e) => e.toString()).toList();
     }
     return [];
+  }
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    return DateTime.tryParse(value.toString());
   }
 }
 
@@ -137,4 +181,26 @@ class MMABookingModel {
     this.specialty,
     required this.coachWhatsapp,
   });
+}
+
+/// Selected coach for the 3-step booking wizard.
+class BookingCoach extends Equatable {
+  final String id;
+  final String name;
+  final String? photoUrl;
+  final String specialty;
+  final String? branchId;
+  final String? branchName;
+
+  const BookingCoach({
+    required this.id,
+    required this.name,
+    this.photoUrl,
+    required this.specialty,
+    this.branchId,
+    this.branchName,
+  });
+
+  @override
+  List<Object?> get props => [id, name, photoUrl, specialty, branchId, branchName];
 }

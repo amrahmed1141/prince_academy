@@ -5,6 +5,8 @@ import 'package:prince_academy/features/sessions/data/models/session_model.dart'
 
 class HomeState extends Equatable {
   final bool isLoading;
+  final bool isRefreshing;
+  final bool hasLoaded;
   final DateTime selectedDate;
   final List<Session> allSessions;
   final List<Session> sessionsForSelectedDate;
@@ -16,6 +18,8 @@ class HomeState extends Equatable {
 
   const HomeState({
     this.isLoading = false,
+    this.isRefreshing = false,
+    this.hasLoaded = false,
     required this.selectedDate,
     this.allSessions = const [],
     this.sessionsForSelectedDate = const [],
@@ -30,6 +34,8 @@ class HomeState extends Equatable {
     final now = DateTime.now();
     return HomeState(
       isLoading: true,
+      isRefreshing: false,
+      hasLoaded: false,
       selectedDate: DateTime(now.year, now.month, now.day),
     );
   }
@@ -38,6 +44,8 @@ class HomeState extends Equatable {
 
   HomeState copyWith({
     bool? isLoading,
+    bool? isRefreshing,
+    bool? hasLoaded,
     DateTime? selectedDate,
     List<Session>? allSessions,
     List<Session>? sessionsForSelectedDate,
@@ -53,6 +61,8 @@ class HomeState extends Equatable {
   }) {
     return HomeState(
       isLoading: isLoading ?? this.isLoading,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+      hasLoaded: hasLoaded ?? this.hasLoaded,
       selectedDate: selectedDate ?? this.selectedDate,
       allSessions: allSessions ?? this.allSessions,
       sessionsForSelectedDate:
@@ -70,6 +80,8 @@ class HomeState extends Equatable {
   @override
   List<Object?> get props => [
         isLoading,
+        isRefreshing,
+        hasLoaded,
         selectedDate,
         allSessions,
         sessionsForSelectedDate,

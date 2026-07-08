@@ -7,6 +7,7 @@ class ActiveUser {
   final int activeBookings;
   final int expiredBookings;
   final DateTime? latestSubscriptionEnd;
+  final bool hasPendingPayment;
 
   const ActiveUser({
     required this.userId,
@@ -17,6 +18,7 @@ class ActiveUser {
     required this.activeBookings,
     required this.expiredBookings,
     this.latestSubscriptionEnd,
+    this.hasPendingPayment = false,
   });
 
   factory ActiveUser.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,20 @@ class ActiveUser {
       activeBookings: (json['active_bookings'] as num?)?.toInt() ?? 0,
       expiredBookings: (json['expired_bookings'] as num?)?.toInt() ?? 0,
       latestSubscriptionEnd: _parseDate(json['latest_subscription_end']),
+    );
+  }
+
+  ActiveUser copyWith({bool? hasPendingPayment}) {
+    return ActiveUser(
+      userId: userId,
+      fullName: fullName,
+      phone: phone,
+      qrCode: qrCode,
+      totalBookings: totalBookings,
+      activeBookings: activeBookings,
+      expiredBookings: expiredBookings,
+      latestSubscriptionEnd: latestSubscriptionEnd,
+      hasPendingPayment: hasPendingPayment ?? this.hasPendingPayment,
     );
   }
 

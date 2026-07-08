@@ -97,9 +97,9 @@ class _HomePageBodyState extends State<_HomePageBody> {
         body: RefreshIndicator(
           color: AppColors.primary,
           onRefresh: () async {
-            context.read<HomeBloc>().add(const LoadHomeData());
+            context.read<HomeBloc>().add(const LoadHomeData(forceRefresh: true));
             await context.read<HomeBloc>().stream.firstWhere(
-                  (s) => !s.isLoading,
+                  (s) => !s.isRefreshing && !s.isLoading,
                 );
           },
           child: CustomScrollView(
@@ -124,6 +124,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
               BlocSelector<HomeBloc, HomeState, _HomeSectionsViewData>(
                 selector: (state) => _HomeSectionsViewData(
                   isLoading: state.isLoading,
+                  hasLoaded: state.hasLoaded,
                   selectedDate: state.selectedDate,
                   allSessions: state.allSessions,
                   sessionsForSelectedDate: state.sessionsForSelectedDate,
@@ -134,7 +135,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
                   hasSessionsForSelectedDate: state.hasSessionsForSelectedDate,
                 ),
                 builder: (context, data) {
-                  if (data.isLoading) {
+                  if (data.isLoading && !data.hasLoaded) {
                     return const SliverToBoxAdapter(
                       child: _HomeSectionsShimmer(),
                     );
@@ -154,9 +155,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
                       const SliverToBoxAdapter(child: SizedBox(height: 16)),
                       SliverToBoxAdapter(
                         child: _HomeInsightsCarousel(
-                          selectedDate: data.selectedDate,
                           allSessions: data.allSessions,
-                          sessionsForSelectedDate: data.sessionsForSelectedDate,
                           bookings: data.bookings,
                           onBookingTap: (booking) =>
                               _openSessionDetail(context, booking),
@@ -254,6 +253,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
 
 class _HomeSectionsViewData {
   final bool isLoading;
+  final bool hasLoaded;
   final DateTime selectedDate;
   final List<Session> allSessions;
   final List<Session> sessionsForSelectedDate;
@@ -265,6 +265,7 @@ class _HomeSectionsViewData {
 
   const _HomeSectionsViewData({
     required this.isLoading,
+    required this.hasLoaded,
     required this.selectedDate,
     required this.allSessions,
     required this.sessionsForSelectedDate,
@@ -279,6 +280,7 @@ class _HomeSectionsViewData {
   bool operator ==(Object other) {
     return other is _HomeSectionsViewData &&
         other.isLoading == isLoading &&
+        other.hasLoaded == hasLoaded &&
         other.selectedDate == selectedDate &&
         other.sessionsForSelectedDate.length ==
             sessionsForSelectedDate.length &&
@@ -294,6 +296,7 @@ class _HomeSectionsViewData {
   @override
   int get hashCode => Object.hash(
         isLoading,
+        hasLoaded,
         selectedDate,
         sessionsForSelectedDate.length,
         upcomingSession?.bookingId,
@@ -306,16 +309,12 @@ class _HomeSectionsViewData {
 }
 
 class _HomeInsightsCarousel extends StatelessWidget {
-  final DateTime selectedDate;
   final List<Session> allSessions;
-  final List<Session> sessionsForSelectedDate;
   final List<BookingHistoryModel> bookings;
   final void Function(BookingHistoryModel booking) onBookingTap;
 
   const _HomeInsightsCarousel({
-    required this.selectedDate,
     required this.allSessions,
-    required this.sessionsForSelectedDate,
     required this.bookings,
     required this.onBookingTap,
   });
@@ -334,51 +333,16 @@ class _HomeInsightsCarousel extends StatelessWidget {
     return SessionCard.bookingFromSession(session);
   }
 
-  Session? _sessionOnSelectedDate() {
-    if (sessionsForSelectedDate.isEmpty) return null;
-    final sorted = List<Session>.from(sessionsForSelectedDate)
-      ..sort((a, b) => a.selectedTime.compareTo(b.selectedTime));
-    final preferred =
-        sorted.where((s) => s.isToday || s.isUpcoming).toList(growable: false);
-    return preferred.isNotEmpty ? preferred.first : sorted.first;
-  }
-
-  /// Nearest upcoming session strictly after [selectedDate] (next day first).
-  Session? _nextSessionAfterSelectedDate() {
-    final anchor = _dateOnly(selectedDate);
+  Session? _todaySession() {
+    final today = _dateOnly(DateTime.now());
     final candidates = allSessions
-        .where((s) {
-          if (!(s.isUpcoming || s.isToday)) return false;
-          return _dateOnly(s.sessionDate).isAfter(anchor);
-        })
+        .where((s) => _isSameDay(_dateOnly(s.sessionDate), today))
         .toList()
-      ..sort((a, b) {
-        final dateCompare = a.sessionDate.compareTo(b.sessionDate);
-        if (dateCompare != 0) return dateCompare;
-        return a.selectedTime.compareTo(b.selectedTime);
-      });
-
+      ..sort((a, b) => a.selectedTime.compareTo(b.selectedTime));
     if (candidates.isEmpty) return null;
 
-    final nearestDay = _dateOnly(candidates.first.sessionDate);
-    final onNearestDay = candidates
-        .where((s) => _isSameDay(_dateOnly(s.sessionDate), nearestDay))
-        .toList()
-      ..sort((a, b) => a.selectedTime.compareTo(b.selectedTime));
-    return onNearestDay.first;
-  }
-
-  int _itemCount({
-    required Session? sessionOnSelectedDate,
-    required Session? nextUpcoming,
-    required bool showProgress,
-  }) {
-    final hasSelectedSession = sessionOnSelectedDate != null;
-    final hasUpcoming = nextUpcoming != null;
-    if (hasSelectedSession) {
-      return 1 + (hasUpcoming ? 1 : 0) + (showProgress ? 1 : 0);
-    }
-    return (hasUpcoming ? 1 : 0) + (showProgress ? 1 : 0);
+    final preferred = candidates.where((s) => s.isToday).toList(growable: false);
+    return preferred.isNotEmpty ? preferred.first : candidates.first;
   }
 
   Widget _buildSessionCard(Session session, {bool showTodayBanner = false}) {
@@ -397,27 +361,18 @@ class _HomeInsightsCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sessionOnSelectedDate = _sessionOnSelectedDate();
-    final nextUpcoming = _nextSessionAfterSelectedDate();
+    final todaySession = _todaySession();
     final weeklyProgress = WeeklyProgressCalculator.calculate(
       bookings: bookings,
       sessions: allSessions,
     );
     final showProgress = weeklyProgress.days.isNotEmpty;
-    final itemCount = _itemCount(
-      sessionOnSelectedDate: sessionOnSelectedDate,
-      nextUpcoming: nextUpcoming,
-      showProgress: showProgress,
-    );
 
-    if (itemCount == 0) {
+    if (todaySession == null && !showProgress) {
       return const SizedBox.shrink();
     }
 
-    final isTodaySelected = _isSameDay(
-      _dateOnly(selectedDate),
-      _dateOnly(DateTime.now()),
-    );
+    final itemCount = todaySession != null && showProgress ? 2 : 1;
 
     return SizedBox(
       height: 300,
@@ -431,22 +386,12 @@ class _HomeInsightsCarousel extends StatelessWidget {
         clipBehavior: Clip.none,
         itemCount: itemCount,
         itemBuilder: (context, index) {
-          final hasSelectedSession = sessionOnSelectedDate != null;
-          final hasUpcoming = nextUpcoming != null;
-
-          if (hasSelectedSession && index == 0) {
+          if (todaySession != null && index == 0) {
             return RepaintBoundary(
               child: _buildSessionCard(
-                sessionOnSelectedDate,
-                showTodayBanner: isTodaySelected,
+                todaySession,
+                showTodayBanner: true,
               ),
-            );
-          }
-
-          final upcomingIndex = hasSelectedSession ? 1 : 0;
-          if (hasUpcoming && index == upcomingIndex) {
-            return RepaintBoundary(
-              child: _buildSessionCard(nextUpcoming),
             );
           }
 

@@ -42,11 +42,15 @@ class AddCoachSubmitted extends AdminHomeEvent {
 
 class SaveSessionSubmitted extends AdminHomeEvent {
   final SessionDraft draft;
+  final bool addAnother;
 
-  const SaveSessionSubmitted(this.draft);
+  const SaveSessionSubmitted(
+    this.draft, {
+    this.addAnother = false,
+  });
 
   @override
-  List<Object?> get props => [draft];
+  List<Object?> get props => [draft, addAnother];
 }
 
 class DeleteCoachSubmitted extends AdminHomeEvent {

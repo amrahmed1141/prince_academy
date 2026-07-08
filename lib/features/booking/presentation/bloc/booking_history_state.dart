@@ -19,11 +19,26 @@ class BookingHistoryLoading extends BookingHistoryState {
 class BookingHistoryLoaded extends BookingHistoryState {
   final List<BookingHistoryModel> allBookings;
   final String? activeFilter;
+  final bool isRefreshing;
 
   const BookingHistoryLoaded({
     required this.allBookings,
     this.activeFilter,
+    this.isRefreshing = false,
   });
+
+  BookingHistoryLoaded copyWith({
+    List<BookingHistoryModel>? allBookings,
+    String? activeFilter,
+    bool clearFilter = false,
+    bool? isRefreshing,
+  }) {
+    return BookingHistoryLoaded(
+      allBookings: allBookings ?? this.allBookings,
+      activeFilter: clearFilter ? null : (activeFilter ?? this.activeFilter),
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+    );
+  }
 
   List<BookingHistoryModel> get bookings {
     if (activeFilter == null) return allBookings;
@@ -40,7 +55,7 @@ class BookingHistoryLoaded extends BookingHistoryState {
   }
 
   @override
-  List<Object?> get props => [allBookings, activeFilter];
+  List<Object?> get props => [allBookings, activeFilter, isRefreshing];
 }
 
 class BookingHistoryError extends BookingHistoryState {

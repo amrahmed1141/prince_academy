@@ -2,14 +2,19 @@ import 'dart:io';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/core/helpers/image_resize_helper.dart';
+import 'package:prince_academy/features/admin/data/datasources/admin_session_preferences.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_event.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_state.dart';
 
 class AdminHomeBloc extends Bloc<AdminHomeEvent, AdminHomeState> {
   final CoachRepository repository;
+  final AdminSessionPreferences sessionPreferences;
 
-  AdminHomeBloc({required this.repository}) : super(const AdminHomeState()) {
+  AdminHomeBloc({
+    required this.repository,
+    required this.sessionPreferences,
+  }) : super(const AdminHomeState()) {
     on<AdminHomeStarted>(_onStarted);
     on<RefreshCoaches>(_onRefreshCoaches);
     on<RefreshSessions>(_onRefreshSessions);
@@ -24,6 +29,12 @@ class AdminHomeBloc extends Bloc<AdminHomeEvent, AdminHomeState> {
     AdminHomeStarted event,
     Emitter<AdminHomeState> emit,
   ) async {
+    final lastDraft = sessionPreferences.readLastDraft();
+    final recentPrices = sessionPreferences.readRecentPrices();
+    emit(state.copyWith(
+      lastSessionDraft: lastDraft,
+      recentPrices: recentPrices,
+    ));
     add(const RefreshCoaches());
     add(const RefreshSessions());
   }
@@ -118,14 +129,21 @@ class AdminHomeBloc extends Bloc<AdminHomeEvent, AdminHomeState> {
     SaveSessionSubmitted event,
     Emitter<AdminHomeState> emit,
   ) async {
-    emit(state.copyWith(isSavingSession: true));
+    emit(state.copyWith(isSavingSession: true, clearKeepSessionForm: true));
 
     try {
       await repository.upsertSession(event.draft);
+      await sessionPreferences.saveLastDraft(event.draft);
+      final recentPrices = sessionPreferences.readRecentPrices();
       add(const RefreshSessions());
       emit(state.copyWith(
         isSavingSession: false,
-        message: 'Session saved successfully!',
+        lastSessionDraft: event.draft,
+        recentPrices: recentPrices,
+        keepSessionFormAfterSave: event.addAnother,
+        message: event.addAnother
+            ? 'Session saved! Ready for another.'
+            : 'Session saved successfully!',
         messageType: AdminHomeMessageType.success,
       ));
     } catch (e) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_form_styles.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_searchable_dropdown_field.dart';
 
 class AdminDropdownField<T> extends StatelessWidget {
   final String label;
@@ -10,6 +11,7 @@ class AdminDropdownField<T> extends StatelessWidget {
   final bool enabled;
   final ValueChanged<T?> onChanged;
   final String? errorText;
+  final bool searchable;
 
   const AdminDropdownField({
     super.key,
@@ -21,10 +23,25 @@ class AdminDropdownField<T> extends StatelessWidget {
     this.enabled = true,
     required this.onChanged,
     this.errorText,
+    this.searchable = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (searchable) {
+      return AdminSearchableDropdownField<T>(
+        label: label,
+        value: value,
+        items: items,
+        itemLabel: itemLabel,
+        prefixIcon: prefixIcon,
+        errorText: errorText,
+        enabled: enabled,
+        hintText: 'Select option',
+        onChanged: onChanged,
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

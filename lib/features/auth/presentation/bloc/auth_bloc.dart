@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
@@ -52,7 +53,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       emit(AuthAuthed(userDoc));
     } on AuthException catch (e) {
-      emit(AuthError(e.message));
+      emit(AuthError(_friendlyAuthMessage(e.message)));
     } on PostgrestException catch (e) {
       if (e.code == 'PGRST205' || e.code == '404') {
         emit(const AuthError(
@@ -73,10 +74,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
 
     try {
-      // Step 1: Create auth user (no metadata — profile is inserted separately).
+      // Step 1: Create auth user — pass metadata for handle_new_user trigger.
       final response = await _supabase.auth.signUp(
         email: event.email.trim(),
         password: event.password,
+        data: {
+          'full_name': event.fullName.trim(),
+          'phone': event.phone.trim(),
+          'role': 'user',
+        },
       );
 
       final user = response.user;
@@ -111,7 +117,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       emit(AuthAuthed(userDoc, profileSaveWarning: profileSaveWarning));
     } on AuthException catch (e) {
-      emit(AuthError(e.message));
+      emit(AuthError(_friendlyAuthMessage(e.message)));
     } on PostgrestException catch (e) {
       if (e.code == 'PGRST205' || e.code == '404') {
         emit(const AuthError(
@@ -167,7 +173,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       emit(AuthAuthed(userDoc));
     } on AuthException catch (e) {
-      emit(AuthError(e.message));
+      emit(AuthError(_friendlyAuthMessage(e.message)));
     } on PostgrestException catch (e) {
       if (e.code == 'PGRST205' || e.code == '404') {
         emit(const AuthError(
@@ -203,7 +209,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       emit(AuthAuthed(userDoc));
     } on AuthException catch (e) {
-      emit(AuthError(e.message));
+      emit(AuthError(_friendlyAuthMessage(e.message)));
     } on PostgrestException catch (e) {
       if (e.code == 'PGRST205' || e.code == '404') {
         emit(const AuthError(
@@ -223,11 +229,33 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       await repo.signOut();
       emit(const AuthNoSession());
     } on AuthException catch (e) {
-      emit(AuthError(e.message));
+      emit(AuthError(_friendlyAuthMessage(e.message)));
     } on PostgrestException catch (e) {
       emit(AuthError(e.message));
     } catch (e) {
       emit(AuthError(e.toString()));
     }
   }
+}
+
+String _friendlyAuthMessage(String message) {
+  try {
+    final decoded = jsonDecode(message);
+    if (decoded is Map) {
+      final text = decoded['message'] as String?;
+      if (text != null && text.isNotEmpty) {
+        if (text.contains('Database error saving new user')) {
+          return 'Could not create your profile. Ask an admin to run '
+              'supabase/fix_signup_trigger.sql in Supabase, then try again.';
+        }
+        return text;
+      }
+    }
+  } catch (_) {}
+
+  if (message.contains('Database error saving new user')) {
+    return 'Could not create your profile. Ask an admin to run '
+        'supabase/fix_signup_trigger.sql in Supabase, then try again.';
+  }
+  return message;
 }

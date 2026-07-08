@@ -216,9 +216,9 @@ class _Trailing extends StatelessWidget {
           Colors.grey.shade100,
         ),
       AdminSessionTileStatus.missed => (
-          'Expired',
-          EColorConstants.authPlaceholderGray,
-          Colors.grey.shade100,
+          'Missed',
+          const Color(0xFFD32F2F),
+          const Color(0xFFFFEBEE),
         ),
     };
 

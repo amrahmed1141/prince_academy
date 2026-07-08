@@ -140,9 +140,13 @@ class BookingHistoryModel {
     return 'Payment pending';
   }
 
-  /// Resolves UI/filter status when the view still reports `pending` but
-  /// the member has already attended sessions (e.g. cash booking awaiting admin).
+  /// Resolves UI/filter status. Prefer [displayStatus] from the backend view.
   String get effectiveDisplayStatus {
+    final normalized = displayStatus.toLowerCase();
+    if (normalized == 'pending_payment' || normalized == 'awaiting_verification') {
+      return 'pending_payment';
+    }
+
     if (totalSessions > 0 && attendedSessions >= totalSessions) {
       return 'completed';
     }
@@ -156,7 +160,9 @@ class BookingHistoryModel {
       }
     }
 
-    if (attendedSessions > 0) return 'active';
+    if (normalized == 'expired') return 'expired';
+    if (normalized == 'active') return 'active';
+    if (normalized == 'pending') return 'pending';
 
     if (bookingStatus == 'pending') return 'pending';
 

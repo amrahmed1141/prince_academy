@@ -8,7 +8,12 @@ abstract class BookingHistoryEvent extends Equatable {
 }
 
 class LoadBookingHistory extends BookingHistoryEvent {
-  const LoadBookingHistory();
+  final bool forceRefresh;
+
+  const LoadBookingHistory({this.forceRefresh = false});
+
+  @override
+  List<Object?> get props => [forceRefresh];
 }
 
 class FilterBookings extends BookingHistoryEvent {

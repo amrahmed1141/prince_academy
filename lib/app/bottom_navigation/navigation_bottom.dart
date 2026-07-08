@@ -18,11 +18,25 @@ class NavigationBottom extends StatefulWidget {
 class _NavigationBottomState extends State<NavigationBottom> {
   int _currentIndex = 0;
   late final UserQrService _qrService;
+  late final List<WidgetBuilder> _tabBuilders;
+  late final List<bool> _visitedTabs;
 
   @override
   void initState() {
     super.initState();
     _qrService = sl<UserQrService>();
+    _tabBuilders = [
+      (_) => const RepaintBoundary(child: HomePage()),
+      (_) => const RepaintBoundary(child: BookingHistoryPage()),
+      (_) => const RepaintBoundary(child: SessionsPage()),
+      (_) => RepaintBoundary(
+            child: ProfilePage(
+              isActive: _currentIndex == 3,
+            ),
+          ),
+    ];
+    _visitedTabs = List<bool>.filled(_tabBuilders.length, false);
+    _visitedTabs[_currentIndex] = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _qrService.refresh(silent: _qrService.hasQrCode);
     });
@@ -48,16 +62,12 @@ class _NavigationBottomState extends State<NavigationBottom> {
         children: [
           IndexedStack(
             index: _currentIndex,
-            children: [
-              const RepaintBoundary(child: HomePage()),
-              const RepaintBoundary(child: BookingHistoryPage()),
-              const RepaintBoundary(child: SessionsPage()),
-              RepaintBoundary(
-                child: ProfilePage(
-                  isActive: _currentIndex == 3,
-                ),
-              ),
-            ],
+            children: List<Widget>.generate(_tabBuilders.length, (index) {
+              if (!_visitedTabs[index]) {
+                return const SizedBox.shrink();
+              }
+              return _tabBuilders[index](context);
+            }),
           ),
           Positioned(
             left: 16,
@@ -72,7 +82,10 @@ class _NavigationBottomState extends State<NavigationBottom> {
                     hasQrCode: _qrService.hasQrCode,
                     onDestinationSelected: (index) {
                       if (index == _currentIndex) return;
-                      setState(() => _currentIndex = index);
+                      setState(() {
+                        _currentIndex = index;
+                        _visitedTabs[index] = true;
+                      });
                     },
                   ),
                 ),

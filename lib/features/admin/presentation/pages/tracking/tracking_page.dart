@@ -270,39 +270,75 @@ class _TrackingViewState extends State<TrackingView> {
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 12)),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 180,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
+          if (state.displayCoaches.isEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'No coaches in this branch.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: EColorConstants.authPlaceholderGray,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+            )
+          else if (state.displayCoaches.length == 1)
+            SliverToBoxAdapter(
+              child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: state.displayCoaches.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return _AllCoachChip(
-                      isSelected: state.selectedCoachId == null,
+                child: SizedBox(
+                  height: 180,
+                  child: _CoachOverviewCard(
+                    coach: state.displayCoaches.first,
+                    isSelected:
+                        state.selectedCoachId == state.displayCoaches.first.coachId,
+                    width: double.infinity,
+                    margin: EdgeInsets.zero,
+                    onTap: () {
+                      context.read<TrackingBloc>().add(
+                            FilterByCoach(state.displayCoaches.first.coachId),
+                          );
+                    },
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 180,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: state.displayCoaches.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return _AllCoachChip(
+                        isSelected: state.selectedCoachId == null,
+                        onTap: () {
+                          context
+                              .read<TrackingBloc>()
+                              .add(const FilterByCoach(null));
+                        },
+                      );
+                    }
+
+                    final coach = state.displayCoaches[index - 1];
+                    return _CoachOverviewCard(
+                      coach: coach,
+                      isSelected: state.selectedCoachId == coach.coachId,
                       onTap: () {
                         context
                             .read<TrackingBloc>()
-                            .add(const FilterByCoach(null));
+                            .add(FilterByCoach(coach.coachId));
                       },
                     );
-                  }
-
-                  final coach = state.displayCoaches[index - 1];
-                  return _CoachOverviewCard(
-                    coach: coach,
-                    isSelected: state.selectedCoachId == coach.coachId,
-                    onTap: () {
-                      context
-                          .read<TrackingBloc>()
-                          .add(FilterByCoach(coach.coachId));
-                    },
-                  );
-                },
+                  },
+                ),
               ),
             ),
-          ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
           SliverToBoxAdapter(
             child: Padding(
@@ -498,11 +534,15 @@ class _CoachOverviewCard extends StatelessWidget {
   final CoachUserStats coach;
   final bool isSelected;
   final VoidCallback onTap;
+  final double width;
+  final EdgeInsetsGeometry margin;
 
   const _CoachOverviewCard({
     required this.coach,
     required this.isSelected,
     required this.onTap,
+    this.width = 156,
+    this.margin = const EdgeInsets.only(right: 12),
   });
 
   @override
@@ -511,8 +551,8 @@ class _CoachOverviewCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 156,
-        margin: const EdgeInsets.only(right: 12),
+        width: width,
+        margin: margin,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
@@ -753,14 +793,48 @@ class _SubscriberCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    user.fullName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: EColorConstants.authTextDarkBrown,
-                      fontFamily: 'Poppins',
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          user.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: EColorConstants.authTextDarkBrown,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      ),
+                      if (user.hasPendingPayment) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8E1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: const Color(0xFFF9A825).withOpacity(0.35),
+                            ),
+                          ),
+                          child: const Text(
+                            'PENDING',
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFF9A825),
+                              fontFamily: 'Poppins',
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(

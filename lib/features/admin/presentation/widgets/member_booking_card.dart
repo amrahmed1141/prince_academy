@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/helpers/session_schedule_helper.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
+import 'package:prince_academy/features/admin/data/models/admin_scan_profile_model.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 
 enum MemberBookingDisplayStatus { active, expired, pending, completed }
@@ -22,6 +24,10 @@ class MemberBookingCardData {
   final String subscriptionStatus;
   final bool isScheduledToday;
   final bool alreadyCheckedInToday;
+  // ADDED: payment fields for admin QR scan
+  final String? paymentMethod;
+  final String? paymentStatus;
+  final double totalPrice;
 
   const MemberBookingCardData({
     required this.bookingId,
@@ -39,17 +45,104 @@ class MemberBookingCardData {
     required this.subscriptionStatus,
     this.isScheduledToday = false,
     this.alreadyCheckedInToday = false,
+    this.paymentMethod,
+    this.paymentStatus,
+    this.totalPrice = 0,
   });
 
+  bool get needsPaymentVerification {
+    final pay = paymentStatus?.toLowerCase();
+    if (pay == 'pending_payment' ||
+        pay == 'awaiting_verification' ||
+        pay == 'pending') {
+      return true;
+    }
+    final sub = subscriptionStatus.toLowerCase();
+    if (sub == 'pending_payment' || sub == 'pending') {
+      final verified = pay == 'verified' || pay == 'paid' || pay == 'active';
+      return !verified;
+    }
+    return false;
+  }
+
+  bool get _isPastSubscriptionEnd {
+    if (subscriptionEnd == null) return false;
+    final today = SessionScheduleHelper.dateOnly(DateTime.now());
+    final end = SessionScheduleHelper.dateOnly(subscriptionEnd!);
+    return today.isAfter(end);
+  }
+
+  bool get _isPaymentVerified {
+    final pay = paymentStatus?.toLowerCase();
+    return pay == 'verified' || pay == 'paid' || pay == 'active';
+  }
+
+  bool get isPaidActive {
+    if (needsPaymentVerification) return false;
+    if (_isPastSubscriptionEnd) return false;
+    final sub = subscriptionStatus.toLowerCase();
+    if (sub == 'expired' || sub == 'cancelled' || sub == 'rejected') {
+      return false;
+    }
+    if (_isPaymentVerified) return true;
+    return sub == 'active' || sub == 'approved';
+  }
+
+  bool get hasSessionToday =>
+      isScheduledToday ||
+      SessionScheduleHelper.isSessionDayOnDate(
+        selectedDays: selectedDays,
+        subscriptionStart: subscriptionStart,
+        subscriptionEnd: subscriptionEnd,
+      );
+
+  bool get canMarkAttendanceToday => isPaidActive && hasSessionToday;
+
   MemberBookingDisplayStatus get displayStatus {
-    final status = subscriptionStatus.toLowerCase();
+    if (needsPaymentVerification) {
+      return MemberBookingDisplayStatus.pending;
+    }
     if (totalSessions > 0 && attendedSessions >= totalSessions) {
       return MemberBookingDisplayStatus.completed;
     }
-    if (status == 'pending') return MemberBookingDisplayStatus.pending;
-    if (status == 'expired') return MemberBookingDisplayStatus.expired;
-    if (status == 'active') return MemberBookingDisplayStatus.active;
+    if (_isPastSubscriptionEnd ||
+        subscriptionStatus.toLowerCase() == 'expired') {
+      return MemberBookingDisplayStatus.expired;
+    }
+    if (isPaidActive) return MemberBookingDisplayStatus.active;
+    final status = subscriptionStatus.toLowerCase();
+    if (status == 'active' || status == 'approved') {
+      return MemberBookingDisplayStatus.active;
+    }
+    if (status == 'pending' || status == 'pending_payment') {
+      return MemberBookingDisplayStatus.pending;
+    }
     return MemberBookingDisplayStatus.expired;
+  }
+
+  factory MemberBookingCardData.fromScanProfile(AdminScanProfile profile) {
+    return MemberBookingCardData(
+      bookingId: profile.bookingId,
+      coachName: profile.coachName,
+      coachPhoto: profile.coachPhoto,
+      specialty: profile.coachSpecialty?.trim().isNotEmpty == true
+          ? profile.coachSpecialty!
+          : 'MMA',
+      branchName: profile.branchName,
+      selectedDays: profile.selectedDays,
+      selectedTime: profile.selectedTime,
+      subscriptionStart: profile.subscriptionStart,
+      subscriptionEnd: profile.subscriptionEnd,
+      daysRemaining: profile.daysRemaining,
+      attendedSessions: profile.attendedSessions,
+      totalSessions: profile.totalSessions,
+      subscriptionStatus: profile.subscriptionStatus,
+      isScheduledToday: profile.isScheduledToday,
+      alreadyCheckedInToday: profile.alreadyCheckedInToday,
+      paymentMethod: profile.paymentMethod,
+      paymentStatus: profile.paymentStatus,
+      totalPrice: profile.totalPrice,
+    );
   }
 }
 
@@ -57,23 +150,27 @@ class MemberBookingCard extends StatelessWidget {
   final MemberBookingCardData data;
   final VoidCallback onViewSessions;
   final VoidCallback? onMarkAttendance;
+  final VoidCallback? onPaymentTap;
   final bool isMarkingAttendance;
+  final bool isConfirmingPayment;
 
   const MemberBookingCard({
     super.key,
     required this.data,
     required this.onViewSessions,
     this.onMarkAttendance,
+    this.onPaymentTap,
     this.isMarkingAttendance = false,
+    this.isConfirmingPayment = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final status = data.displayStatus;
     final isExpired = status == MemberBookingDisplayStatus.expired;
-    final isActive = status == MemberBookingDisplayStatus.active;
+    final isPendingPayment = status == MemberBookingDisplayStatus.pending;
     final showMarkAttendance =
-        isActive && data.isScheduledToday && onMarkAttendance != null;
+        data.canMarkAttendanceToday && onMarkAttendance != null;
     final schedule = SubscriptionFormatters.formatDays(data.selectedDays);
     final time = data.selectedTime?.trim().isNotEmpty == true
         ? data.selectedTime!
@@ -175,6 +272,24 @@ class MemberBookingCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          if (data.subscriptionStart != null && data.subscriptionEnd != null)
+            _InfoRow(
+              icon: Iconsax.calendar_1,
+              text:
+                  'Period: ${SessionScheduleHelper.formatPeriod(data.subscriptionStart!, data.subscriptionEnd!)}',
+            ),
+          if (data.totalPrice > 0)
+            _InfoRow(
+              icon: Iconsax.wallet_3,
+              text: 'Total: ${data.totalPrice.toStringAsFixed(0)} EGP',
+            ),
+          if (isPendingPayment)
+            _InfoRow(
+              icon: Iconsax.timer_1,
+              text:
+                  'Status: ⏳ Pending Payment (${data.paymentMethod?.toLowerCase() == 'cash' ? 'Cash' : 'InstaPay'})',
+              color: const Color(0xFFF9A825),
             ),
           if (!isExpired && data.subscriptionStart != null) ...[
             _InfoRow(
@@ -295,32 +410,86 @@ class MemberBookingCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: onViewSessions,
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View Sessions',
-                    style: TextStyle(
-                      color: EColorConstants.primaryColor,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Poppins',
+          if (isPendingPayment && onPaymentTap != null) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: onViewSessions,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: EColorConstants.primaryColor,
+                      side: const BorderSide(
+                        color: EColorConstants.authFieldBorder,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'View Sessions',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Poppins',
+                      ),
                     ),
                   ),
-                  SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 14,
-                    color: EColorConstants.primaryColor,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: isConfirmingPayment ? null : onPaymentTap,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF9A825),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: isConfirmingPayment
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Payment',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
                   ),
-                ],
+                ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onViewSessions,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View Sessions',
+                      style: TextStyle(
+                        color: EColorConstants.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 14,
+                      color: EColorConstants.primaryColor,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -401,7 +570,7 @@ class _StatusBadge extends StatelessWidget {
           const Color(0xFFFFEBEE),
         ),
       MemberBookingDisplayStatus.pending => (
-          'Pending',
+          'Pending Payment',
           const Color(0xFFF9A825),
           const Color(0xFFFFF8E1),
         ),

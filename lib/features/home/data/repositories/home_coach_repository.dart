@@ -11,6 +11,17 @@ class HomeCoachRepository {
   static const _coachColumns =
       'id, name, specialty, photo_url, is_active, branch_id';
 
+  static const _coachColumnsWithCounts =
+      'id, name, specialty, photo_url, is_active, branch_id, coach_member_count(member_count)';
+
+  static const _coachColumnsWithCountsAndSessions =
+      'id, name, specialty, photo_url, is_active, branch_id, '
+      'coach_member_count(member_count), coach_sessions!inner(id)';
+
+  static const _coachColumnsWithSessions =
+      'id, name, specialty, photo_url, is_active, branch_id, '
+      'coach_sessions!inner(id)';
+
   final TtlCache<List<CoachModel>> _coachesCache = TtlCache();
   final TtlCache<Map<String, String>> _classTypesCache = TtlCache();
   final TtlCache<Map<String, int>> _studentCountsCache = TtlCache();
@@ -22,10 +33,7 @@ class HomeCoachRepository {
       if (cached != null) return cached;
     }
 
-    final response = await _supabase
-        .from('coaches')
-        .select(_coachColumns)
-        .eq('is_active', true);
+    final response = await _fetchCoachesSelect();
 
     final coaches = (response as List)
         .map((e) => CoachModel.fromMap(Map<String, dynamic>.from(e as Map)))
@@ -33,6 +41,43 @@ class HomeCoachRepository {
 
     _coachesCache.set(coaches);
     return coaches;
+  }
+
+  Future<dynamic> _fetchCoachesSelect() async {
+    try {
+      return await _supabase
+          .from('coaches')
+          .select(_coachColumnsWithCountsAndSessions)
+          .eq('is_active', true)
+          .eq('coach_sessions.is_active', true);
+    } on PostgrestException catch (e) {
+      if (e.code == 'PGRST200' || e.code == 'PGRST205' || e.code == '42P01') {
+        try {
+          return await _supabase
+              .from('coaches')
+              .select(_coachColumnsWithSessions)
+              .eq('is_active', true)
+              .eq('coach_sessions.is_active', true);
+        } on PostgrestException catch (e2) {
+          if (e2.code == 'PGRST200' ||
+              e2.code == 'PGRST205' ||
+              e2.code == '42P01') {
+            return _supabase
+                .from('coaches')
+                .select(_coachColumns)
+                .eq('is_active', true);
+          }
+          rethrow;
+        }
+      }
+      rethrow;
+    }
+  }
+
+  CoachModel _withMemberCount(CoachModel coach, Map<String, int> counts) {
+    final count = counts[coach.id];
+    if (count == null || count == coach.memberCount) return coach;
+    return coach.copyWith(memberCount: count);
   }
 
   /// Filter cached coaches by specialty — no extra network call.
@@ -44,13 +89,26 @@ class HomeCoachRepository {
   }
 
   Future<CoachModel> getCoachById(String coachId) async {
-    final response = await _supabase
-        .from('coaches')
-        .select(_coachColumns)
-        .eq('id', coachId)
-        .single();
-
-    return CoachModel.fromMap(Map<String, dynamic>.from(response));
+    try {
+      final response = await _supabase
+          .from('coaches')
+          .select(_coachColumnsWithCounts)
+          .eq('id', coachId)
+          .single();
+      return CoachModel.fromMap(Map<String, dynamic>.from(response));
+    } on PostgrestException catch (e) {
+      if (e.code == 'PGRST200' || e.code == 'PGRST205' || e.code == '42P01') {
+        final response = await _supabase
+            .from('coaches')
+            .select(_coachColumns)
+            .eq('id', coachId)
+            .single();
+        final coach = CoachModel.fromMap(Map<String, dynamic>.from(response));
+        final counts = await getStudentCountsForCoaches([coachId]);
+        return _withMemberCount(coach, counts);
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, String>> getPrimaryClassTypesForCoaches(
@@ -117,28 +175,47 @@ class HomeCoachRepository {
     }
 
     try {
-      final response = await _supabase
-          .from('bookings')
-          .select('coach_id, user_id')
-          .inFilter('coach_id', coachIds);
+      final response = await _supabase.rpc(
+        'get_coach_member_counts',
+        params: {'p_coach_ids': coachIds},
+      );
 
-      final usersByCoach = <String, Set<String>>{};
+      final counts = <String, int>{};
       for (final row in response as List) {
         final data = Map<String, dynamic>.from(row as Map);
         final coachId = data['coach_id'] as String?;
-        final userId = data['user_id'] as String?;
-        if (coachId == null ||
-            coachId.isEmpty ||
-            userId == null ||
-            userId.isEmpty) {
-          continue;
+        final count = (data['member_count'] as num?)?.toInt();
+        if (coachId != null && count != null) {
+          counts[coachId] = count;
         }
-        usersByCoach.putIfAbsent(coachId, () => {}).add(userId);
       }
 
-      final counts = {
-        for (final entry in usersByCoach.entries) entry.key: entry.value.length,
-      };
+      _studentCountsCache.set(counts);
+      return counts;
+    } on PostgrestException catch (e) {
+      if (e.code != 'PGRST202') {
+        if (e.code == 'PGRST205' || e.code == '42P01') {
+          return {};
+        }
+        rethrow;
+      }
+    }
+
+    try {
+      final response = await _supabase
+          .from('coach_member_count')
+          .select('coach_id, member_count')
+          .inFilter('coach_id', coachIds);
+
+      final counts = <String, int>{};
+      for (final row in response as List) {
+        final data = Map<String, dynamic>.from(row as Map);
+        final coachId = data['coach_id'] as String?;
+        final count = (data['member_count'] as num?)?.toInt();
+        if (coachId != null && count != null) {
+          counts[coachId] = count;
+        }
+      }
 
       _studentCountsCache.set(counts);
       return counts;

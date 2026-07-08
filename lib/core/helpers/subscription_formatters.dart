@@ -88,4 +88,22 @@ class SubscriptionFormatters {
     ];
     return names[date.weekday - 1];
   }
+
+  static String formatTimeAgo(DateTime dateTime) {
+    final diff = DateTime.now().difference(dateTime.toLocal());
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) {
+      final m = diff.inMinutes;
+      return '$m minute${m == 1 ? '' : 's'} ago';
+    }
+    if (diff.inHours < 24) {
+      final h = diff.inHours;
+      return '$h hour${h == 1 ? '' : 's'} ago';
+    }
+    if (diff.inDays < 7) {
+      final d = diff.inDays;
+      return '$d day${d == 1 ? '' : 's'} ago';
+    }
+    return formatDate(dateTime);
+  }
 }

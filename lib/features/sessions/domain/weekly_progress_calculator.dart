@@ -57,14 +57,25 @@ class WeeklyProgressCalculator {
   }
 
   static BookingDisplayStatus resolveDisplayStatus(BookingHistoryModel booking) {
-    final status = booking.effectiveDisplayStatus.toLowerCase();
+    // Use display_status from the view — do not override pending with active.
+    final status = booking.displayStatus.toLowerCase();
+
     if (booking.totalSessions > 0 &&
         booking.attendedSessions >= booking.totalSessions) {
       return BookingDisplayStatus.completed;
     }
+    if (status == 'pending_payment' || status == 'awaiting_verification') {
+      return BookingDisplayStatus.pendingPayment;
+    }
     if (status == 'expired') return BookingDisplayStatus.expired;
+    if (status == 'missed') return BookingDisplayStatus.missed;
     if (status == 'pending') return BookingDisplayStatus.pending;
-    return BookingDisplayStatus.active;
+    if (status == 'active' || status == 'completed') {
+      return status == 'completed'
+          ? BookingDisplayStatus.completed
+          : BookingDisplayStatus.active;
+    }
+    return BookingDisplayStatus.pending;
   }
 
   static TodaySessionInfo? todaySessionForBooking(

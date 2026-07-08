@@ -1,3 +1,5 @@
+import 'package:prince_academy/core/helpers/session_schedule_helper.dart';
+
 class AdminScanProfile {
   final String userId;
   final String fullName;
@@ -14,6 +16,7 @@ class AdminScanProfile {
   final String? selectedTime;
   final double totalPrice;
   final String? paymentMethod;
+  final String? paymentStatus;
   final DateTime? subscriptionStart;
   final DateTime? subscriptionEnd;
   final String subscriptionStatus;
@@ -23,6 +26,10 @@ class AdminScanProfile {
   final int remainingSessions;
   final bool alreadyCheckedInToday;
   final bool isScheduledToday;
+  final DateTime? createdAt;
+  final DateTime? paymentDeadline;
+  final String? paymentReference;
+  final String? paymentScreenshotUrl;
 
   const AdminScanProfile({
     required this.userId,
@@ -40,6 +47,7 @@ class AdminScanProfile {
     this.selectedTime,
     this.totalPrice = 0,
     this.paymentMethod,
+    this.paymentStatus,
     this.subscriptionStart,
     this.subscriptionEnd,
     required this.subscriptionStatus,
@@ -49,9 +57,67 @@ class AdminScanProfile {
     this.remainingSessions = 0,
     this.alreadyCheckedInToday = false,
     this.isScheduledToday = false,
+    this.createdAt,
+    this.paymentDeadline,
+    this.paymentReference,
+    this.paymentScreenshotUrl,
   });
 
-  bool get isActive => subscriptionStatus == 'active';
+  bool get needsPaymentVerification {
+    final pay = paymentStatus?.toLowerCase();
+    if (pay == 'pending_payment' ||
+        pay == 'awaiting_verification' ||
+        pay == 'pending') {
+      return true;
+    }
+    final sub = subscriptionStatus.toLowerCase();
+    if (sub == 'pending_payment' || sub == 'pending') {
+      final verified = pay == 'verified' || pay == 'paid' || pay == 'active';
+      return !verified;
+    }
+    return false;
+  }
+
+  bool get _isPastSubscriptionEnd {
+    if (subscriptionEnd == null) return false;
+    final today = SessionScheduleHelper.dateOnly(DateTime.now());
+    final end = SessionScheduleHelper.dateOnly(subscriptionEnd!);
+    return today.isAfter(end);
+  }
+
+  bool get _isPaymentVerified {
+    final pay = paymentStatus?.toLowerCase();
+    return pay == 'verified' || pay == 'paid' || pay == 'active';
+  }
+
+  bool get isActive {
+    if (needsPaymentVerification) return false;
+    if (_isPastSubscriptionEnd) return false;
+    final sub = subscriptionStatus.toLowerCase();
+    if (sub == 'expired' || sub == 'cancelled' || sub == 'rejected') {
+      return false;
+    }
+    if (_isPaymentVerified) return true;
+    return sub == 'active' || sub == 'approved';
+  }
+
+  bool get hasSessionToday =>
+      isScheduledToday ||
+      SessionScheduleHelper.isSessionDayOnDate(
+        selectedDays: selectedDays,
+        subscriptionStart: subscriptionStart,
+        subscriptionEnd: subscriptionEnd,
+      );
+
+  bool get canMarkAttendanceToday => isActive && hasSessionToday;
+
+  AdminScanProfile asPaymentVerified() {
+    return copyWith(
+      paymentStatus: 'verified',
+      subscriptionStatus: 'active',
+      isScheduledToday: hasSessionToday,
+    );
+  }
 
   String get coachLabel {
     final specialty = coachSpecialty?.trim();
@@ -80,6 +146,7 @@ class AdminScanProfile {
       selectedTime: json['selected_time'] as String?,
       totalPrice: (json['total_price'] as num?)?.toDouble() ?? 0,
       paymentMethod: json['payment_method'] as String?,
+      paymentStatus: json['payment_status'] as String?,
       subscriptionStart: _parseDate(json['subscription_start']),
       subscriptionEnd: _parseDate(json['subscription_end']),
       subscriptionStatus: json['subscription_status'] as String? ?? 'expired',
@@ -90,6 +157,10 @@ class AdminScanProfile {
       alreadyCheckedInToday:
           json['already_checked_in_today'] as bool? ?? false,
       isScheduledToday: json['is_scheduled_today'] as bool? ?? false,
+      createdAt: _parseDate(json['created_at']),
+      paymentDeadline: _parseDate(json['payment_deadline']),
+      paymentReference: json['payment_reference'] as String?,
+      paymentScreenshotUrl: json['payment_screenshot_url'] as String?,
     );
   }
 
@@ -110,6 +181,7 @@ class AdminScanProfile {
       'selected_time': selectedTime,
       'total_price': totalPrice,
       'payment_method': paymentMethod,
+      'payment_status': paymentStatus,
       'subscription_start': subscriptionStart?.toIso8601String(),
       'subscription_end': subscriptionEnd?.toIso8601String(),
       'subscription_status': subscriptionStatus,
@@ -138,6 +210,7 @@ class AdminScanProfile {
     String? selectedTime,
     double? totalPrice,
     String? paymentMethod,
+    String? paymentStatus,
     DateTime? subscriptionStart,
     DateTime? subscriptionEnd,
     String? subscriptionStatus,
@@ -147,6 +220,10 @@ class AdminScanProfile {
     int? remainingSessions,
     bool? alreadyCheckedInToday,
     bool? isScheduledToday,
+    DateTime? createdAt,
+    DateTime? paymentDeadline,
+    String? paymentReference,
+    String? paymentScreenshotUrl,
   }) {
     return AdminScanProfile(
       userId: userId ?? this.userId,
@@ -164,6 +241,7 @@ class AdminScanProfile {
       selectedTime: selectedTime ?? this.selectedTime,
       totalPrice: totalPrice ?? this.totalPrice,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
       subscriptionStart: subscriptionStart ?? this.subscriptionStart,
       subscriptionEnd: subscriptionEnd ?? this.subscriptionEnd,
       subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
@@ -174,6 +252,11 @@ class AdminScanProfile {
       alreadyCheckedInToday:
           alreadyCheckedInToday ?? this.alreadyCheckedInToday,
       isScheduledToday: isScheduledToday ?? this.isScheduledToday,
+      createdAt: createdAt ?? this.createdAt,
+      paymentDeadline: paymentDeadline ?? this.paymentDeadline,
+      paymentReference: paymentReference ?? this.paymentReference,
+      paymentScreenshotUrl:
+          paymentScreenshotUrl ?? this.paymentScreenshotUrl,
     );
   }
 

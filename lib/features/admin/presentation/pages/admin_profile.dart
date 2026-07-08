@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
+import 'package:prince_academy/features/admin/presentation/pages/pending_payments_page.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/auth_page.dart';
 
 class AdminProfilePage extends StatelessWidget {
@@ -153,6 +154,21 @@ class AdminProfilePage extends StatelessWidget {
             ),
 
             const SizedBox(height: 32),
+
+            _ProfileInfoTile(
+              icon: Iconsax.wallet_3,
+              label: 'Pending Payments',
+              value: 'Verify cash & InstaPay bookings',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PendingPaymentsPage(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
 
             // Settings / Logout
             _ProfileInfoTile(

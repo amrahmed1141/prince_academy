@@ -111,16 +111,31 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_role text;
 begin
+  v_role := lower(trim(coalesce(new.raw_user_meta_data ->> 'role', 'user')));
+  if v_role not in ('user', 'admin') then
+    v_role := 'user';
+  end if;
+
   insert into public.profiles (id, full_name, phone, role)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'full_name', ''),
-    coalesce(new.raw_user_meta_data ->> 'phone', ''),
-    coalesce(new.raw_user_meta_data ->> 'role', 'user')
+    coalesce(nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''), 'Member'),
+    nullif(trim(coalesce(new.raw_user_meta_data ->> 'phone', '')), ''),
+    v_role
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update set
+    full_name = coalesce(excluded.full_name, public.profiles.full_name),
+    phone = coalesce(excluded.phone, public.profiles.phone),
+    updated_at = now();
+
   return new;
+exception
+  when others then
+    raise warning 'handle_new_user skipped for %: %', new.id, sqlerrm;
+    return new;
 end;
 $$;
 

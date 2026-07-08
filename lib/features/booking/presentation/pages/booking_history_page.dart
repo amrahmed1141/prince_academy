@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
@@ -7,11 +5,11 @@ import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
-import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_event.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_state.dart';
+import 'package:prince_academy/features/booking/presentation/pages/booking_details/booking_detail_page.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/coach_profile.dart';
 
 abstract final class _AppColors {
@@ -49,13 +47,6 @@ class _BookingHistoryView extends StatelessWidget {
       appBar: AppBar(
         automaticallyImplyLeading: Navigator.canPop(context),
         title: const Text('Booking History'),
-        actions: [
-          IconButton(
-            icon: const Icon(Iconsax.filter),
-            tooltip: 'Filter',
-            onPressed: () {},
-          ),
-        ],
       ),
       body: BlocBuilder<BookingHistoryBloc, BookingHistoryState>(
         builder: (context, state) {
@@ -68,9 +59,9 @@ class _BookingHistoryView extends StatelessWidget {
             return _ErrorState(
               message: state.message,
               onRetry: () {
-                context
-                    .read<BookingHistoryBloc>()
-                    .add(const LoadBookingHistory());
+                context.read<BookingHistoryBloc>().add(
+                      const LoadBookingHistory(forceRefresh: true),
+                    );
               },
             );
           }
@@ -85,9 +76,9 @@ class _BookingHistoryView extends StatelessWidget {
 
           return RefreshIndicator(
             onRefresh: () async {
-              context
-                  .read<BookingHistoryBloc>()
-                  .add(const LoadBookingHistory());
+              context.read<BookingHistoryBloc>().add(
+                    const LoadBookingHistory(forceRefresh: true),
+                  );
               await context.read<BookingHistoryBloc>().stream.firstWhere(
                     (s) =>
                         s is BookingHistoryLoaded || s is BookingHistoryError,
@@ -96,6 +87,10 @@ class _BookingHistoryView extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
               children: [
+                if (state.isRefreshing) ...[
+                  const LinearProgressIndicator(minHeight: 2),
+                  const SizedBox(height: 8),
+                ],
                 _FilterCardsRow(
                   totalCount: state.countForFilter(null),
                   activeCount: state.countForFilter('active'),
@@ -128,7 +123,6 @@ class _BookingHistoryView extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _BookingHistoryCard(
                         booking: booking,
-                        onViewSessions: () => _onViewSessions(context, booking),
                         onDetails: () => _onDetails(context, booking),
                         onEnrollAgain: () => _onEnrollAgain(context, booking),
                       ),
@@ -142,70 +136,12 @@ class _BookingHistoryView extends StatelessWidget {
     );
   }
 
-  void _onViewSessions(BuildContext context, BookingHistoryModel booking) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Sessions for ${booking.coachName} coming soon.'),
-      ),
-    );
-  }
-
   void _onDetails(BuildContext context, BookingHistoryModel booking) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BookingDetailPage(booking: booking),
       ),
-      builder: (sheetContext) {
-        final theme = Theme.of(sheetContext);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Booking Details',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _DetailRow(label: 'Coach', value: booking.coachName),
-                if (booking.branchName != null && booking.branchName!.isNotEmpty)
-                  _DetailRow(label: 'Branch', value: booking.branchName!),
-                if (booking.coachSpecialty != null &&
-                    booking.coachSpecialty!.isNotEmpty)
-                  _DetailRow(
-                    label: 'Specialty',
-                    value: booking.coachSpecialty!,
-                  ),
-                _DetailRow(
-                  label: 'Schedule',
-                  value: SubscriptionFormatters.formatDays(booking.selectedDays),
-                ),
-                if (booking.selectedTime != null &&
-                    booking.selectedTime!.isNotEmpty)
-                  _DetailRow(label: 'Time', value: booking.selectedTime!),
-                _DetailRow(
-                  label: 'Total',
-                  value: 'EGP ${booking.totalPrice.toStringAsFixed(0)}',
-                ),
-                _DetailRow(
-                  label: 'Payment',
-                  value: booking.paymentStatusText,
-                ),
-                _DetailRow(
-                  label: 'Status',
-                  value: booking.effectiveDisplayStatus,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -361,13 +297,11 @@ class _FilterCard extends StatelessWidget {
 class _BookingHistoryCard extends StatelessWidget {
   const _BookingHistoryCard({
     required this.booking,
-    required this.onViewSessions,
     required this.onDetails,
     required this.onEnrollAgain,
   });
 
   final BookingHistoryModel booking;
-  final VoidCallback onViewSessions;
   final VoidCallback onDetails;
   final VoidCallback onEnrollAgain;
 
@@ -377,25 +311,23 @@ class _BookingHistoryCard extends StatelessWidget {
     final status = booking.effectiveDisplayStatus;
     final showActions = status != 'pending';
 
-    final progress = booking.totalSessions > 0
-        ? booking.attendedSessions / booking.totalSessions
-        : 0.0;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-            color: Colors.black.withOpacity(0.04),
-          ),
-        ],
-      ),
-      child: Column(
+    return GestureDetector(
+      onTap: onDetails,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+              color: Colors.black.withOpacity(0.04),
+            ),
+          ],
+        ),
+        child: Column(
         children: [
           Row(
             children: [
@@ -479,94 +411,50 @@ class _BookingHistoryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Progress',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                '${booking.attendedSessions} / ${booking.totalSessions}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade800,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
-              color: _progressColor(status),
-            ),
-          ),
           if (showActions) ...[
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onViewSessions,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _AppColors.primary,
-                      side: BorderSide(color: Colors.grey.shade300),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('View Sessions'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: status == 'completed'
-                      ? ElevatedButton(
-                          onPressed: onEnrollAgain,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _AppColors.primary,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          child: const Text(
-                            'Enroll Again',
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        )
-                      : ElevatedButton(
-                          onPressed: onDetails,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade200,
-                            foregroundColor: _AppColors.textSecondary,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          child: const Text(
-                            'Details',
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
+            status == 'completed'
+                ? SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: onEnrollAgain,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                ),
-              ],
-            ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text(
+                        'Enroll Again',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  )
+                : SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: onDetails,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text(
+                        'Details',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
           ],
         ],
+      ),
       ),
     );
   }
@@ -658,16 +546,6 @@ class _BookingStatusUI {
         ),
     };
   }
-}
-
-Color _progressColor(String status) {
-  return switch (status.toLowerCase()) {
-    'active' => _AppColors.primary,
-    'completed' => _AppColors.primary,
-    'pending' => const Color(0xFFFFA000),
-    'expired' => _AppColors.expiredRed,
-    _ => Colors.grey.shade400,
-  };
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -786,46 +664,6 @@ class _ErrorState extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 88,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -8,7 +8,12 @@ abstract class HomeEvent extends Equatable {
 }
 
 class LoadHomeData extends HomeEvent {
-  const LoadHomeData();
+  final bool forceRefresh;
+
+  const LoadHomeData({this.forceRefresh = false});
+
+  @override
+  List<Object?> get props => [forceRefresh];
 }
 
 class SelectDate extends HomeEvent {

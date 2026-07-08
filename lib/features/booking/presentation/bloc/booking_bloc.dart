@@ -1,118 +1,230 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:prince_academy/features/booking/data/models/booking_model.dart';
-import 'package:prince_academy/features/booking/data/repositories/booking_repository.dart';
+import 'package:prince_academy/core/helpers/payment_reference_helper.dart';
+import 'package:prince_academy/core/helpers/session_schedule_helper.dart';
+import 'package:prince_academy/core/helpers/subscription_pricing.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
+import 'package:prince_academy/features/booking/data/models/booking_model.dart';
+import 'package:prince_academy/features/booking/data/repositories/booking_repository.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_event.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_state.dart';
 
 class BookingBloc extends Bloc<BookingEvent, BookingState> {
   final BookingRepository _repository;
 
-  BookingBloc(this._repository) : super(const BookingInitial()) {
-    on<LoadBookingData>(_onLoadBookingData);
-    on<ToggleDay>(_onToggleDay);
+  BookingBloc(
+    this._repository, {
+    List<String> bookedCoachIds = const [],
+  }) : super(BookingInitial(bookedCoachIds: bookedCoachIds)) {
+    on<LoadUserActiveBookings>(_onLoadUserActiveBookings); // ADDED
+    on<CheckDuplicateBooking>(_onCheckDuplicateBooking); // ADDED
+    on<LoadCoachBooking>(_onLoadCoachBooking);
+    on<SelectCoach>(_onSelectCoach);
+    on<SelectDays>(_onSelectDays);
+    on<SelectStartDate>(_onSelectStartDate);
     on<SelectPaymentMethod>(_onSelectPaymentMethod);
-    on<ClearMinSessionsWarning>(_onClearMinSessionsWarning);
-    on<SubmitBooking>(_onSubmitBooking);
+    on<CreateBooking>(_onCreateBooking);
+    on<UploadScreenshot>(_onUploadScreenshot);
+    on<ConfirmInstaPayPayment>(_onConfirmInstaPayPayment);
   }
 
-  Future<void> _onLoadBookingData(
-    LoadBookingData event,
+  // ADDED: cache coach IDs with active/pending bookings on app start
+  Future<void> _onLoadUserActiveBookings(
+    LoadUserActiveBookings event,
     Emitter<BookingState> emit,
   ) async {
-    emit(const BookingLoading());
     try {
-      // TODO: If multiple active coach_sessions rows exist, clarify which one
-      // should drive booking; for now we use the first active row.
-      final session = await _repository.getActiveSession(event.coachId);
-      if (session == null) {
-        emit(const BookingError('No schedule available for this coach.'));
+      final ids = await _repository.getUserActiveCoachIds();
+      emit(_withBookedCoachIds(state, ids));
+    } catch (_) {
+      emit(_withBookedCoachIds(state, state.bookedCoachIds));
+    }
+  }
+
+  // ADDED: RPC safety check before opening booking wizard
+  Future<void> _onCheckDuplicateBooking(
+    CheckDuplicateBooking event,
+    Emitter<BookingState> emit,
+  ) async {
+    final cachedIds = state.bookedCoachIds;
+    emit(BookingCheckLoading(bookedCoachIds: cachedIds));
+
+    try {
+      final cachedDuplicate = cachedIds.contains(event.coachId);
+      final isDuplicate = cachedDuplicate ||
+          await _repository.hasActiveBookingWithCoach(event.coachId);
+
+      if (isDuplicate) {
+        final details =
+            await _repository.getActiveBookingForCoach(event.coachId);
+        final updatedIds = cachedDuplicate
+            ? cachedIds
+            : [...cachedIds, event.coachId];
+
+        emit(
+          BookingCheckResult(
+            isDuplicate: true,
+            existingBookingId: details?.bookingId,
+            existingCoachName:
+                details?.coachName ?? event.coachName ?? 'this coach',
+            bookedCoachIds: updatedIds,
+          ),
+        );
+
+        if (!cachedDuplicate) {
+          add(const LoadUserActiveBookings());
+        }
         return;
       }
 
-      final days = session.days;
-      if (days.isEmpty) {
-        emit(const BookingError('No schedule available for this coach.'));
-        return;
-      }
-
-      final sessionsPerWeek = session.sessionsPerWeek;
-      final isLocked = sessionsPerWeek <= 2;
-      final initialSelectedDays = isLocked
-          ? List<String>.from(days)
-          : days.length >= 2
-              ? days.take(2).toList()
-              : List<String>.from(days);
-      final time =
-          session.timeSlots.isNotEmpty ? session.timeSlots.first : null;
-      final total = _calculateTotal(
-        session.pricePerSession,
-        initialSelectedDays.length,
-      );
-
-      emit(
-        BookingLoaded(
-          session: session,
-          coachName: event.coachName ?? session.coachName ?? 'Coach',
-          coachImage: event.coachImage ?? session.coachPhotoUrl ?? '',
-          selectedDays: initialSelectedDays,
-          selectedTime: time,
-          isLocked: isLocked,
-          paymentMethod: PaymentMethod.cash,
-          totalPrice: total,
+      add(
+        LoadCoachBooking(
+          coachId: event.coachId,
+          coachName: event.coachName,
+          coachImage: event.coachImage,
+          specialty: event.specialty,
         ),
       );
     } catch (e) {
-      emit(BookingError(e.toString().replaceFirst('Exception: ', '')));
+      emit(
+        BookingError(
+          e.toString().replaceFirst('Exception: ', ''),
+          bookedCoachIds: cachedIds,
+        ),
+      );
     }
   }
 
-  BookingLoaded? _loadedFromState(BookingState state) {
-    return switch (state) {
-      BookingLoaded s => s,
-      BookingSubmitting s => s.data,
-      BookingSubmitFailed s => s.data,
-      _ => null,
-    };
-  }
-
-  void _onToggleDay(ToggleDay event, Emitter<BookingState> emit) {
-    final current = _loadedFromState(state);
-    if (current == null || current.isLocked) return;
-
-    final day = event.day;
-    if (current.selectedDays.contains(day)) {
-      if (current.selectedDays.length <= 2) {
-        emit(current.copyWith(showMinSessionsWarning: true));
+  Future<void> _onLoadCoachBooking(
+    LoadCoachBooking event,
+    Emitter<BookingState> emit,
+  ) async {
+    final bookedCoachIds = state.bookedCoachIds;
+    emit(BookingLoading(bookedCoachIds: bookedCoachIds));
+    try {
+      final session = await _repository.getActiveSession(event.coachId);
+      if (session == null || session.days.isEmpty) {
+        emit(BookingError(
+          'No schedule available for this coach.',
+          bookedCoachIds: bookedCoachIds,
+        ));
         return;
       }
 
-      final updatedDays =
-          current.selectedDays.where((d) => d != day).toList();
+      final coach = BookingCoach(
+        id: event.coachId,
+        name: event.coachName ?? session.coachName ?? 'Coach',
+        photoUrl: event.coachImage ?? session.coachPhotoUrl,
+        specialty: event.specialty ??
+            (session.coachSpecialty?.trim().isNotEmpty == true
+                ? session.coachSpecialty!
+                : 'MMA'),
+        branchId: session.branchId,
+        branchName: session.branchName,
+      );
+
+      final availableDays = List<String>.from(session.days);
+      final time =
+          session.timeSlots.isNotEmpty ? session.timeSlots.first : 'Time not set';
+
+      final initialSelected = availableDays.length >= 2
+          ? availableDays.take(2).toList()
+          : List<String>.from(availableDays);
+
       emit(
-        current.copyWith(
-          selectedDays: updatedDays,
-          totalPrice: _calculateTotal(
-            current.session.pricePerSession,
-            updatedDays.length,
+        BookingStep1CoachSelected(
+          BookingWizardData(
+            coach: coach,
+            session: session,
+            availableDays: availableDays,
+            selectedDays: initialSelected,
+            sessionTime: time,
+            totalPrice: SubscriptionPricing.monthlyPrice(
+              session.pricePerSession,
+              initialSelected.length,
+            ),
           ),
-          showMinSessionsWarning: false,
+          bookedCoachIds: bookedCoachIds,
         ),
       );
+    } catch (e) {
+      emit(BookingError(
+        e.toString().replaceFirst('Exception: ', ''),
+        bookedCoachIds: bookedCoachIds,
+      ));
+    }
+  }
+
+  void _onSelectCoach(SelectCoach event, Emitter<BookingState> emit) {
+    add(LoadCoachBooking(coachId: event.coach.id));
+  }
+
+  void _onSelectDays(SelectDays event, Emitter<BookingState> emit) {
+    final current = _wizardDataFromState(state);
+    if (current == null) return;
+
+    final selected = List<String>.from(event.days);
+    final total = SubscriptionPricing.monthlyPrice(
+      current.session.pricePerSession,
+      selected.length,
+    );
+
+    final updated = current.copyWith(
+      selectedDays: selected,
+      totalPrice: total,
+      startDate: null,
+      endDate: null,
+      sessionDates: const [],
+    );
+
+    emit(
+      BookingStep2DaysSelected(
+        data: updated,
+        availableDays: current.availableDays,
+        selectedDays: selected,
+        estimatedSessions: SubscriptionPricing.monthlySessionCount(
+          selected.length,
+        ),
+        bookedCoachIds: state.bookedCoachIds,
+      ),
+    );
+  }
+
+  void _onSelectStartDate(SelectStartDate event, Emitter<BookingState> emit) {
+    final current = _wizardDataFromState(state);
+    if (current == null || current.selectedDays.length < 2) return;
+
+    final start = SessionScheduleHelper.dateOnly(event.date);
+    final end = SessionScheduleHelper.subscriptionEndDate(start);
+    final sessionDates = SessionScheduleHelper.generateSessionDates(
+      startDate: start,
+      selectedDays: current.selectedDays,
+    );
+
+    if (sessionDates.isEmpty) {
+      emit(BookingError(
+        'No sessions fall within this month for the selected start date.',
+        bookedCoachIds: state.bookedCoachIds,
+      ));
       return;
     }
 
-    final updatedDays = [...current.selectedDays, day];
+    final updated = current.copyWith(
+      startDate: start,
+      endDate: end,
+      sessionDates: sessionDates,
+    );
+
     emit(
-      current.copyWith(
-        selectedDays: updatedDays,
-        totalPrice: _calculateTotal(
-          current.session.pricePerSession,
-          updatedDays.length,
-        ),
-        showMinSessionsWarning: false,
+      BookingStep3DateSelected(
+        data: updated,
+        startDate: start,
+        endDate: end,
+        sessionDates: sessionDates,
+        sessionCount: sessionDates.length,
+        bookedCoachIds: state.bookedCoachIds,
       ),
     );
   }
@@ -121,72 +233,243 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
     SelectPaymentMethod event,
     Emitter<BookingState> emit,
   ) {
-    final current = _loadedFromState(state);
-    if (current == null) return;
+    final step3 = _step3DateFromState(state);
+    if (step3 == null) return;
 
-    emit(current.copyWith(paymentMethod: event.method));
+    final updated = step3.data.copyWith(paymentMethod: event.method);
+
+    emit(
+      BookingStep4PaymentSelected(
+        data: updated,
+        startDate: step3.startDate,
+        endDate: step3.endDate,
+        sessionDates: step3.sessionDates,
+        sessionCount: step3.sessionCount,
+        paymentMethod: event.method,
+        bookedCoachIds: state.bookedCoachIds,
+      ),
+    );
   }
 
-  void _onClearMinSessionsWarning(
-    ClearMinSessionsWarning event,
-    Emitter<BookingState> emit,
-  ) {
-    final current = _loadedFromState(state);
-    if (current == null || !current.showMinSessionsWarning) return;
-
-    emit(current.copyWith(showMinSessionsWarning: false));
-  }
-
-  Future<void> _onSubmitBooking(
-    SubmitBooking event,
+  Future<void> _onCreateBooking(
+    CreateBooking event,
     Emitter<BookingState> emit,
   ) async {
-    final current = _loadedFromState(state);
-    if (current == null) return;
-    if (!current.canContinue) return;
+    final step4 = _step4PaymentFromState(state);
+    if (step4 == null) return;
 
-    emit(BookingSubmitting(current));
+    final data = step4.data;
+    final branchId = data.coach.branchId ?? data.session.branchId;
+    if (branchId == null || branchId.isEmpty) {
+      emit(BookingError(
+        'Branch not configured for this coach.',
+        bookedCoachIds: state.bookedCoachIds,
+      ));
+      return;
+    }
+
+    emit(BookingCreating(data, bookedCoachIds: state.bookedCoachIds));
 
     try {
-      final booking = BookingModel(
-        coachId: current.session.coachId,
-        sessionId: current.session.id,
-        branchId: current.session.branchId,
-        coachName: current.coachName,
-        coachImage: current.coachImage,
-        sessionType: current.session.sessionType,
-        selectedDays: current.selectedDays,
-        selectedTime: current.selectedTime ?? current.fixedTime,
-        paymentMethod: current.paymentMethod!.name,
-        totalPrice: current.totalPrice,
-        status: 'pending',
+      final reference = step4.paymentMethod == PaymentMethod.instapay.name
+          ? PaymentReferenceHelper.generate(
+              coachName: data.coach.name,
+              sessionTime: data.sessionTime,
+              startDate: step4.startDate,
+            )
+          : null;
+
+      final saved = await _repository.createBookingWithSchedule(
+        coachId: data.coach.id,
+        branchId: branchId,
+        days: data.selectedDays,
+        time: data.sessionTime,
+        startDate: step4.startDate,
+        price: data.totalPrice,
+        method: step4.paymentMethod,
+        paymentReference: reference,
       );
 
-      final saved = await _repository.submitBooking(booking);
-
-      String? qrCode;
       try {
         final userId = Supabase.instance.client.auth.currentUser?.id;
         if (userId != null) {
-          qrCode = await _repository.ensureUserQrCode(userId);
+          final qrCode = await _repository.ensureUserQrCode(userId);
           sl<UserQrService>().setQrCode(qrCode);
         }
-      } catch (_) {
-        // Booking succeeded; QR assignment can be retried from profile later.
-      }
+      } catch (_) {}
 
-      emit(BookingSuccess(saved, qrCode: qrCode));
-    } catch (e) {
+      final period = SessionScheduleHelper.formatPeriod(
+        step4.startDate,
+        step4.endDate,
+      );
+
+      final message = step4.paymentMethod == PaymentMethod.cash.name
+          ? _cashMessage(saved, period)
+          : 'Booking created. Complete your InstaPay transfer to activate.';
+
       emit(
-        BookingSubmitFailed(
-          current,
-          e.toString().replaceFirst('Exception: ', ''),
+        BookingCreated(
+          booking: saved.copyWith(
+            coachName: data.coach.name,
+            paymentReference: saved.paymentReference ?? reference,
+          ),
+          message: message,
+          data: data.copyWith(createdBooking: saved),
+          bookedCoachIds: state.bookedCoachIds,
+        ),
+      );
+
+      add(const LoadUserActiveBookings());
+    } catch (e) {
+      emit(BookingError(
+        e.toString().replaceFirst('Exception: ', ''),
+        bookedCoachIds: state.bookedCoachIds,
+      ));
+      emit(
+        BookingStep4PaymentSelected(
+          data: data,
+          startDate: step4.startDate,
+          endDate: step4.endDate,
+          sessionDates: step4.sessionDates,
+          sessionCount: step4.sessionCount,
+          paymentMethod: step4.paymentMethod,
+          bookedCoachIds: state.bookedCoachIds,
         ),
       );
     }
   }
 
-  double _calculateTotal(double pricePerSession, int dayCount) {
-    return dayCount * pricePerSession;
+  Future<void> _onUploadScreenshot(
+    UploadScreenshot event,
+    Emitter<BookingState> emit,
+  ) async {
+    final created = state is BookingCreated ? state as BookingCreated : null;
+    final bookingId = created?.booking.id;
+    if (bookingId == null || bookingId.isEmpty) return;
+
+    try {
+      await _repository.uploadPaymentScreenshot(
+        bookingId: bookingId,
+        file: event.file,
+      );
+    } catch (e) {
+      emit(BookingError(
+        e.toString().replaceFirst('Exception: ', ''),
+        bookedCoachIds: state.bookedCoachIds,
+      ));
+      if (created != null) emit(created);
+    }
+  }
+
+  Future<void> _onConfirmInstaPayPayment(
+    ConfirmInstaPayPayment event,
+    Emitter<BookingState> emit,
+  ) async {
+    final created = state is BookingCreated ? state as BookingCreated : null;
+    final bookingId = created?.booking.id;
+    if (bookingId == null || bookingId.isEmpty) return;
+
+    try {
+      await _repository.confirmInstaPayPayment(bookingId);
+    } catch (e) {
+      emit(BookingError(
+        e.toString().replaceFirst('Exception: ', ''),
+        bookedCoachIds: state.bookedCoachIds,
+      ));
+      if (created != null) emit(created);
+    }
+  }
+
+  String _cashMessage(BookingModel booking, String period) {
+    final amount = booking.totalPrice.toStringAsFixed(0);
+    final deadline = booking.paymentDeadline;
+    final deadlineText = deadline != null
+        ? DateFormat('MMMM d, yyyy').format(deadline)
+        : DateFormat('MMMM d, yyyy')
+            .format(DateTime.now().add(const Duration(days: 3)));
+    return 'Pay $amount EGP at the academy within 3 days. Deadline: $deadlineText. Subscription: $period';
+  }
+
+  // ADDED: preserve wizard/check state while updating bookedCoachIds cache
+  BookingState _withBookedCoachIds(BookingState current, List<String> ids) {
+    if (current.bookedCoachIds == ids) return current;
+
+    return switch (current) {
+      BookingInitial() => BookingInitial(bookedCoachIds: ids),
+      BookingLoading() => BookingLoading(bookedCoachIds: ids),
+      BookingCheckLoading() => BookingCheckLoading(bookedCoachIds: ids),
+      BookingCheckResult s => BookingCheckResult(
+          isDuplicate: s.isDuplicate,
+          existingBookingId: s.existingBookingId,
+          existingCoachName: s.existingCoachName,
+          bookedCoachIds: ids,
+        ),
+      BookingStep1CoachSelected s =>
+        BookingStep1CoachSelected(s.data, bookedCoachIds: ids),
+      BookingStep2DaysSelected s => BookingStep2DaysSelected(
+          data: s.data,
+          availableDays: s.availableDays,
+          selectedDays: s.selectedDays,
+          estimatedSessions: s.estimatedSessions,
+          bookedCoachIds: ids,
+        ),
+      BookingStep3DateSelected s => BookingStep3DateSelected(
+          data: s.data,
+          startDate: s.startDate,
+          endDate: s.endDate,
+          sessionDates: s.sessionDates,
+          sessionCount: s.sessionCount,
+          bookedCoachIds: ids,
+        ),
+      BookingStep4PaymentSelected s => BookingStep4PaymentSelected(
+          data: s.data,
+          startDate: s.startDate,
+          endDate: s.endDate,
+          sessionDates: s.sessionDates,
+          sessionCount: s.sessionCount,
+          paymentMethod: s.paymentMethod,
+          bookedCoachIds: ids,
+        ),
+      BookingCreating s => BookingCreating(s.data, bookedCoachIds: ids),
+      BookingCreated s => BookingCreated(
+          booking: s.booking,
+          message: s.message,
+          data: s.data,
+          bookedCoachIds: ids,
+        ),
+      BookingError s => BookingError(s.message, bookedCoachIds: ids),
+      BookingState() => BookingInitial(bookedCoachIds: ids),
+    };
+  }
+
+  BookingWizardData? _wizardDataFromState(BookingState state) {
+    return switch (state) {
+      BookingStep1CoachSelected s => s.data,
+      BookingStep2DaysSelected s => s.data,
+      BookingStep3DateSelected s => s.data,
+      BookingStep4PaymentSelected s => s.data,
+      BookingCreating s => s.data,
+      BookingCreated s => s.data,
+      _ => null,
+    };
+  }
+
+  BookingStep3DateSelected? _step3DateFromState(BookingState state) {
+    return switch (state) {
+      BookingStep3DateSelected s => s,
+      BookingStep4PaymentSelected s => BookingStep3DateSelected(
+          data: s.data,
+          startDate: s.startDate,
+          endDate: s.endDate,
+          sessionDates: s.sessionDates,
+          sessionCount: s.sessionCount,
+          bookedCoachIds: s.bookedCoachIds,
+        ),
+      _ => null,
+    };
+  }
+
+  BookingStep4PaymentSelected? _step4PaymentFromState(BookingState state) {
+    return state is BookingStep4PaymentSelected ? state : null;
   }
 }

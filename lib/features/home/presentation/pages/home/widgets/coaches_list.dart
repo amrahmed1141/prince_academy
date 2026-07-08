@@ -21,7 +21,6 @@ class _CoachesListState extends State<CoachesList> {
   List<CoachModel> _allCoaches = [];
   List<CoachModel> _filteredCoaches = [];
   Map<String, String> _classTypesByCoachId = {};
-  Map<String, int> _studentCountsByCoachId = {};
   bool _isInitialLoading = true;
   String? _errorMessage;
 
@@ -82,27 +81,36 @@ class _CoachesListState extends State<CoachesList> {
       final repository = sl<HomeCoachRepository>();
       final allCoaches = await repository.getActiveCoaches(force: force);
       final coachIds = allCoaches.map((c) => c.id).toList();
-      final classTypes = await repository.getPrimaryClassTypesForCoaches(
-        coachIds,
-        force: force,
-      );
-      final studentCounts = await repository.getStudentCountsForCoaches(
-        coachIds,
-        force: force,
-      );
+      final results = await Future.wait([
+        repository.getPrimaryClassTypesForCoaches(
+          coachIds,
+          force: force,
+        ),
+        repository.getStudentCountsForCoaches(
+          coachIds,
+          force: force,
+        ),
+      ]);
+      final classTypes = results[0] as Map<String, String>;
+      final memberCounts = results[1] as Map<String, int>;
 
       if (!mounted) return;
       setState(() {
-        _allCoaches = allCoaches;
+        _allCoaches = allCoaches
+            .map<CoachModel>(
+              (coach) => coach.copyWith(
+                memberCount: memberCounts[coach.id] ?? coach.memberCount,
+              ),
+            )
+            .toList();
         _classTypesByCoachId = classTypes;
-        _studentCountsByCoachId = studentCounts;
         _isInitialLoading = false;
       });
       _applyCategoryFilter();
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
           _isInitialLoading = false;
         });
       }
@@ -213,7 +221,6 @@ class _CoachesListState extends State<CoachesList> {
               key: ValueKey(coach.id),
               coach: coach,
               classType: _classTypesByCoachId[coach.id],
-              studentCount: _studentCountsByCoachId[coach.id] ?? 0,
               dark: dark,
             ),
           );

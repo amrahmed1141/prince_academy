@@ -7,14 +7,16 @@ class BookingTotalCard extends StatelessWidget {
     required this.coachName,
     required this.selectedDays,
     required this.fixedTime,
-    required this.pricePerSession,
+    required this.monthlyPrice,
+    required this.sessionsPerMonth,
     required this.total,
   });
 
   final String coachName;
   final List<String> selectedDays;
   final String fixedTime;
-  final double pricePerSession;
+  final double monthlyPrice;
+  final int sessionsPerMonth;
   final double total;
 
   @override
@@ -38,8 +40,13 @@ class BookingTotalCard extends StatelessWidget {
           const Divider(height: 22),
           _row(
             context,
-            'Price / session',
-            '${pricePerSession.toStringAsFixed(2)} EGP',
+            'Sessions / month',
+            '$sessionsPerMonth sessions',
+          ),
+          _row(
+            context,
+            'Monthly price',
+            '${monthlyPrice.toStringAsFixed(2)} EGP',
           ),
           _row(
             context,

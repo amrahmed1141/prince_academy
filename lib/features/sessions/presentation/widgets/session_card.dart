@@ -596,13 +596,13 @@ class _StatusBadge extends StatelessWidget {
     final (label, color, bg) = switch (status) {
       BookingDisplayStatus.active => (
           'Active',
-          const Color(0xFF2E7D32),
+          AppColors.activeGreen,
           const Color(0xFFE8F5E9),
         ),
       BookingDisplayStatus.expired => (
           'Expired',
-          const Color(0xFFD32F2F),
-          const Color(0xFFFFEBEE),
+          AppColors.expiredGrey,
+          const Color(0xFFF5F5F5),
         ),
       BookingDisplayStatus.completed => (
           'Completed',
@@ -611,8 +611,18 @@ class _StatusBadge extends StatelessWidget {
         ),
       BookingDisplayStatus.pending => (
           'Pending',
-          const Color(0xFFF9A825),
+          AppColors.pendingOrange,
           const Color(0xFFFFF8E1),
+        ),
+      BookingDisplayStatus.pendingPayment => (
+          'Pending Payment',
+          AppColors.pendingOrange,
+          const Color(0xFFFFF8E1),
+        ),
+      BookingDisplayStatus.missed => (
+          'Missed',
+          AppColors.error,
+          const Color(0xFFFFEBEE),
         ),
     };
 

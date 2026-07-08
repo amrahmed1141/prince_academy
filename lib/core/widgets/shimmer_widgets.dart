@@ -138,3 +138,32 @@ class ScannedProfileShimmer extends StatelessWidget {
     );
   }
 }
+
+class PendingPaymentsListShimmer extends StatelessWidget {
+  const PendingPaymentsListShimmer({super.key, this.itemCount = 4});
+
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(top: 56, bottom: 24),
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              _ShimmerBox(width: 56, height: 32, borderRadius: 16),
+              SizedBox(width: 8),
+              _ShimmerBox(width: 56, height: 32, borderRadius: 16),
+              SizedBox(width: 8),
+              _ShimmerBox(width: 72, height: 32, borderRadius: 16),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...List.generate(itemCount, (_) => const CoachCardShimmer()),
+      ],
+    );
+  }
+}

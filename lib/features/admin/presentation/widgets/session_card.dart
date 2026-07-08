@@ -30,12 +30,14 @@ class GroupedCoachSessionCard extends StatelessWidget {
   final CoachWithSessions coachWithSessions;
   final VoidCallback onDelete;
   final void Function(CoachSessionModel)? onEdit;
+  final VoidCallback? onDuplicate;
 
   const GroupedCoachSessionCard({
     super.key,
     required this.coachWithSessions,
     required this.onDelete,
     this.onEdit,
+    this.onDuplicate,
   });
 
   @override
@@ -94,6 +96,7 @@ class GroupedCoachSessionCard extends StatelessWidget {
         onTap: () {
           if (firstSession != null) onEdit?.call(firstSession);
         },
+        onLongPress: onDuplicate,
         child: Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(

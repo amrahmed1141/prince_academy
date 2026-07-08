@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
-import 'package:prince_academy/features/booking/presentation/pages/booking_details/booking.dart';
+import 'package:prince_academy/features/booking/presentation/helpers/book_now_navigation.dart';
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/session_info_card.dart';
 import 'package:prince_academy/core/di/injection.dart';
@@ -60,6 +59,16 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
         });
       }
     }
+  }
+
+  Future<void> _onBookNowTap(BuildContext context, CoachModel coach) async {
+    await BookNowNavigation.openBookingForCoach(
+      context: context,
+      coachId: coach.id,
+      coachName: coach.name,
+      coachImage: coach.photoUrl ?? '',
+      specialty: coach.specialty,
+    );
   }
 
   Widget _buildCoachHeaderImage(String? photoUrl, Size size) {
@@ -279,7 +288,10 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                                   color: EColorConstants.primaryColor),
                               const SizedBox(width: 6),
                               Text(
-                                '120 Students Trained',
+                                // MODIFIED: dynamic member count from bookings
+                                coach.memberCount == 1
+                                    ? '1 Member Trained'
+                                    : '${coach.memberCount} Members Trained',
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
@@ -435,22 +447,8 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
             Expanded(
               flex: 2,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => BookingPage(
-                        bookingInfo: MMABookingModel(
-                          coachId: coach.id,
-                          coachName: coach.name,
-                          coachImage: coach.photoUrl ?? '',
-                          specialty: coach.specialty,
-                          coachWhatsapp: '+1234567890',
-                        ),
-                      ),
-                    ),
-                  );
-                },
+                // ADDED: session duplicate check on tap (button stays normal)
+                onPressed: () => _onBookNowTap(context, coach),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: EColorConstants.primaryColor,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -464,7 +462,7 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                     Icon(Iconsax.calendar, size: 20, color: Colors.white),
                     SizedBox(width: 8),
                     Text(
-                      'Book Session',
+                      'Book Now',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,

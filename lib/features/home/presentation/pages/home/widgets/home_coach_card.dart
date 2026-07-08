@@ -2,22 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
-import 'package:prince_academy/features/booking/data/models/booking_model.dart';
-import 'package:prince_academy/features/booking/presentation/pages/booking_details/booking.dart';
+import 'package:prince_academy/features/booking/presentation/helpers/book_now_navigation.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/coach_profile.dart';
 
 class HomeCoachCard extends StatelessWidget {
   final CoachModel coach;
   final String? classType;
-  final int studentCount;
   final bool dark;
 
   const HomeCoachCard({
     super.key,
     required this.coach,
     this.classType,
-    this.studentCount = 0,
     required this.dark,
   });
 
@@ -27,134 +24,133 @@ class HomeCoachCard extends StatelessWidget {
         ? classType!
         : '—';
 
+    void openCoachProfile() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CoachProfilePage(coachId: coach.id),
+        ),
+      );
+    }
+
     return RepaintBoundary(
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CoachProfilePage(coachId: coach.id),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: dark ? Colors.grey[800] : Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          );
-        },
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: dark ? Colors.grey[800] : Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CoachAvatar(
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: openCoachProfile,
+                child: CoachAvatar(
                   coachName: coach.name,
                   photoUrl: coach.photoUrl,
                   size: 76,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: openCoachProfile,
+                      behavior: HitTestBehavior.opaque,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Flexible(
-                            child: Text(
-                              coach.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: dark ? Colors.white : Colors.black,
-                                fontFamily: 'Poppins',
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  coach.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: dark ? Colors.white : Colors.black,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Iconsax.verify5,
+                                size: 18,
+                                color: EColorConstants.primaryColor,
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Iconsax.verify5,
-                            size: 18,
-                            color: EColorConstants.primaryColor,
+                          const SizedBox(height: 8),
+                          _ClassTypeChip(
+                            label: displayClassType,
+                            dark: dark,
+                          ),
+                          const SizedBox(height: 6),
+                          _MemberCountRow(
+                            count: coach.memberCount,
+                            dark: dark,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      _ClassTypeChip(
-                        label: displayClassType,
-                        dark: dark,
-                      ),
-                      const SizedBox(height: 6),
-                      _StudentCountRow(
-                        count: studentCount,
-                        dark: dark,
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: GestureDetector(
-                          onTap: () {},
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => BookingPage(
-                                    bookingInfo: MMABookingModel(
-                                      coachId: coach.id,
-                                      coachName: coach.name,
-                                      coachImage: coach.photoUrl ?? '',
-                                      specialty: coach.specialty,
-                                      coachWhatsapp: '+1234567890',
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: EColorConstants.primaryColor,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              elevation: 2,
-                              shadowColor:
-                                  EColorConstants.primaryColor.withOpacity(0.25),
-                            ),
-                            icon: const Icon(
-                              Iconsax.calendar,
-                              size: 15,
-                              color: Colors.white,
-                            ),
-                            label: const Text(
-                              'Booking Now',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        onPressed: () => BookNowNavigation.openBookingForCoach(
+                          context: context,
+                          coachId: coach.id,
+                          coachName: coach.name,
+                          coachImage: coach.photoUrl ?? '',
+                          specialty: coach.specialty,
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: EColorConstants.primaryColor,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 2,
+                          shadowColor:
+                              EColorConstants.primaryColor.withOpacity(0.25),
+                        ),
+                        icon: const Icon(
+                          Iconsax.calendar,
+                          size: 15,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          'Book Now',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Poppins',
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -162,18 +158,19 @@ class HomeCoachCard extends StatelessWidget {
   }
 }
 
-class _StudentCountRow extends StatelessWidget {
+class _MemberCountRow extends StatelessWidget {
   final int count;
   final bool dark;
 
-  const _StudentCountRow({
+  const _MemberCountRow({
     required this.count,
     required this.dark,
   });
 
   @override
   Widget build(BuildContext context) {
-    final label = count == 1 ? '1 student' : '$count students';
+    // MODIFIED: members label with singular/plural
+    final label = count == 1 ? '1 member' : '$count members';
 
     return Row(
       children: [

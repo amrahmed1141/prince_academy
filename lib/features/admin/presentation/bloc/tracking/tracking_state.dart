@@ -59,10 +59,27 @@ class TrackingLoaded extends TrackingState {
 
   List<CoachUserStats> get displayCoaches {
     if (selectedBranchId == null) return coaches;
+    final direct = coaches
+        .where((coach) => _normalize(coach.branchId) == _normalize(selectedBranchId))
+        .toList();
+    if (direct.isNotEmpty) return direct;
+
+    Branch? selectedBranch;
+    for (final branch in branches) {
+      if (branch.id == selectedBranchId) {
+        selectedBranch = branch;
+        break;
+      }
+    }
+    final selectedName = _normalize(selectedBranch?.name);
+    if (selectedName.isEmpty) return direct;
+
     return coaches
-        .where((coach) => coach.branchId == selectedBranchId)
+        .where((coach) => _normalize(coach.branchName) == selectedName)
         .toList();
   }
+
+  String _normalize(String? value) => (value ?? '').trim().toLowerCase();
 
   String? get selectedCoachName {
     if (selectedCoachId == null) return null;

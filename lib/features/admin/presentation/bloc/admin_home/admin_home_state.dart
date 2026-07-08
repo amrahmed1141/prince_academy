@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
+import 'package:prince_academy/features/admin/data/models/session_draft.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
 enum AdminHomeMessageType { success, error, delete }
@@ -14,6 +15,9 @@ class AdminHomeState extends Equatable {
   final String? sessionsError;
   final String? message;
   final AdminHomeMessageType? messageType;
+  final SessionDraft? lastSessionDraft;
+  final List<double> recentPrices;
+  final bool keepSessionFormAfterSave;
 
   const AdminHomeState({
     this.coaches = const [],
@@ -25,6 +29,9 @@ class AdminHomeState extends Equatable {
     this.sessionsError,
     this.message,
     this.messageType,
+    this.lastSessionDraft,
+    this.recentPrices = const [],
+    this.keepSessionFormAfterSave = false,
   });
 
   AdminHomeState copyWith({
@@ -39,6 +46,10 @@ class AdminHomeState extends Equatable {
     String? message,
     AdminHomeMessageType? messageType,
     bool clearMessage = false,
+    SessionDraft? lastSessionDraft,
+    List<double>? recentPrices,
+    bool? keepSessionFormAfterSave,
+    bool clearKeepSessionForm = false,
   }) {
     return AdminHomeState(
       coaches: coaches ?? this.coaches,
@@ -51,6 +62,11 @@ class AdminHomeState extends Equatable {
           clearSessionsError ? null : sessionsError ?? this.sessionsError,
       message: clearMessage ? null : message ?? this.message,
       messageType: clearMessage ? null : messageType ?? this.messageType,
+      lastSessionDraft: lastSessionDraft ?? this.lastSessionDraft,
+      recentPrices: recentPrices ?? this.recentPrices,
+      keepSessionFormAfterSave: clearKeepSessionForm
+          ? false
+          : keepSessionFormAfterSave ?? this.keepSessionFormAfterSave,
     );
   }
 
@@ -65,5 +81,8 @@ class AdminHomeState extends Equatable {
         sessionsError,
         message,
         messageType,
+        lastSessionDraft,
+        recentPrices,
+        keepSessionFormAfterSave,
       ];
 }

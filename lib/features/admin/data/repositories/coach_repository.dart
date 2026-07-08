@@ -260,6 +260,28 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     }
   }
 
+  Future<Set<String>> getUserIdsWithPendingPayments() async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase
+          .from('bookings')
+          .select('user_id')
+          .or(
+            'payment_status.eq.pending_payment,'
+            'payment_status.eq.awaiting_verification,'
+            'payment_status.eq.pending',
+          );
+
+      return (response as List)
+          .map((row) => (row as Map)['user_id'] as String?)
+          .whereType<String>()
+          .toSet();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load pending payment user IDs'));
+    }
+  }
+
   Future<void> deleteCoachPhoto(String photoUrl) async {
     await _requireAdmin();
     try {
@@ -315,14 +337,58 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
             'coach_id, coach_name, coach_photo, coach_specialty, branch_id, '
             'branch_name, total_subscribers, active_subscribers, expired_subscribers',
           );
-
-      return (response as List)
+      final stats = (response as List)
           .map(
             (json) => CoachUserStats.fromJson(
               Map<String, dynamic>.from(json as Map),
             ),
           )
           .toList();
+
+      final byCoachId = <String, CoachUserStats>{
+        for (final coach in stats) coach.coachId: coach,
+      };
+
+      // Include coaches that already have active sessions even if they currently
+      // have zero subscribers and are missing from coach_user_stats view.
+      final sessions = await getAllSessionsWithCoach();
+      for (final session in sessions) {
+        if (session.coachId.isEmpty) continue;
+        final sessionBranchId = session.branchId;
+        final sessionBranchName = session.branchName;
+        final existing = byCoachId[session.coachId];
+        if (existing == null) {
+          byCoachId[session.coachId] = CoachUserStats(
+            coachId: session.coachId,
+            coachName: session.coachName ?? 'Coach',
+            coachPhoto: session.coachPhotoUrl,
+            coachSpecialty: session.coachSpecialty ?? 'MMA',
+            branchId: sessionBranchId,
+            branchName: sessionBranchName,
+            totalSubscribers: 0,
+            activeSubscribers: 0,
+            expiredSubscribers: 0,
+          );
+          continue;
+        }
+
+        // Always prefer active session branch mapping for tracking filters.
+        if (sessionBranchId != null && sessionBranchId.isNotEmpty) {
+          byCoachId[session.coachId] = CoachUserStats(
+            coachId: existing.coachId,
+            coachName: existing.coachName,
+            coachPhoto: existing.coachPhoto,
+            coachSpecialty: existing.coachSpecialty,
+            branchId: sessionBranchId,
+            branchName: sessionBranchName ?? existing.branchName,
+            totalSubscribers: existing.totalSubscribers,
+            activeSubscribers: existing.activeSubscribers,
+            expiredSubscribers: existing.expiredSubscribers,
+          );
+        }
+      }
+
+      return byCoachId.values.toList();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'load coach stats'));
     }
@@ -560,6 +626,27 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
       return false;
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'unmark session'));
+    }
+  }
+
+  Future<List<AdminScanProfile>> getUserScanProfiles(String userId) async {
+    await _requireAdmin();
+
+    try {
+      final response = await _supabase
+          .from('admin_scan_profile')
+          .select()
+          .eq('user_id', userId);
+
+      return (response as List)
+          .map(
+            (e) => AdminScanProfile.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load member bookings'));
     }
   }
 

@@ -34,12 +34,46 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     LoadHomeData event,
     Emitter<HomeState> emit,
   ) async {
-    emit(state.copyWith(isLoading: true, clearError: true));
+    final current = state;
+    final firstLoad = !current.hasLoaded;
+
+    if (firstLoad) {
+      final cachedSnapshot = sessionsRepository.cachedSnapshot;
+      final cachedBookings = bookingRepository.cachedBookings;
+      if (cachedSnapshot != null || cachedBookings != null) {
+        final cachedSessions = cachedSnapshot?.sessions ?? const <Session>[];
+        _allSessions = cachedSessions;
+        final selectedDate = current.selectedDate;
+        final filtered = _filterByDate(cachedSessions, selectedDate);
+        final bookings = cachedBookings ?? const <BookingHistoryModel>[];
+
+        emit(
+          current.copyWith(
+            isLoading: false,
+            isRefreshing: true,
+            hasLoaded: true,
+            clearError: true,
+            allSessions: cachedSessions,
+            sessionsForSelectedDate: filtered,
+            upcomingSession: _resolveUpcomingSession(
+              selectedDateSessions: filtered,
+              allSessions: cachedSessions,
+            ),
+            bookings: bookings,
+            lastBooking: _latestBooking(bookings),
+          ),
+        );
+      } else {
+        emit(current.copyWith(isLoading: true, isRefreshing: false, clearError: true));
+      }
+    } else {
+      emit(current.copyWith(isRefreshing: true, clearError: true));
+    }
 
     try {
       final results = await Future.wait([
         sessionsRepository.getSessions(),
-        bookingRepository.getUserBookings(),
+        bookingRepository.getUserBookings(force: event.forceRefresh),
         branchRepository.getAllBranches(),
       ]);
 
@@ -55,6 +89,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(
         state.copyWith(
           isLoading: false,
+          isRefreshing: false,
+          hasLoaded: true,
           allSessions: _allSessions,
           sessionsForSelectedDate: filtered,
           upcomingSession: _resolveUpcomingSession(
@@ -70,6 +106,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(
         state.copyWith(
           isLoading: false,
+          isRefreshing: false,
           error: e.toString().replaceFirst('Exception: ', ''),
         ),
       );

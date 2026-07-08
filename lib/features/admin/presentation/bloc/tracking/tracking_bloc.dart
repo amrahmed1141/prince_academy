@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
+import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_event.dart';
@@ -13,6 +17,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   final Map<String, Set<String>> _branchUserIdsCache = {};
   int _serverPage = 0;
   bool _hasMoreFromServer = true;
+  RealtimeChannel? _trackingRealtimeChannel;
+  Timer? _realtimeDebounce;
 
   TrackingBloc({
     required this.repository,
@@ -25,6 +31,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     on<FilterByBranch>(_onFilterByBranch);
     on<LoadUserDetail>(_onLoadUserDetail);
     on<LoadWeeklyAttendance>(_onLoadWeeklyAttendance);
+    _ensureRealtimeSubscription();
   }
 
   Future<void> _onLoadTrackingData(
@@ -32,6 +39,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     Emitter<TrackingState> emit,
   ) async {
     final current = state;
+    final currentLoaded = current is TrackingLoaded ? current : null;
+    final selectedCoachId = currentLoaded?.selectedCoachId;
+    final selectedBranchId = currentLoaded?.selectedBranchId;
+    final searchQuery = currentLoaded?.searchQuery;
+    final previousVisibleCount = currentLoaded?.visibleSubscriberCount ??
+        TrackingLoaded.subscriberPageSize;
+
     if (event.silent && current is TrackingLoaded) {
       emit(current.copyWith(isRefreshing: true));
     } else {
@@ -53,15 +67,40 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       );
       _hasMoreFromServer = users.length >= TrackingLoaded.subscriberPageSize;
 
-      final filtered = _applyLocalSearch(users, null);
+      final pendingIds = await repository.getUserIdsWithPendingPayments();
+      final usersWithPending = users
+          .map((u) => u.copyWith(
+                hasPendingPayment: pendingIds.contains(u.userId),
+              ))
+          .toList();
+
+      final filtered = await _filterUsers(
+        usersWithPending,
+        coachId: selectedCoachId,
+        branchId: selectedBranchId,
+        query: searchQuery,
+      );
+
+      final visibleCount = filtered.isEmpty
+          ? TrackingLoaded.subscriberPageSize
+          : (filtered.length < TrackingLoaded.subscriberPageSize
+              ? filtered.length
+              : previousVisibleCount.clamp(
+                  TrackingLoaded.subscriberPageSize,
+                  filtered.length,
+                ));
       emit(
         TrackingLoaded(
           coaches: coaches,
           branches: branches,
           users: users,
           filteredUsers: filtered,
+          selectedCoachId: selectedCoachId,
+          selectedBranchId: selectedBranchId,
+          searchQuery: searchQuery,
+          visibleSubscriberCount: visibleCount,
           hasMoreSubscribers:
-              filtered.length > TrackingLoaded.subscriberPageSize ||
+              filtered.length > visibleCount ||
                   _hasMoreFromServer,
         ),
       );
@@ -142,7 +181,11 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       _hasMoreFromServer =
           nextPage.length >= TrackingLoaded.subscriberPageSize;
 
-      final allUsers = [...current.users, ...nextPage];
+      final pendingIds = await repository.getUserIdsWithPendingPayments();
+      final allUsers = [...current.users, ...nextPage].map((u) {
+        if (u.hasPendingPayment == pendingIds.contains(u.userId)) return u;
+        return u.copyWith(hasPendingPayment: pendingIds.contains(u.userId));
+      }).toList();
       final filtered = await _filterUsers(
         allUsers,
         coachId: current.selectedCoachId,
@@ -202,6 +245,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     final currentState = state;
     if (currentState is! TrackingLoaded) return;
 
+    List<CoachUserStats> latestCoaches = currentState.coaches;
+    try {
+      latestCoaches = await repository.getCoachUserStats();
+    } catch (_) {
+      latestCoaches = currentState.coaches;
+    }
+
     final filtered = await _filterUsers(
       currentState.users,
       coachId: currentState.selectedCoachId,
@@ -211,7 +261,10 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
     emit(
       currentState.copyWith(
+        coaches: latestCoaches,
         filteredUsers: filtered,
+        selectedCoachId: null,
+        clearCoachFilter: true,
         selectedBranchId: event.branchId,
         clearBranchFilter: event.branchId == null,
         isFiltering: false,
@@ -359,14 +412,63 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     String? query,
   ) {
     final trimmed = query?.trim().toLowerCase() ?? '';
-    if (trimmed.isEmpty) return users;
+    var result = users;
 
-    return users
-        .where((user) {
-          final name = user.fullName.toLowerCase();
-          final phone = user.phone?.toLowerCase() ?? '';
-          return name.contains(trimmed) || phone.contains(trimmed);
-        })
-        .toList();
+    if (trimmed.isNotEmpty) {
+      result = result
+          .where((user) {
+            final name = user.fullName.toLowerCase();
+            final phone = user.phone?.toLowerCase() ?? '';
+            return name.contains(trimmed) || phone.contains(trimmed);
+          })
+          .toList();
+    }
+
+    result.sort((a, b) {
+      if (a.hasPendingPayment && !b.hasPendingPayment) return -1;
+      if (!a.hasPendingPayment && b.hasPendingPayment) return 1;
+      return a.fullName.compareTo(b.fullName);
+    });
+
+    return result;
+  }
+
+  void _ensureRealtimeSubscription() {
+    if (_trackingRealtimeChannel != null) return;
+
+    final supabase = Supabase.instance.client;
+    _trackingRealtimeChannel = supabase
+        .channel('tracking-live-updates')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'bookings',
+          callback: (_) => _scheduleRealtimeRefresh(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'attendance',
+          callback: (_) => _scheduleRealtimeRefresh(),
+        )
+        .subscribe();
+  }
+
+  void _scheduleRealtimeRefresh() {
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(const Duration(milliseconds: 700), () {
+      if (isClosed) return;
+      if (state is TrackingLoaded) {
+        add(const LoadTrackingData(silent: true));
+      }
+    });
+  }
+
+  @override
+  Future<void> close() {
+    _realtimeDebounce?.cancel();
+    _trackingRealtimeChannel?.unsubscribe();
+    _trackingRealtimeChannel = null;
+    return super.close();
   }
 }
