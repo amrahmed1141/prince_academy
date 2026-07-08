@@ -13,20 +13,24 @@ const kClassTypeFilterOptions = <String>[
 ];
 
 class ClassTypeFilterDropdown extends StatelessWidget {
+  final List<String> options;
   final String value;
   final ValueChanged<String> onChanged;
+  final String Function(String option)? labelBuilder;
 
   const ClassTypeFilterDropdown({
     super.key,
     required this.value,
     required this.onChanged,
+    this.options = kClassTypeFilterOptions,
+    this.labelBuilder,
   });
+
+  String _label(String option) => labelBuilder?.call(option) ?? option;
 
   @override
   Widget build(BuildContext context) {
-    final selected = kClassTypeFilterOptions.contains(value)
-        ? value
-        : kClassTypeFilterOptions.first;
+    final selected = options.contains(value) ? value : options.first;
 
     return Container(
       height: 40,
@@ -52,11 +56,31 @@ class ClassTypeFilterDropdown extends StatelessWidget {
             color: EColorConstants.authTextDarkBrown,
             fontFamily: 'Poppins',
           ),
-          items: kClassTypeFilterOptions.map((option) {
+          selectedItemBuilder: labelBuilder == null
+              ? null
+              : (context) {
+                  return options.map((option) {
+                    return Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _label(option),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: EColorConstants.authTextDarkBrown,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                    );
+                  }).toList();
+                },
+          items: options.map((option) {
             return DropdownMenuItem(
               value: option,
               child: Text(
-                option,
+                _label(option),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

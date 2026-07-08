@@ -22,21 +22,12 @@ List<AdminScanProfile> filterBookingsByStatus(
 List<AdminScanProfile> pendingPaymentBookings(List<AdminScanProfile> bookings) =>
     bookings.where((b) => b.needsPaymentVerification).toList();
 
-List<AdminScanProfile> sortMemberBookings(
-  List<AdminScanProfile> bookings, {
-  required bool hasPendingInScope,
-}) {
+List<AdminScanProfile> sortMemberBookings(List<AdminScanProfile> bookings) {
   final sorted = List<AdminScanProfile>.from(bookings);
   sorted.sort((a, b) {
-    if (hasPendingInScope) {
-      final aPending = a.needsPaymentVerification ? 0 : 1;
-      final bPending = b.needsPaymentVerification ? 0 : 1;
-      if (aPending != bPending) return aPending.compareTo(bPending);
-    } else {
-      final aToday = a.canMarkAttendanceToday ? 0 : 1;
-      final bToday = b.canMarkAttendanceToday ? 0 : 1;
-      if (aToday != bToday) return aToday.compareTo(bToday);
-    }
+    final aToday = a.canMarkAttendanceToday ? 0 : 1;
+    final bToday = b.canMarkAttendanceToday ? 0 : 1;
+    if (aToday != bToday) return aToday.compareTo(bToday);
 
     final aActive = a.isActive ? 0 : 1;
     final bActive = b.isActive ? 0 : 1;

@@ -608,70 +608,19 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                   ),
                 ),
               ),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: EColorConstants.authCardWhite,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: EColorConstants.authFieldBorder),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isDense: true,
-                      isExpanded: true,
-                      value: filterOptions.contains(_coachFilter)
-                          ? _coachFilter
-                          : 'All Coaches',
-                      icon: const Icon(
-                        Iconsax.arrow_down_1,
-                        size: 14,
-                        color: EColorConstants.authPlaceholderGray,
-                      ),
-                      selectedItemBuilder: (context) {
-                        return filterOptions.map((option) {
-                          final label = option == 'All Coaches'
-                              ? option
-                              : SpecialtyChip.displayLabel(option);
-                          return Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: EColorConstants.authTextDarkBrown,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
-                          );
-                        }).toList();
-                      },
-                      items: filterOptions.map((option) {
-                        return DropdownMenuItem(
-                          value: option,
-                          child: Text(
-                            option,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: EColorConstants.authTextDarkBrown,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _coachFilter = value);
-                        }
-                      },
-                    ),
-                  ),
+              SizedBox(
+                width: 130,
+                child: ClassTypeFilterDropdown(
+                  value: filterOptions.contains(_coachFilter)
+                      ? _coachFilter
+                      : 'All Coaches',
+                  options: filterOptions,
+                  labelBuilder: (option) => option == 'All Coaches'
+                      ? option
+                      : SpecialtyChip.displayLabel(option),
+                  onChanged: (value) {
+                    setState(() => _coachFilter = value);
+                  },
                 ),
               ),
             ],

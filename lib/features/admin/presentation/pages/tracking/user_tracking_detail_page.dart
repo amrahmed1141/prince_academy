@@ -82,13 +82,10 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
             .toList()
         : _filteredBookings;
 
-    return sortMemberBookings(
-      bookings,
-      hasPendingInScope: _pendingPaymentBookings.isNotEmpty,
-    );
+    return sortMemberBookings(bookings);
   }
 
-  bool get _showHorizontalPending =>
+  bool get _showPendingSection =>
       _pendingPaymentBookings.isNotEmpty &&
       (_statusFilter == null || _statusFilter == 'pending');
 
@@ -248,14 +245,31 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
                             ),
                           )
                         else ...[
-                          if (_showHorizontalPending) ...[
+                          if (_showPendingSection) ...[
                             const SliverToBoxAdapter(
                               child: AdminBookingSectionHeader(
                                 title: 'PENDING PAYMENTS',
                               ),
                             ),
-                            SliverToBoxAdapter(
-                              child: _buildPendingHorizontalList(),
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final booking =
+                                      _pendingPaymentBookings[index];
+                                  return MemberBookingCard(
+                                    data: MemberBookingCardData.fromScanProfile(
+                                      booking,
+                                    ),
+                                    isConfirmingPayment: _busyBookingIds
+                                        .contains(booking.bookingId),
+                                    onPaymentTap: () =>
+                                        _openPaymentVerification(booking),
+                                    onViewSessions: () =>
+                                        _openSessionDetail(booking),
+                                  );
+                                },
+                                childCount: _pendingPaymentBookings.length,
+                              ),
                             ),
                             const SliverToBoxAdapter(child: SizedBox(height: 8)),
                           ],
@@ -344,34 +358,6 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
       expiredCount: countExpiredBookings(_bookings),
       statusFilter: _statusFilter,
       onStatusFilterChanged: (filter) => setState(() => _statusFilter = filter),
-    );
-  }
-
-  Widget _buildPendingHorizontalList() {
-    final pending = _pendingPaymentBookings;
-    final cardWidth = MediaQuery.sizeOf(context).width * 0.82;
-
-    return SizedBox(
-      height: 430,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: pending.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final booking = pending[index];
-          return SizedBox(
-            width: cardWidth,
-            child: MemberBookingCard(
-              data: MemberBookingCardData.fromScanProfile(booking),
-              isConfirmingPayment:
-                  _busyBookingIds.contains(booking.bookingId),
-              onPaymentTap: () => _openPaymentVerification(booking),
-              onViewSessions: () => _openSessionDetail(booking),
-            ),
-          );
-        },
-      ),
     );
   }
 }

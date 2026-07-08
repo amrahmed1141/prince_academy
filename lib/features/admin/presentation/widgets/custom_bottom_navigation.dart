@@ -13,7 +13,7 @@ class _AdminNavDestination {
 const _destinations = [
   _AdminNavDestination(icon: Iconsax.home_1, label: 'Home'),
   _AdminNavDestination(icon: Iconsax.chart, label: 'Tracking'),
-  _AdminNavDestination(icon: Iconsax.wallet_3, label: 'Finance'),
+  _AdminNavDestination(icon: Iconsax.receipt_2, label: 'Finance'),
 ];
 
 class AdminGlassNavBar extends StatelessWidget {
