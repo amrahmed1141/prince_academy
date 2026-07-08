@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,22 +12,24 @@ import 'package:prince_academy/features/admin/data/models/branch_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
 import 'package:prince_academy/features/admin/data/models/session_draft.dart';
+import 'package:prince_academy/features/admin/data/models/session_draft_mapper.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
-import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_event.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_state.dart';
+import 'package:prince_academy/features/admin/presentation/helpers/admin_session_form_helper.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_profile.dart';
 import 'package:prince_academy/features/admin/presentation/pages/edit_coach_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/edit_session_page.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_autocomplete_field.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_dashed_upload.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_dropdown_field.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_searchable_dropdown_field.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_form_styles.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_header.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_smooth_scroll.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_tab_layout.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/admin_text_field.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/branch_management_dialog.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/class_type_filter_dropdown.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_card.dart';
@@ -87,6 +87,8 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
   // Coaches list filter
   String _coachFilter = 'All Coaches';
   String _sessionFilter = 'All Classes';
+  bool _hasAppliedInitialSessionDefaults = false;
+  bool _sessionFormTouched = false;
 
   @override
   void initState() {
@@ -98,23 +100,101 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
 
   void _syncCoachSelection() {
     if (!mounted) return;
-    final coaches = context.read<AdminHomeBloc>().state.coaches;
+    final admin = context.read<AdminHomeBloc>().state;
+    final coaches = admin.coaches;
     if (_selectedSessionCoachId == null && coaches.isNotEmpty) {
       setState(() => _selectedSessionCoachId = coaches.first.id);
     }
+    _maybeApplyInitialSessionDefaults(admin);
+  }
+
+  void _maybeApplyInitialSessionDefaults(AdminHomeState admin) {
+    if (_hasAppliedInitialSessionDefaults || _sessionFormTouched) return;
+    if (admin.isLoadingCoaches || admin.isLoadingSessions || _isLoadingBranches) {
+      return;
+    }
+
+    final snapshot = AdminSessionFormHelper.resolveInitial(
+      coaches: admin.coaches,
+      branches: _branches,
+      sessions: admin.sessions,
+      lastDraft: admin.lastSessionDraft,
+      selectedCoachId: _selectedSessionCoachId,
+      selectedBranchId: _selectedBranchId,
+      timeSlot: _selectedTimeSlot,
+      priceText: _priceController.text,
+      sessionsPerWeek: _sessionsPerWeek,
+      slots: _sessionSlots,
+    );
+
+    _applySessionSnapshot(snapshot);
+    _hasAppliedInitialSessionDefaults = true;
+  }
+
+  void _applySessionSnapshot(AdminSessionFormSnapshot snapshot) {
+    final normalizedSlots =
+        SessionDraft.resizeSlots(snapshot.slots, snapshot.sessionsPerWeek);
+    setState(() {
+      _selectedSessionCoachId = snapshot.coachId;
+      _selectedBranchId = snapshot.branchId;
+      _selectedTimeSlot = snapshot.timeSlot;
+      _sessionsPerWeek = snapshot.sessionsPerWeek;
+      _sessionSlots = normalizedSlots;
+      _priceController.text = snapshot.priceText;
+      _coachError = null;
+      _branchError = null;
+      _timeSlotError = null;
+      _priceError = null;
+    });
+  }
+
+  void _onSessionCoachChanged(String? coachId, AdminHomeState admin) {
+    if (coachId == null) return;
+    final snapshot = AdminSessionFormHelper.forCoachChange(
+      coachId: coachId,
+      coaches: admin.coaches,
+      sessions: admin.sessions,
+      current: AdminSessionFormSnapshot(
+        coachId: _selectedSessionCoachId,
+        branchId: _selectedBranchId,
+        timeSlot: _selectedTimeSlot,
+        priceText: _priceController.text,
+        sessionsPerWeek: _sessionsPerWeek,
+        slots: _sessionSlots,
+      ),
+      lastDraft: admin.lastSessionDraft,
+      singleBranchId: _branches.length == 1 ? _branches.first.id : null,
+    );
+
+    setState(() {
+      _sessionFormTouched = true;
+      _coachError = null;
+    });
+    _applySessionSnapshot(snapshot);
+  }
+
+  void _duplicateSessionGroup(CoachWithSessions group) {
+    if (group.schedules.isEmpty) return;
+    final draft = SessionDraftMapper.fromCoachSession(group.schedules.first);
+    _applySessionSnapshot(AdminSessionFormSnapshot.fromDraft(draft));
+    setState(() => _sessionFormTouched = true);
+    _tabLayoutKey.currentState?.animateToTab(1);
+    _showSnackBar('Session duplicated into the form', EColorConstants.primaryColor);
   }
 
   Future<void> _fetchBranches() async {
     setState(() => _isLoadingBranches = true);
     try {
       final branches = await sl<BranchRepository>().getAllBranches();
-      if (!mounted) return;
-      setState(() {
-        _branches = branches;
-        if (_selectedBranchId == null && branches.isNotEmpty) {
-          _selectedBranchId = branches.first.id;
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _branches = branches;
+          if (_selectedBranchId == null && branches.isNotEmpty) {
+            _selectedBranchId = branches.first.id;
+          }
+        });
+        _maybeApplyInitialSessionDefaults(context.read<AdminHomeBloc>().state);
+      }
     } catch (e) {
       if (mounted) {
         _showSnackBar('Failed to load branches: $e', Colors.redAccent);
@@ -216,7 +296,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
     return isValid && (_sessionFormKey.currentState?.validate() ?? false);
   }
 
-  Future<void> _handleSaveSession() async {
+  Future<void> _handleSaveSession({bool addAnother = false}) async {
     if (context.read<AdminHomeBloc>().state.coaches.isEmpty) {
       _showSnackBar(
         'No coaches available. Please add a coach first.',
@@ -242,34 +322,37 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
       }
     }
 
-    final price = double.parse(_priceController.text.trim());
-    final draft = SessionDraft(
+    final draft = AdminSessionFormSnapshot(
       coachId: _selectedSessionCoachId,
       branchId: _selectedBranchId,
       timeSlot: _selectedTimeSlot,
-      pricePerSession: price,
+      priceText: _priceController.text,
       sessionsPerWeek: _sessionsPerWeek,
-      sessions: List.from(_sessionSlots),
+      slots: _sessionSlots,
+    ).toDraft();
+
+    context.read<AdminHomeBloc>().add(
+          SaveSessionSubmitted(draft, addAnother: addAnother),
+        );
+    FocusScope.of(context).unfocus();
+  }
+
+  void _onSessionSaved(AdminHomeState admin) {
+    final snapshot = AdminSessionFormHelper.afterSuccessfulSave(
+      savedDraft: admin.lastSessionDraft ?? SessionDraft.initial(),
+      keepValues: admin.keepSessionFormAfterSave,
     );
-
-    context.read<AdminHomeBloc>().add(SaveSessionSubmitted(draft));
-
-    if (mounted) {
-      setState(() {
-        _selectedTimeSlot = SessionDraft.defaultTimeSlot;
-        _sessionsPerWeek = 1;
-        _sessionSlots = [SessionSlot.initial()];
-        _priceController.clear();
-        _coachError = null;
-        _timeSlotError = null;
-        _priceError = null;
-      });
-      FocusScope.of(context).unfocus();
+    _applySessionSnapshot(snapshot);
+    if (!admin.keepSessionFormAfterSave) {
+      _sessionFormTouched = false;
+      _hasAppliedInitialSessionDefaults = false;
+      _maybeApplyInitialSessionDefaults(admin);
     }
   }
 
   void _onSessionsPerWeekChanged(int count) {
     setState(() {
+      _sessionFormTouched = true;
       _sessionsPerWeek = count;
       _sessionSlots = SessionDraft.resizeSlots(_sessionSlots, count);
     });
@@ -277,6 +360,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
 
   void _updateSessionSlot(int index, SessionSlot slot) {
     setState(() {
+      _sessionFormTouched = true;
       _sessionSlots[index] = slot;
     });
   }
@@ -440,6 +524,8 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
             setState(() => _selectedCoachImagePath = null);
             FocusScope.of(context).unfocus();
             _syncCoachSelection();
+          } else if (message.contains('Session saved')) {
+            _onSessionSaved(state);
           }
           _showSnackBar(message, Colors.green);
         } else if (state.messageType == AdminHomeMessageType.delete) {
@@ -451,6 +537,9 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
         context.read<AdminHomeBloc>().add(const ClearAdminHomeMessage());
       },
       builder: (context, admin) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _maybeApplyInitialSessionDefaults(admin);
+        });
         return SafeArea(
           child: Column(
             children: [
@@ -501,7 +590,10 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildAddCoachFormCard(isAddingCoach: admin.isAddingCoach),
+          _buildAddCoachFormCard(
+            isAddingCoach: admin.isAddingCoach,
+            existingCoachNames: admin.coaches.map((coach) => coach.name).toList(),
+          ),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -614,7 +706,10 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
     );
   }
 
-  Widget _buildAddCoachFormCard({required bool isAddingCoach}) {
+  Widget _buildAddCoachFormCard({
+    required bool isAddingCoach,
+    required List<String> existingCoachNames,
+  }) {
     return AdminSectionCard(
       borderRadius: 28,
       child: Padding(
@@ -672,62 +767,17 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
             const SizedBox(height: 20),
             _buildCompactFieldLabel('Coach Name'),
             const SizedBox(height: 8),
-            TextFormField(
-              controller: _coachNameController,
-              focusNode: _coachNameFocusNode,
-              style: const TextStyle(
-                fontSize: 13,
-                fontFamily: 'Poppins',
-                color: EColorConstants.authTextDarkBrown,
-              ),
-              decoration: _compactInputDecoration(
-                hint: 'e.g. John Doe',
-                prefixIcon: Iconsax.user,
-              ),
-            ),
+            _buildCoachNameField(existingCoachNames),
             const SizedBox(height: 16),
             _buildCompactFieldLabel('Specialty'),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
+            AdminSearchableDropdownField<String>(
               value: _selectedCoachSpecialty,
-              isExpanded: true,
-              icon: const Icon(
-                Iconsax.arrow_down_1,
-                size: 16,
-                color: EColorConstants.authPlaceholderGray,
-              ),
-              decoration: _compactInputDecoration(
-                hint: 'Select specialty',
-                prefixIcon: Iconsax.category,
-              ),
-              selectedItemBuilder: (context) {
-                return _coachSpecialties.map((specialty) {
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      SpecialtyChip.displayLabel(specialty),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontFamily: 'Poppins',
-                        color: EColorConstants.authTextDarkBrown,
-                      ),
-                    ),
-                  );
-                }).toList();
-              },
-              items: _coachSpecialties.map((specialty) {
-                return DropdownMenuItem(
-                  value: specialty,
-                  child: Text(
-                    specialty,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontFamily: 'Poppins'),
-                  ),
-                );
-              }).toList(),
+              items: _coachSpecialties,
+              itemLabel: (specialty) => specialty,
+              prefixIcon: Iconsax.category,
+              hintText: 'Select specialty',
+              fillColor: AdminFormStyles.sessionPanelFill,
               onChanged: (value) {
                 if (value != null) {
                   setState(() => _selectedCoachSpecialty = value);
@@ -782,6 +832,79 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
           (s) => s.sessionType.toLowerCase() == _sessionFilter.toLowerCase(),
         )
         .toList();
+  }
+
+  Widget _buildCoachNameField(List<String> existingCoachNames) {
+    return RawAutocomplete<String>(
+      textEditingController: _coachNameController,
+      focusNode: _coachNameFocusNode,
+      optionsBuilder: (value) {
+        final query = value.text.trim().toLowerCase();
+        if (query.isEmpty) return const Iterable<String>.empty();
+        return existingCoachNames.where(
+          (name) => name.toLowerCase().contains(query),
+        );
+      },
+      onSelected: (selection) => _coachNameController.text = selection,
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          style: const TextStyle(
+            fontSize: 13,
+            fontFamily: 'Poppins',
+            color: EColorConstants.authTextDarkBrown,
+          ),
+          decoration: _compactInputDecoration(
+            hint: 'e.g. John Doe',
+            prefixIcon: Iconsax.user,
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        final items = options.toList();
+        if (items.isEmpty) return const SizedBox.shrink();
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(14),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 160, minWidth: 200),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  color: Colors.grey.shade200,
+                ),
+                itemBuilder: (context, index) {
+                  final name = items[index];
+                  return InkWell(
+                    onTap: () => onSelected(name),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildCompactFieldLabel(String text) {
@@ -919,6 +1042,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                   coachWithSessions: group,
                   onEdit: (session) => _navigateToEditSession(session),
                   onDelete: () => _handleDeleteSessionSchedule(group),
+                  onDuplicate: () => _duplicateSessionGroup(group),
                 );
               }),
         ],
@@ -1004,6 +1128,28 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
   Widget _buildAddSessionForm(bool dark, AdminHomeState admin) {
     final hasCoaches = admin.coaches.isNotEmpty;
     final isSavingSession = admin.isSavingSession;
+
+    CoachModel? selectedCoach;
+    for (final coach in admin.coaches) {
+      if (coach.id == _selectedSessionCoachId) {
+        selectedCoach = coach;
+        break;
+      }
+    }
+    Branch? selectedBranch;
+    for (final branch in _branches) {
+      if (branch.id == _selectedBranchId) {
+        selectedBranch = branch;
+        break;
+      }
+    }
+    final recentPriceOptions = admin.recentPrices
+        .map(
+          (price) => price.toStringAsFixed(
+            price == price.roundToDouble() ? 0 : 2,
+          ),
+        )
+        .toList();
 
     return Container(
       decoration: AdminFormStyles.formCardDecoration,
@@ -1092,37 +1238,25 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                     ),
                   _buildFieldLabel('Select Coach'),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: hasCoaches ? _selectedSessionCoachId : null,
-                    isExpanded: true,
-                    decoration: AdminFormStyles.fieldDecoration(
-                      errorText: _coachError,
+                  AdminSearchableDropdownField<CoachModel>(
+                    value: hasCoaches ? selectedCoach : null,
+                    items: admin.coaches,
+                    itemLabel: (coach) => coach.name,
+                    searchText: (coach) => '${coach.name} ${coach.specialty}',
+                    errorText: _coachError,
+                    enabled: hasCoaches,
+                    hintText: 'Select coach',
+                    selectedBuilder: (coach) => SessionCoachDropdownTile(
+                      name: coach.name,
+                      photoUrl: coach.photoUrl,
                     ),
-                    selectedItemBuilder: (context) {
-                      return admin.coaches.map((coach) {
-                        return SessionCoachDropdownTile(
-                          name: coach.name,
-                          photoUrl: coach.photoUrl,
-                        );
-                      }).toList();
-                    },
-                    items: admin.coaches.map((coach) {
-                      return DropdownMenuItem(
-                        value: coach.id,
-                        child: SessionCoachDropdownTile(
-                          name: coach.name,
-                          photoUrl: coach.photoUrl,
-                        ),
-                      );
-                    }).toList(),
+                    itemBuilder: (coach) => SessionCoachDropdownTile(
+                      name: coach.name,
+                      photoUrl: coach.photoUrl,
+                    ),
                     onChanged: hasCoaches
-                        ? (value) {
-                            setState(() {
-                              _selectedSessionCoachId = value;
-                              _coachError = null;
-                            });
-                          }
-                        : null,
+                        ? (coach) => _onSessionCoachChanged(coach?.id, admin)
+                        : (_) {},
                   ),
                   const SizedBox(height: 16),
                   AdminFormStyles.fieldLabel('Branch'),
@@ -1142,38 +1276,23 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                                   ),
                                 ),
                               )
-                            : DropdownButtonFormField<String>(
-                                value: _branches.any((b) => b.id == _selectedBranchId)
-                                    ? _selectedBranchId
-                                    : null,
-                                isExpanded: true,
-                                hint: const Text(
-                                  'Select Branch',
-                                  style: TextStyle(fontFamily: 'Poppins'),
-                                ),
-                                decoration: AdminFormStyles.fieldDecoration(
-                                  prefixIcon: Icons.location_city_outlined,
-                                  errorText: _branchError,
-                                ),
-                                items: _branches
-                                    .map(
-                                      (branch) => DropdownMenuItem(
-                                        value: branch.id,
-                                        child: Text(
-                                          branch.name,
-                                          style: const TextStyle(fontFamily: 'Poppins'),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
+                            : AdminSearchableDropdownField<Branch>(
+                                value: selectedBranch,
+                                items: _branches,
+                                itemLabel: (branch) => branch.name,
+                                prefixIcon: Icons.location_city_outlined,
+                                errorText: _branchError,
+                                enabled: hasCoaches && _branches.isNotEmpty,
+                                hintText: 'Select Branch',
                                 onChanged: hasCoaches && _branches.isNotEmpty
-                                    ? (value) {
+                                    ? (branch) {
                                         setState(() {
-                                          _selectedBranchId = value;
+                                          _sessionFormTouched = true;
+                                          _selectedBranchId = branch?.id;
                                           _branchError = null;
                                         });
                                       }
-                                    : null,
+                                    : (_) {},
                               ),
                       ),
                       const SizedBox(width: 8),
@@ -1223,9 +1342,11 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                     itemLabel: (item) => item,
                     prefixIcon: Iconsax.clock,
                     enabled: hasCoaches,
+                    searchable: true,
                     onChanged: (value) {
                       if (value != null) {
                         setState(() {
+                          _sessionFormTouched = true;
                           _selectedTimeSlot = value;
                           _timeSlotError = null;
                         });
@@ -1244,10 +1365,11 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  AdminTextField(
+                  AdminAutocompleteField(
                     label: 'Price Per Session (EGP)',
                     hint: 'Enter price',
                     controller: _priceController,
+                    options: recentPriceOptions,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     validator: (value) {
@@ -1258,9 +1380,10 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                       return null;
                     },
                     onChanged: (_) {
-                      if (_priceError != null) {
-                        setState(() => _priceError = null);
-                      }
+                      setState(() {
+                        _sessionFormTouched = true;
+                        _priceError = null;
+                      });
                     },
                   ),
                   if (_priceError != null) ...[
@@ -1294,7 +1417,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                     height: 56,
                     child: ElevatedButton(
                       onPressed: (!isSavingSession && hasCoaches)
-                          ? _handleSaveSession
+                          ? () => _handleSaveSession()
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: EColorConstants.primaryColor,
@@ -1324,6 +1447,36 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                                 fontFamily: 'Poppins',
                               ),
                             ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: OutlinedButton(
+                      onPressed: (!isSavingSession && hasCoaches)
+                          ? () => _handleSaveSession(addAnother: true)
+                          : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: EColorConstants.primaryColor,
+                        disabledForegroundColor:
+                            EColorConstants.authPlaceholderGray,
+                        side: const BorderSide(
+                          color: EColorConstants.primaryColor,
+                          width: 1.4,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: const Text(
+                        'Save & Add Another',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
                     ),
                   ),
                 ],
