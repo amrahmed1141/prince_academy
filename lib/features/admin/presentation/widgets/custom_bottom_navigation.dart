@@ -3,6 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 
+class _AdminNavDestination {
+  const _AdminNavDestination({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+}
+
+const _destinations = [
+  _AdminNavDestination(icon: Iconsax.home_1, label: 'Home'),
+  _AdminNavDestination(icon: Iconsax.chart, label: 'Tracking'),
+  _AdminNavDestination(icon: Iconsax.wallet_3, label: 'Finance'),
+  _AdminNavDestination(icon: Iconsax.card, label: 'Payments'),
+];
+
 class AdminGlassNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -41,13 +55,12 @@ class AdminGlassNavBar extends StatelessWidget {
                   ],
                 ),
                 child: Row(
-                  children: List.generate(2, (index) {
-                    final icon = index == 0 ? Iconsax.home_1 : Iconsax.chart;
-                    final label = index == 0 ? 'Home' : 'Tracking';
+                  children: List.generate(_destinations.length, (index) {
+                    final destination = _destinations[index];
                     return Expanded(
                       child: _AdminNavPillItem(
-                        icon: icon,
-                        label: label,
+                        icon: destination.icon,
+                        label: destination.label,
                         isSelected: selectedIndex == index,
                         onTap: () => onDestinationSelected(index),
                       ),

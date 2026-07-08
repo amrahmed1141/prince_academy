@@ -6,6 +6,8 @@ import 'package:prince_academy/features/admin/presentation/bloc/coach/coach_bloc
 import 'package:prince_academy/features/admin/presentation/bloc/coach/coach_event.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_event.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_add_info_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/finance_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/pending_payments_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/qr_scanner_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/tracking_page.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/custom_bottom_navigation.dart';
@@ -50,6 +52,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               children: const [
                 AdminAddInfoPage(),
                 TrackingPage(),
+                FinancePage(),
+                PendingPaymentsPage(),
               ],
             ),
             Positioned(
