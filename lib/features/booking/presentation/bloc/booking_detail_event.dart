@@ -41,3 +41,7 @@ class RescheduleBooking extends BookingDetailEvent {
   @override
   List<Object?> get props => [bookingId, startDate];
 }
+
+class ResetBookingDetail extends BookingDetailEvent {
+  const ResetBookingDetail();
+}

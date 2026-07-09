@@ -137,10 +137,14 @@ class _BookingHistoryView extends StatelessWidget {
   }
 
   void _onDetails(BuildContext context, BookingHistoryModel booking) {
+    final historyBloc = context.read<BookingHistoryBloc>();
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => BookingDetailPage(booking: booking),
+        builder: (_) => BlocProvider.value(
+          value: historyBloc,
+          child: BookingDetailPage(booking: booking),
+        ),
       ),
     );
   }

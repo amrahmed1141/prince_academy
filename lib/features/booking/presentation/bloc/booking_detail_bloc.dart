@@ -12,6 +12,14 @@ class BookingDetailBloc
     on<DeleteBooking>(_onDeleteBooking);
     on<UpdateBookingDays>(_onUpdateBookingDays);
     on<RescheduleBooking>(_onRescheduleBooking);
+    on<ResetBookingDetail>(_onResetBookingDetail);
+  }
+
+  void _onResetBookingDetail(
+    ResetBookingDetail event,
+    Emitter<BookingDetailState> emit,
+  ) {
+    emit(const BookingDetailInitial());
   }
 
   Future<void> _onDeleteBooking(
