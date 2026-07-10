@@ -47,3 +47,27 @@ int countPendingBookings(List<AdminScanProfile> bookings) =>
 int countExpiredBookings(List<AdminScanProfile> bookings) => bookings
     .where((b) => !b.isActive && !b.needsPaymentVerification)
     .length;
+
+List<({String coachId, String coachName, String? coachPhoto})>
+    uniqueCoachesFromBookings(List<AdminScanProfile> bookings) {
+  final seen = <String>{};
+  final coaches = <({String coachId, String coachName, String? coachPhoto})>[];
+  for (final booking in bookings) {
+    if (seen.add(booking.coachId)) {
+      coaches.add((
+        coachId: booking.coachId,
+        coachName: booking.coachName,
+        coachPhoto: booking.coachPhoto,
+      ));
+    }
+  }
+  return coaches;
+}
+
+List<AdminScanProfile> filterBookingsByCoach(
+  List<AdminScanProfile> bookings,
+  String? coachId,
+) {
+  if (coachId == null) return bookings;
+  return bookings.where((b) => b.coachId == coachId).toList();
+}

@@ -8,6 +8,7 @@ import 'package:prince_academy/features/admin/data/models/payment_verification_d
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/pages/payment_verification_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/session_detail_page.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_coach_booking_filter_chips.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_member_booking_list_helpers.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_member_profile_header.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/member_booking_card.dart';
@@ -35,6 +36,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
   String? _error;
   List<AdminScanProfile> _bookings = [];
   final Set<String> _busyBookingIds = {};
+  String? _selectedCoachId;
   String? _statusFilter;
 
   @override
@@ -67,8 +69,11 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
     }
   }
 
+  List<AdminScanProfile> get _coachFilteredBookings =>
+      filterBookingsByCoach(_bookings, _selectedCoachId);
+
   List<AdminScanProfile> get _filteredBookings =>
-      filterBookingsByStatus(_bookings, _statusFilter);
+      filterBookingsByStatus(_coachFilteredBookings, _statusFilter);
 
   List<AdminScanProfile> get _pendingPaymentBookings =>
       pendingPaymentBookings(_filteredBookings);
@@ -90,7 +95,10 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
       (_statusFilter == null || _statusFilter == 'pending');
 
   int get _todaySessionCount =>
-      _bookings.where((b) => b.canMarkAttendanceToday).length;
+      _filteredBookings.where((b) => b.canMarkAttendanceToday).length;
+
+  List<({String coachId, String coachName, String? coachPhoto})> get _uniqueCoaches =>
+      uniqueCoachesFromBookings(_bookings);
 
   Future<void> _markAttendance(AdminScanProfile booking) async {
     if (_busyBookingIds.contains(booking.bookingId)) return;
@@ -227,7 +235,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
                       ),
                       slivers: [
                         SliverToBoxAdapter(child: _buildHeader()),
-                        SliverToBoxAdapter(child: _buildTodaySummary()),
+                        SliverToBoxAdapter(child: _buildCoachFilterChips()),
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         if (_filteredBookings.isEmpty)
                           const SliverToBoxAdapter(
@@ -274,6 +282,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
                             const SliverToBoxAdapter(child: SizedBox(height: 8)),
                           ],
                           if (_verticalBookings.isNotEmpty) ...[
+                            SliverToBoxAdapter(child: _buildTodaySummary()),
                             if (_statusFilter == null)
                               const SliverToBoxAdapter(
                                 child: AdminBookingSectionHeader(
@@ -319,6 +328,14 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
     );
   }
 
+  Widget _buildCoachFilterChips() {
+    return AdminCoachBookingFilterChips(
+      coaches: _uniqueCoaches,
+      selectedCoachId: _selectedCoachId,
+      onSelected: (coachId) => setState(() => _selectedCoachId = coachId),
+    );
+  }
+
   Widget _buildTodaySummary() {
     final todayName = SubscriptionFormatters.weekdayName(DateTime.now());
     final sessionCount = _todaySessionCount;
@@ -326,18 +343,44 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
         ? 'No sessions scheduled for today'
         : 'Today: $todayName — $sessionCount session${sessionCount == 1 ? '' : 's'} scheduled';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-      child: Text(
-        headerText,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: sessionCount == 0
+            ? Colors.grey.shade100
+            : EColorConstants.primaryColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
           color: sessionCount == 0
-              ? EColorConstants.authPlaceholderGray
-              : EColorConstants.authTextDarkBrown,
-          fontFamily: 'Poppins',
+              ? Colors.grey.shade200
+              : EColorConstants.primaryColor.withOpacity(0.18),
         ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.event_note,
+            size: 18,
+            color: sessionCount == 0
+                ? Colors.grey.shade600
+                : EColorConstants.primaryColor,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              headerText,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: sessionCount == 0
+                    ? EColorConstants.authPlaceholderGray
+                    : EColorConstants.authTextDarkBrown,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

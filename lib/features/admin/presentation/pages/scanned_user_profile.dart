@@ -9,6 +9,7 @@ import 'package:prince_academy/features/admin/data/models/payment_verification_d
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/pages/payment_verification_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/session_detail_page.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_coach_booking_filter_chips.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_member_booking_list_helpers.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_member_profile_header.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/member_booking_card.dart';
@@ -69,10 +70,8 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
         .join();
   }
 
-  List<AdminScanProfile> get _coachFilteredBookings {
-    if (_selectedCoachId == null) return _bookings;
-    return _bookings.where((b) => b.coachId == _selectedCoachId).toList();
-  }
+  List<AdminScanProfile> get _coachFilteredBookings =>
+      filterBookingsByCoach(_bookings, _selectedCoachId);
 
   List<AdminScanProfile> get _filteredBookings =>
       filterBookingsByStatus(_coachFilteredBookings, _statusFilter);
@@ -96,22 +95,8 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
       _pendingPaymentBookings.isNotEmpty &&
       (_statusFilter == null || _statusFilter == 'pending');
 
-  List<({String coachId, String coachName, String specialty})> get _uniqueCoaches {
-    final seen = <String>{};
-    final coaches = <({String coachId, String coachName, String specialty})>[];
-    for (final booking in _bookings) {
-      if (seen.add(booking.coachId)) {
-        coaches.add((
-          coachId: booking.coachId,
-          coachName: booking.coachName,
-          specialty: booking.coachSpecialty?.trim().isNotEmpty == true
-              ? booking.coachSpecialty!
-              : 'MMA',
-        ));
-      }
-    }
-    return coaches;
-  }
+  List<({String coachId, String coachName, String? coachPhoto})> get _uniqueCoaches =>
+      uniqueCoachesFromBookings(_bookings);
 
   int get _todaySessionCount =>
       _filteredBookings.where((b) => b.canMarkAttendanceToday).length;
@@ -278,7 +263,6 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
                       slivers: [
                         SliverToBoxAdapter(child: _buildHeader()),
                         SliverToBoxAdapter(child: _buildCoachFilterChips()),
-                        SliverToBoxAdapter(child: _buildTodaySummary()),
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         if (_filteredBookings.isEmpty)
                           SliverToBoxAdapter(
@@ -324,6 +308,7 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
                             const SliverToBoxAdapter(child: SizedBox(height: 8)),
                           ],
                           if (_verticalBookings.isNotEmpty) ...[
+                            SliverToBoxAdapter(child: _buildTodaySummary()),
                             if (_statusFilter == null)
                               const SliverToBoxAdapter(
                                 child: AdminBookingSectionHeader(
@@ -365,49 +350,10 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
   }
 
   Widget _buildCoachFilterChips() {
-    final coaches = _uniqueCoaches;
-    if (coaches.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'SELECT BOOKING',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-              color: EColorConstants.authPlaceholderGray,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 72,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _CoachFilterChip(
-                  label: 'All',
-                  subtitle: 'Bookings',
-                  isSelected: _selectedCoachId == null,
-                  onTap: () => setState(() => _selectedCoachId = null),
-                ),
-                ...coaches.map(
-                  (coach) => _CoachFilterChip(
-                    label: coach.coachName,
-                    subtitle: coach.specialty,
-                    isSelected: _selectedCoachId == coach.coachId,
-                    onTap: () => setState(() => _selectedCoachId = coach.coachId),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return AdminCoachBookingFilterChips(
+      coaches: _uniqueCoaches,
+      selectedCoachId: _selectedCoachId,
+      onSelected: (coachId) => setState(() => _selectedCoachId = coachId),
     );
   }
 
@@ -418,18 +364,44 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
         ? 'No sessions scheduled for today'
         : 'Today: $todayName — $sessionCount session${sessionCount == 1 ? '' : 's'} scheduled';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-      child: Text(
-        headerText,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: sessionCount == 0
+            ? Colors.grey.shade100
+            : EColorConstants.primaryColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
           color: sessionCount == 0
-              ? EColorConstants.authPlaceholderGray
-              : EColorConstants.authTextDarkBrown,
-          fontFamily: 'Poppins',
+              ? Colors.grey.shade200
+              : EColorConstants.primaryColor.withOpacity(0.18),
         ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.event_note,
+            size: 18,
+            color: sessionCount == 0
+                ? Colors.grey.shade600
+                : EColorConstants.primaryColor,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              headerText,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: sessionCount == 0
+                    ? EColorConstants.authPlaceholderGray
+                    : EColorConstants.authTextDarkBrown,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -486,80 +458,4 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
     );
   }
 
-}
-
-class _CoachFilterChip extends StatelessWidget {
-  final String label;
-  final String subtitle;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _CoachFilterChip({
-    required this.label,
-    required this.subtitle,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 100,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? EColorConstants.primaryColor.withOpacity(0.1)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected
-                  ? EColorConstants.primaryColor
-                  : EColorConstants.authFieldBorder,
-              width: isSelected ? 1.5 : 1,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isSelected)
-                const Icon(
-                  Icons.check,
-                  size: 14,
-                  color: EColorConstants.primaryColor,
-                ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected
-                      ? EColorConstants.primaryColor
-                      : EColorConstants.authTextDarkBrown,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 9,
-                  color: EColorConstants.authPlaceholderGray,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
