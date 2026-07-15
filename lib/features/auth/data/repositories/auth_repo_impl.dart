@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:prince_academy/features/auth/data/datasources/auth_remote_ds.dart';
 import 'package:prince_academy/features/auth/data/models/app_user.dart';
 import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart';
 
 class AuthRepoImpl implements AuthRepo {
-  final AuthRemoteDs ds;
   AuthRepoImpl(this.ds);
+
+  final AuthRemoteDs ds;
 
   @override
   bool hasSession() => ds.hasSession;
@@ -28,6 +31,22 @@ class AuthRepoImpl implements AuthRepo {
   }
 
   @override
+  Future<void> updateProfile({
+    required String fullName,
+    required String phone,
+    String? avatarUrl,
+  }) {
+    return ds.updateProfile(
+      fullName: fullName,
+      phone: phone,
+      avatarUrl: avatarUrl,
+    );
+  }
+
+  @override
+  Future<String> uploadAvatar(File file) => ds.uploadAvatar(file);
+
+  @override
   Future<void> signIn(String email, String password) async {
     await ds.signIn(email: email, password: password);
   }
@@ -37,4 +56,7 @@ class AuthRepoImpl implements AuthRepo {
 
   @override
   Future<UserModel?> loadUser() => ds.fetchUser();
+
+  @override
+  UserModel? cachedUser() => ds.cachedProfile();
 }

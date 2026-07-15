@@ -7,12 +7,14 @@ import 'package:prince_academy/features/admin/data/models/active_user_model.dart
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
 import 'package:prince_academy/features/admin/data/models/day_attendance_model.dart';
+import 'package:prince_academy/features/admin/data/models/session_conflict_info.dart';
 import 'package:prince_academy/features/admin/data/models/session_detail_model.dart';
 import 'package:prince_academy/features/admin/data/models/session_draft.dart';
 import 'package:prince_academy/features/admin/data/models/today_booking_model.dart';
 import 'package:prince_academy/features/admin/data/models/admin_scan_profile_model.dart';
 import 'package:prince_academy/features/admin/data/models/user_booking_detail_model.dart';
 import 'package:prince_academy/features/admin/data/models/user_qr_profile_model.dart';
+import 'package:prince_academy/features/admin/presentation/helpers/session_conflict_detector.dart';
 import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
@@ -155,6 +157,44 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
       return _mapSessionList(response);
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'load sessions'));
+    }
+  }
+
+  Future<SessionConflictInfo?> findSessionConflict(SessionDraft draft) async {
+    if (draft.branchId == null ||
+        draft.branchId!.isEmpty ||
+        draft.coachId == null ||
+        draft.coachId!.isEmpty ||
+        draft.sessions.isEmpty ||
+        draft.timeSlot.trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      final response = await _supabase
+          .from('coach_sessions')
+          .select(
+            'coach_id, days, session_type, session_date, time_slots, '
+            'branch_id, is_active, coaches(name)',
+          )
+          .eq('branch_id', draft.branchId!)
+          .eq('is_active', true)
+          .neq('coach_id', draft.coachId!);
+
+      final sessions = (response as List)
+          .map(
+            (e) => CoachSessionModel.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+
+      return SessionConflictDetector.find(
+        draft: draft,
+        existingSessions: sessions,
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'check session conflict'));
     }
   }
 

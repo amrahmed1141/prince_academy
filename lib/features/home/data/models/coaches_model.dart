@@ -73,6 +73,7 @@ class CoachModel {
       'photo_url': photoUrl,
       'is_active': isActive,
       'created_at': createdAt?.toIso8601String(),
+      'member_count': memberCount,
     };
   }
 }

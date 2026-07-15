@@ -12,7 +12,10 @@ class GlassFloatingNavBar extends StatelessWidget {
   final bool hasQrCode;
 
   static const List<BottomNavItemModel> navItems = [
-    BottomNavItemModel(icon: Iconsax.home_1, label: 'Home'),
+    BottomNavItemModel(
+      assetIcon: 'assets/icons/logo.png',
+      label: 'Home',
+    ),
     BottomNavItemModel(icon: Iconsax.ticket, label: 'Booking'),
     BottomNavItemModel(icon: Iconsax.calendar_1, label: 'Sessions'),
     BottomNavItemModel(icon: Iconsax.user, label: 'Profile'),
@@ -78,6 +81,7 @@ class _NavPillItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unselectedColor = Colors.grey.shade500;
+    final isBrandHome = item.hasAssetIcon;
 
     return GestureDetector(
       onTap: onTap,
@@ -89,19 +93,25 @@ class _NavPillItem extends StatelessWidget {
           AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            width: 28,
-            height: 28,
+            width: isBrandHome ? 32 : 28,
+            height: isBrandHome ? 32 : 28,
             decoration: BoxDecoration(
               color: isSelected ? Colors.grey.shade200 : Colors.transparent,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              item.icon,
-              size: 18,
-              color: isSelected
-                  ? EColorConstants.authTextDarkBrown
-                  : unselectedColor,
-            ),
+            alignment: Alignment.center,
+            child: isBrandHome
+                ? _BrandHomeIcon(
+                    assetPath: item.assetIcon!,
+                    isSelected: isSelected,
+                  )
+                : Icon(
+                    item.icon,
+                    size: 18,
+                    color: isSelected
+                        ? EColorConstants.authTextDarkBrown
+                        : unselectedColor,
+                  ),
           ),
           const SizedBox(height: 1),
           AnimatedDefaultTextStyle(
@@ -121,6 +131,39 @@ class _NavPillItem extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Home tab uses [logo.png] as the brand mark (Talabat-style).
+class _BrandHomeIcon extends StatelessWidget {
+  const _BrandHomeIcon({
+    required this.assetPath,
+    required this.isSelected,
+  });
+
+  final String assetPath;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    // Keep original logo colors; soften when unselected.
+    return Opacity(
+      opacity: isSelected ? 1 : 0.55,
+      child: Image.asset(
+        assetPath,
+        width: 22,
+        height: 22,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, __, ___) => Icon(
+          Icons.home_rounded,
+          size: 18,
+          color: isSelected
+              ? EColorConstants.authTextDarkBrown
+              : Colors.grey.shade500,
+        ),
       ),
     );
   }

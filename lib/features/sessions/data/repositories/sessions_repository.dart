@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
+import 'package:prince_academy/core/cache/local_cache_store.dart';
 import 'package:prince_academy/features/admin/data/models/session_detail_model.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
 import 'package:prince_academy/features/sessions/data/models/coach_summary_model.dart';
@@ -16,12 +17,40 @@ class SessionsSnapshot {
     required this.sessions,
     required this.bookings,
   });
+
+  Map<String, dynamic> toJson() => {
+        'coaches': coaches.map((c) => c.toJson()).toList(),
+        'sessions': sessions.map((s) => s.toJson()).toList(),
+        'bookings': bookings.map((b) => b.toJson()).toList(),
+      };
+
+  factory SessionsSnapshot.fromJson(Map<String, dynamic> json) {
+    return SessionsSnapshot(
+      coaches: (json['coaches'] as List? ?? [])
+          .map((e) => CoachSummary.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+      sessions: (json['sessions'] as List? ?? [])
+          .map((e) => Session.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+      bookings: (json['bookings'] as List? ?? [])
+          .map(
+            (e) => BookingHistoryModel.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList(),
+    );
+  }
 }
 
 class SessionsRepository {
-  SessionsRepository(this.supabase);
+  SessionsRepository(this.supabase, {LocalCacheStore? cache})
+      : _cache = cache ?? LocalCacheStore.instance {
+    _hydrateFromDisk();
+  }
 
   final SupabaseClient supabase;
+  final LocalCacheStore _cache;
 
   static SessionsSnapshot? _cachedSnapshot;
   static final Map<String, List<SessionDetail>> _bookingSessionsCache = {};
@@ -43,6 +72,30 @@ class SessionsRepository {
   void invalidateCache() {
     _cachedSnapshot = null;
     _bookingSessionsCache.clear();
+    final userId = supabase.auth.currentUser?.id;
+    if (userId != null) {
+      unawaited(_cache.delete(LocalCacheStore.sessionsSnapshotKey(userId)));
+    }
+  }
+
+  void _hydrateFromDisk() {
+    if (_cachedSnapshot != null) return;
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    final map = _cache.getMap(LocalCacheStore.sessionsSnapshotKey(userId));
+    if (map == null) return;
+    try {
+      _cachedSnapshot = SessionsSnapshot.fromJson(map);
+    } catch (_) {}
+  }
+
+  Future<void> _persistSnapshot(SessionsSnapshot snapshot) async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    await _cache.putJson(
+      LocalCacheStore.sessionsSnapshotKey(userId),
+      snapshot.toJson(),
+    );
   }
 
   Stream<SessionsSnapshot> get sessionsStream {
@@ -61,6 +114,7 @@ class SessionsRepository {
   }
 
   Future<SessionsSnapshot> refreshSessions({bool force = false}) async {
+    _hydrateFromDisk();
     if (_isFetchingSnapshot && _cachedSnapshot != null) {
       return _cachedSnapshot!;
     }
@@ -90,6 +144,7 @@ class SessionsRepository {
         bookings: bookings,
       );
       _cachedSnapshot = snapshot;
+      unawaited(_persistSnapshot(snapshot));
       _snapshotController?.add(snapshot);
       return snapshot;
     } finally {
@@ -122,8 +177,13 @@ class SessionsRepository {
 
   Future<List<CoachSummary>> getUserCoaches() => _fetchUserCoaches();
 
-  Future<List<Session>> getSessions({String? coachId}) =>
-      _fetchSessions(coachId: coachId);
+  Future<List<Session>> getSessions({String? coachId, bool force = false}) async {
+    if (coachId == null) {
+      final snapshot = await refreshSessions(force: force);
+      return snapshot.sessions;
+    }
+    return _fetchSessions(coachId: coachId);
+  }
 
   Future<List<BookingHistoryModel>> getUserBookings() => _fetchUserBookings();
 

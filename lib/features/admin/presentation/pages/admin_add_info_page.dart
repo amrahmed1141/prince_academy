@@ -13,11 +13,14 @@ import 'package:prince_academy/features/admin/data/models/coach_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
 import 'package:prince_academy/features/admin/data/models/session_draft.dart';
 import 'package:prince_academy/features/admin/data/models/session_draft_mapper.dart';
+import 'package:prince_academy/features/admin/data/models/session_conflict_info.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
+import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_event.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_state.dart';
 import 'package:prince_academy/features/admin/presentation/helpers/admin_session_form_helper.dart';
+import 'package:prince_academy/features/admin/presentation/helpers/session_conflict_detector.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_profile.dart';
 import 'package:prince_academy/features/admin/presentation/pages/edit_coach_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/edit_session_page.dart';
@@ -34,6 +37,7 @@ import 'package:prince_academy/features/admin/presentation/widgets/branch_manage
 import 'package:prince_academy/features/admin/presentation/widgets/class_type_filter_dropdown.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_card.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/session_conflict_dialog.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_draft_row.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_frequency_selector.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/specialty_chip.dart';
@@ -330,6 +334,41 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
       sessionsPerWeek: _sessionsPerWeek,
       slots: _sessionSlots,
     ).toDraft();
+
+    // Prefer already-loaded sessions (same data shown in Saved Sessions cards).
+    final localConflict = SessionConflictDetector.find(
+      draft: draft,
+      existingSessions: context.read<AdminHomeBloc>().state.sessions,
+    );
+
+    SessionConflictInfo? conflict = localConflict;
+
+    // Fall back to a fresh Supabase check if local list has no match.
+    if (conflict == null) {
+      try {
+        conflict = await sl<CoachRepository>().findSessionConflict(draft);
+      } catch (e) {
+        if (mounted) {
+          _showSnackBar(
+            'Could not verify schedule conflicts: $e',
+            Colors.redAccent,
+          );
+        }
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
+    if (conflict != null) {
+      final createAnyway = await SessionConflictDialog.show(
+        context,
+        coachName: conflict.coachName,
+      );
+      if (!createAnyway) return;
+    }
+
+    if (!mounted) return;
 
     context.read<AdminHomeBloc>().add(
           SaveSessionSubmitted(draft, addAnother: addAnother),

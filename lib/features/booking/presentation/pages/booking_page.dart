@@ -48,6 +48,7 @@ class BookingPage extends StatelessWidget {
             coachName: bookingInfo.coachName,
             coachImage: bookingInfo.coachImage,
             specialty: bookingInfo.specialty,
+            branchId: bookingInfo.branchId,
           ),
         ),
       child: _BookingWizardView(bookingInfo: bookingInfo),
@@ -382,14 +383,40 @@ class _BookingWizardViewState extends State<_BookingWizardView> {
                         subtitle: 'Review your coach and continue',
                       ),
                       const SizedBox(height: 8),
-                      if (wizardData?.coach.branchName != null)
-                        Text(
-                          'Branch: ${wizardData!.coach.branchName}',
-                          style: TextStyle(
-                            color: Colors.grey.shade700,
-                            fontFamily: 'Poppins',
+                      if (wizardData?.coach.branchName != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: EColorConstants.primaryColor.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Iconsax.location,
+                                size: 16,
+                                color: EColorConstants.primaryColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  wizardData!.coach.branchName!,
+                                  style: const TextStyle(
+                                    color: EColorConstants.primaryColor,
+                                    fontFamily: 'Poppins',
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                      ],
                     ],
                     // ADDED: Step 2 — choose days per week
                     if (step == 1 && wizardData != null) ...[

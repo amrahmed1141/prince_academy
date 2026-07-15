@@ -167,3 +167,106 @@ class PendingPaymentsListShimmer extends StatelessWidget {
     );
   }
 }
+
+class BookingListShimmer extends StatelessWidget {
+  const BookingListShimmer({super.key, this.itemCount = 4});
+
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
+      children: [
+        const _ShimmerBox(width: double.infinity, height: 88, borderRadius: 16),
+        const SizedBox(height: 12),
+        ...List.generate(
+          itemCount,
+          (_) => const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: CoachCardShimmer(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class TrackingPageShimmer extends StatelessWidget {
+  const TrackingPageShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      children: const [
+        _ShimmerBox(width: 140, height: 28, borderRadius: 8),
+        SizedBox(height: 16),
+        _ShimmerBox(width: double.infinity, height: 48, borderRadius: 14),
+        SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _ShimmerBox(width: double.infinity, height: 72, borderRadius: 14)),
+            SizedBox(width: 10),
+            Expanded(child: _ShimmerBox(width: double.infinity, height: 72, borderRadius: 14)),
+          ],
+        ),
+        SizedBox(height: 16),
+        CoachCardShimmer(),
+        CoachCardShimmer(),
+        CoachCardShimmer(),
+        CoachCardShimmer(),
+      ],
+    );
+  }
+}
+
+class QrScreenShimmer extends StatelessWidget {
+  const QrScreenShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      children: const [
+        SizedBox(height: 8),
+        Center(child: _ShimmerBox(width: 220, height: 220, borderRadius: 20)),
+        SizedBox(height: 20),
+        Center(child: _ShimmerBox(width: 160, height: 22, borderRadius: 8)),
+        SizedBox(height: 10),
+        Center(child: _ShimmerBox(width: 120, height: 14, borderRadius: 6)),
+        SizedBox(height: 28),
+        _ShimmerBox(width: double.infinity, height: 140, borderRadius: 16),
+      ],
+    );
+  }
+}
+
+class CoachProfileShimmer extends StatelessWidget {
+  const CoachProfileShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.of(context).size.height * 0.42;
+    return Column(
+      children: [
+        _ShimmerBox(width: double.infinity, height: height, borderRadius: 0),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: const [
+              _ShimmerBox(width: 180, height: 24, borderRadius: 8),
+              SizedBox(height: 12),
+              _ShimmerBox(width: 120, height: 14, borderRadius: 6),
+              SizedBox(height: 24),
+              _ShimmerBox(width: double.infinity, height: 48, borderRadius: 14),
+              SizedBox(height: 16),
+              CoachCardShimmer(),
+              CoachCardShimmer(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

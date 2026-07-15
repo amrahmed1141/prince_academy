@@ -60,7 +60,9 @@ class CoachHeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  info.specialty ?? 'Private Coach',
+                  info.branchName?.trim().isNotEmpty == true
+                      ? info.branchName!
+                      : (info.specialty ?? 'Private Coach'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey.shade600,
                       ),

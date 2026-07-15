@@ -85,6 +85,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
           coachName: event.coachName,
           coachImage: event.coachImage,
           specialty: event.specialty,
+          branchId: event.branchId,
         ),
       );
     } catch (e) {
@@ -104,10 +105,15 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
     final bookedCoachIds = state.bookedCoachIds;
     emit(BookingLoading(bookedCoachIds: bookedCoachIds));
     try {
-      final session = await _repository.getActiveSession(event.coachId);
+      final session = await _repository.getActiveSession(
+        event.coachId,
+        branchId: event.branchId,
+      );
       if (session == null || session.days.isEmpty) {
         emit(BookingError(
-          'No schedule available for this coach.',
+          event.branchId != null && event.branchId!.isNotEmpty
+              ? 'No schedule available for this coach at the selected branch.'
+              : 'No schedule available for this coach.',
           bookedCoachIds: bookedCoachIds,
         ));
         return;
@@ -121,7 +127,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
             (session.coachSpecialty?.trim().isNotEmpty == true
                 ? session.coachSpecialty!
                 : 'MMA'),
-        branchId: session.branchId,
+        branchId: session.branchId ?? event.branchId,
         branchName: session.branchName,
       );
 

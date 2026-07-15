@@ -173,6 +173,8 @@ class MMABookingModel {
   final String coachImage;
   final String? specialty;
   final String coachWhatsapp;
+  final String? branchId;
+  final String? branchName;
 
   const MMABookingModel({
     this.coachId,
@@ -180,6 +182,8 @@ class MMABookingModel {
     required this.coachImage,
     this.specialty,
     required this.coachWhatsapp,
+    this.branchId,
+    this.branchName,
   });
 }
 

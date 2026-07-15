@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/constants/text.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/widgets/branded_pull_to_refresh.dart';
+import 'package:prince_academy/core/widgets/offline_banner.dart';
 import 'package:prince_academy/features/admin/data/models/branch_model.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
+import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
 import 'package:prince_academy/features/home/presentation/bloc/home_bloc.dart';
 import 'package:prince_academy/features/home/presentation/bloc/home_event.dart';
@@ -60,42 +64,79 @@ class _HomePageBodyState extends State<_HomePageBody> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                ETexts.appBarTitle,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                      fontSize: 14,
+          titleSpacing: 12,
+          title: BlocSelector<AuthBloc, AuthState, _HomeGreetingData>(
+            selector: (state) {
+              if (state is AuthAuthed) {
+                final name = state.user.fullName?.trim();
+                return _HomeGreetingData(
+                  fullName: (name != null && name.isNotEmpty) ? name : 'Member',
+                  photoUrl: state.user.avatarUrl,
+                );
+              }
+              return const _HomeGreetingData(
+                fullName: 'Member',
+                photoUrl: null,
+              );
+            },
+            builder: (context, greeting) {
+              return Row(
+                children: [
+                  CoachAvatar(
+                    coachName: greeting.fullName,
+                    photoUrl: greeting.photoUrl,
+                    size: 44,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ETexts.appBarTitle,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          greeting.fullName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                ETexts.appBarSubTitle,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           ),
           actions: [
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[100],
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey[100],
+                  ),
+                  child: const Icon(Iconsax.notification, size: 20),
                 ),
-                child: const Icon(Iconsax.notification, size: 20),
+                onPressed: () {},
               ),
-              onPressed: () {},
             ),
           ],
         ),
-        body: RefreshIndicator(
-          color: AppColors.primary,
+        body: BrandedPullToRefresh(
           onRefresh: () async {
             context.read<HomeBloc>().add(const LoadHomeData(forceRefresh: true));
             await context.read<HomeBloc>().stream.firstWhere(
@@ -109,13 +150,30 @@ class _HomePageBodyState extends State<_HomePageBody> {
               parent: AlwaysScrollableScrollPhysics(),
             ),
             slivers: [
+              BlocSelector<HomeBloc, HomeState, bool>(
+                selector: (s) => s.error != null && s.hasLoaded,
+                builder: (context, showOffline) {
+                  if (!showOffline) {
+                    return const SliverToBoxAdapter(child: SizedBox.shrink());
+                  }
+                  return const SliverToBoxAdapter(child: OfflineBanner());
+                },
+              ),
+              BlocSelector<HomeBloc, HomeState, bool>(
+                selector: (s) => s.isRefreshing && s.hasLoaded,
+                builder: (context, refreshing) {
+                  return SliverToBoxAdapter(
+                    child: SilentRefreshBar(visible: refreshing),
+                  );
+                },
+              ),
               const SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: 16),
+                    SizedBox(height: 8),
                     HomeSearchBar(),
-                    SizedBox(height: 16),
+                    SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -152,7 +210,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
                           },
                         ),
                       ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                      const SliverToBoxAdapter(child: SizedBox(height: 8)),
                       SliverToBoxAdapter(
                         child: _HomeInsightsCarousel(
                           allSessions: data.allSessions,
@@ -161,7 +219,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
                               _openSessionDetail(context, booking),
                         ),
                       ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                      const SliverToBoxAdapter(child: SizedBox(height: 4)),
                     ],
                   );
                 },
@@ -170,7 +228,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     'Category',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -249,6 +307,26 @@ class _HomePageBodyState extends State<_HomePageBody> {
       ),
     );
   }
+}
+
+class _HomeGreetingData {
+  final String fullName;
+  final String? photoUrl;
+
+  const _HomeGreetingData({
+    required this.fullName,
+    required this.photoUrl,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is _HomeGreetingData &&
+        other.fullName == fullName &&
+        other.photoUrl == photoUrl;
+  }
+
+  @override
+  int get hashCode => Object.hash(fullName, photoUrl);
 }
 
 class _HomeSectionsViewData {
@@ -372,41 +450,35 @@ class _HomeInsightsCarousel extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final itemCount = todaySession != null && showProgress ? 2 : 1;
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
-    return SizedBox(
-      height: 300,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        primary: false,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        clipBehavior: Clip.none,
-        itemCount: itemCount,
-        itemBuilder: (context, index) {
-          if (todaySession != null && index == 0) {
-            return RepaintBoundary(
+    // Content-sized height — avoids empty gap above Category.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      primary: false,
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      clipBehavior: Clip.none,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (todaySession != null)
+            RepaintBoundary(
               child: _buildSessionCard(
                 todaySession,
                 showTodayBanner: true,
               ),
-            );
-          }
-
-          return RepaintBoundary(
-            child: UnconstrainedBox(
-              constrainedAxis: Axis.horizontal,
-              alignment: Alignment.topLeft,
-              clipBehavior: Clip.none,
+            ),
+          if (showProgress)
+            RepaintBoundary(
               child: SizedBox(
-                width: MediaQuery.sizeOf(context).width - 32,
+                width: screenWidth - 24,
                 child: WeeklyAttendanceChart(summary: weeklyProgress),
               ),
             ),
-          );
-        },
+        ],
       ),
     );
   }
@@ -425,7 +497,7 @@ class _HomeSectionsShimmer extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             primary: false,
             physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: 7,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, __) => Shimmer.fromColors(
@@ -441,14 +513,14 @@ class _HomeSectionsShimmer extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         SizedBox(
-          height: 300,
+          height: 200,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             primary: false,
             physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: 3,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (_, __) => Shimmer.fromColors(
@@ -464,7 +536,7 @@ class _HomeSectionsShimmer extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 4),
       ],
     );
   }

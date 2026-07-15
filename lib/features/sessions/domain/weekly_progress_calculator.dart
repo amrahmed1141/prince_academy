@@ -78,6 +78,24 @@ class WeeklyProgressCalculator {
     return BookingDisplayStatus.pending;
   }
 
+  static Session? todaySessionRecordForBooking(
+    BookingHistoryModel booking,
+    List<Session> sessions,
+  ) {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    for (final session in sessions) {
+      if (session.bookingId != booking.bookingId) continue;
+      if (isSameDay(session.sessionDate, todayDate) ||
+          session.isToday ||
+          session.sessionStatus.toLowerCase() == 'today') {
+        return session;
+      }
+    }
+    return null;
+  }
+
   static TodaySessionInfo? todaySessionForBooking(
     BookingHistoryModel booking,
     List<Session> sessions,
@@ -94,27 +112,19 @@ class WeeklyProgressCalculator {
       return null;
     }
 
-    Session? match;
-    for (final session in sessions) {
-      if (session.bookingId != booking.bookingId) continue;
-      if (isSameDay(session.sessionDate, todayDate) ||
-          session.isToday ||
-          session.sessionStatus.toLowerCase() == 'today') {
-        match = session;
-        break;
-      }
-    }
+    final match = todaySessionRecordForBooking(booking, sessions);
+    if (match == null) return null;
 
     final time = booking.selectedTime?.trim().isNotEmpty == true
         ? booking.selectedTime!.trim()
-        : match?.selectedTime.trim().isNotEmpty == true
-            ? match!.selectedTime
+        : match.selectedTime.trim().isNotEmpty
+            ? match.selectedTime
             : 'Time TBD';
 
     return TodaySessionInfo(
       coachName: booking.coachName,
       time: time,
-      alreadyAttended: match != null && isSessionAttended(match),
+      alreadyAttended: isSessionAttended(match),
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
@@ -33,12 +34,10 @@ class _PendingPaymentsView extends StatelessWidget {
   }
 
   void _precacheCoachPhotos(BuildContext context, List<PendingPaymentModel> payments) {
-    for (final payment in payments) {
-      final url = payment.coachPhoto?.trim();
-      if (url != null && url.isNotEmpty) {
-        precacheImage(NetworkImage(url), context);
-      }
-    }
+    AppImageCache.precacheUrls(
+      context,
+      payments.map((p) => p.coachPhoto),
+    );
   }
 
   void _showScreenshot(BuildContext context, PendingPaymentModel payment) {
@@ -128,6 +127,8 @@ class _PendingPaymentsView extends StatelessWidget {
 
           return Column(
             children: [
+              if (loaded.isRefreshing)
+                const LinearProgressIndicator(minHeight: 2),
               const SizedBox(height: 8),
               PaymentMethodFilter(
                 selected: loaded.filter,

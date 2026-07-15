@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:prince_academy/core/cache/local_cache_store.dart';
 import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart';
 import 'package:prince_academy/features/auth/data/repositories/auth_repo_impl.dart';
 import 'package:prince_academy/features/admin/data/datasources/admin_session_preferences.dart';
@@ -30,11 +31,14 @@ final sl = GetIt.I;
 
 Future<void> setupDI() async {
   sl.registerLazySingleton<SupabaseClient>(() => Supabase.instance.client);
+  sl.registerSingleton<LocalCacheStore>(LocalCacheStore.instance);
 
   final sessionPreferences = await AdminSessionPreferences.create();
   sl.registerSingleton<AdminSessionPreferences>(sessionPreferences);
 
-  sl.registerLazySingleton<BranchRepository>(() => BranchRepository(sl()));
+  sl.registerLazySingleton<BranchRepository>(
+    () => BranchRepository(sl(), cache: sl()),
+  );
   sl.registerLazySingleton<CoachRepository>(() => CoachRepository(sl()));
   sl.registerLazySingleton<AdminRepository>(() => AdminRepository(sl()));
   sl.registerLazySingleton<FinanceRepository>(() => FinanceRepository(sl()));
@@ -42,13 +46,18 @@ Future<void> setupDI() async {
   sl.registerFactory<FinanceCubit>(() => FinanceCubit(repository: sl()));
   sl.registerFactory<CoachBloc>(() => CoachBloc(repository: sl()));
   sl.registerLazySingleton<HomeCoachRepository>(
-      () => HomeCoachRepository(sl()));
+    () => HomeCoachRepository(sl(), cache: sl()),
+  );
 
   sl.registerLazySingleton<BookingRemoteDs>(() => BookingRemoteDs(sl()));
-  sl.registerLazySingleton<BookingRepository>(() => BookingRepository(sl()));
+  sl.registerLazySingleton<BookingRepository>(
+    () => BookingRepository(sl(), cache: sl()),
+  );
   sl.registerLazySingleton<UserQrService>(() => UserQrService(sl()));
 
-  sl.registerLazySingleton<AuthRemoteDs>(() => AuthRemoteDs(sl()));
+  sl.registerLazySingleton<AuthRemoteDs>(
+    () => AuthRemoteDs(sl(), cache: sl()),
+  );
 
   sl.registerLazySingleton<AuthRepo>(() => AuthRepoImpl(sl()));
 
@@ -63,7 +72,9 @@ Future<void> setupDI() async {
   sl.registerFactory<SessionDetailBloc>(
       () => SessionDetailBloc(repository: sl()));
 
-  sl.registerLazySingleton<SessionsRepository>(() => SessionsRepository(sl()));
+  sl.registerLazySingleton<SessionsRepository>(
+    () => SessionsRepository(sl(), cache: sl()),
+  );
   sl.registerFactory<SessionsBloc>(() => SessionsBloc(repository: sl()));
   sl.registerFactory<UserSessionDetailBloc>(
     () => UserSessionDetailBloc(repository: sl()),

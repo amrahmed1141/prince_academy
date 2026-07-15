@@ -54,6 +54,24 @@ class Session {
         attendanceStatus: json['attendance_status']?.toString(),
       );
 
+  Map<String, dynamic> toJson() => {
+        'booking_id': bookingId,
+        'coach_id': coachId,
+        'coach_name': coachName,
+        'coach_photo': coachPhoto,
+        'coach_specialty': coachSpecialty,
+        'branch_name': branchName,
+        'selected_time': selectedTime,
+        'total_sessions': totalSessions,
+        'attended_sessions': attendedSessions,
+        'remaining_sessions': remainingSessions,
+        'session_date': sessionDate.toIso8601String(),
+        'day_name': dayName,
+        'is_training_day': isTrainingDay,
+        'session_status': sessionStatus,
+        'attendance_status': attendanceStatus,
+      };
+
   bool get isCompleted => sessionStatus == 'completed';
   bool get isToday => sessionStatus == 'today';
   bool get isUpcoming => sessionStatus == 'upcoming';

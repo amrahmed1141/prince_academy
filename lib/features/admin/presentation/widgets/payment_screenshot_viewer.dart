@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/payment_screenshot_helper.dart';
@@ -49,12 +50,30 @@ class PaymentScreenshotViewer {
                       );
                     }
 
+                    final media = MediaQuery.of(context);
+                    final cacheWidth =
+                        (media.size.width * 0.92 * media.devicePixelRatio)
+                            .round()
+                            .clamp(480, 1600);
+                    final cacheHeight =
+                        (media.size.height * 0.72 * media.devicePixelRatio)
+                            .round()
+                            .clamp(480, 1600);
+
                     return InteractiveViewer(
-                      child: Image.network(
-                        url,
+                      child: Image(
+                        image: ResizeImage(
+                          AppImageCache.provider(url),
+                          width: cacheWidth,
+                          height: cacheHeight,
+                        ),
                         fit: BoxFit.contain,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
+                        gaplessPlayback: true,
+                        frameBuilder:
+                            (context, child, frame, wasSynchronouslyLoaded) {
+                          if (wasSynchronouslyLoaded || frame != null) {
+                            return child;
+                          }
                           return const Center(
                             child: CircularProgressIndicator(
                               color: EColorConstants.primaryColor,

@@ -53,3 +53,7 @@ class AuthAdminSignIn extends AuthEvent {
 class AuthSignOut extends AuthEvent {
   const AuthSignOut();
 }
+
+class AuthRefreshProfile extends AuthEvent {
+  const AuthRefreshProfile();
+}

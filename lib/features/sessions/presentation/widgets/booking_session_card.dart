@@ -8,6 +8,7 @@ class BookingSessionCard extends StatelessWidget {
   final VoidCallback onTap;
   final BookingDisplayStatus displayStatus;
   final TodaySessionInfo? todaySession;
+  final bool includeListPadding;
 
   const BookingSessionCard({
     super.key,
@@ -15,6 +16,7 @@ class BookingSessionCard extends StatelessWidget {
     required this.onTap,
     required this.displayStatus,
     this.todaySession,
+    this.includeListPadding = true,
   });
 
   @override
@@ -23,6 +25,7 @@ class BookingSessionCard extends StatelessWidget {
       booking: booking,
       todaySession: todaySession,
       onTap: onTap,
+      includeListPadding: includeListPadding,
     );
   }
 }

@@ -50,7 +50,7 @@ class GroupedCoachSessionCard extends StatelessWidget {
     final schedules = coachWithSessions.schedules;
     final daySchedule = _mergeDaySchedule(schedules);
     final activeDays =
-        _weekShortDays.where((day) => daySchedule[day] != null).toList();
+        _weekShortDays.where((day) => daySchedule[day]!.isNotEmpty).toList();
     final maxPrice = _maxPrice(schedules);
     final priceLabel =
         maxPrice > 0 ? '${maxPrice.toStringAsFixed(0)} EGP' : 'Price not set';
@@ -173,14 +173,14 @@ class GroupedCoachSessionCard extends StatelessWidget {
                   Divider(height: 1, color: Colors.brown.shade100),
                   const SizedBox(height: 16),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       for (int i = 0; i < activeDays.length; i++) ...[
                         if (i > 0) const SizedBox(width: 10),
                         Expanded(
                           child: _DayColumn(
                             day: activeDays[i],
-                            classType: daySchedule[activeDays[i]]!.classType,
-                            time: daySchedule[activeDays[i]]!.time,
+                            slots: daySchedule[activeDays[i]]!,
                           ),
                         ),
                       ],
@@ -377,16 +377,16 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-Map<String, _DaySlot?> _mergeDaySchedule(List<CoachSessionModel> schedules) {
-  final Map<String, _DaySlot?> daySchedule = {
-    for (final day in _weekShortDays) day: null,
+Map<String, List<_DaySlot>> _mergeDaySchedule(List<CoachSessionModel> schedules) {
+  final Map<String, List<_DaySlot>> daySchedule = {
+    for (final day in _weekShortDays) day: [],
   };
 
   const fillOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   String? nextOpenDay() {
     for (final day in fillOrder) {
-      if (daySchedule[day] == null) return day;
+      if (daySchedule[day]!.isEmpty) return day;
     }
     return null;
   }
@@ -406,7 +406,7 @@ Map<String, _DaySlot?> _mergeDaySchedule(List<CoachSessionModel> schedules) {
       for (final type in types) {
         final openDay = nextOpenDay();
         if (openDay == null) break;
-        daySchedule[openDay] = _DaySlot(classType: type, time: time);
+        daySchedule[openDay]!.add(_DaySlot(classType: type, time: time));
       }
       continue;
     }
@@ -418,7 +418,7 @@ Map<String, _DaySlot?> _mergeDaySchedule(List<CoachSessionModel> schedules) {
           ? types[i]
           : (types.isNotEmpty ? types.first : schedule.sessionType.trim());
       if (type.isEmpty) continue;
-      daySchedule[shortDay] = _DaySlot(classType: type, time: time);
+      daySchedule[shortDay]!.add(_DaySlot(classType: type, time: time));
     }
   }
 
@@ -464,13 +464,11 @@ int _totalSessionsPerWeek(List<CoachSessionModel> schedules) {
 
 class _DayColumn extends StatelessWidget {
   final String day;
-  final String classType;
-  final String time;
+  final List<_DaySlot> slots;
 
   const _DayColumn({
     required this.day,
-    required this.classType,
-    required this.time,
+    required this.slots,
   });
 
   @override
@@ -482,54 +480,59 @@ class _DayColumn extends StatelessWidget {
       children: [
         Text(
           dayLabel,
+          maxLines: 1,
+          softWrap: false,
           style: TextStyle(
-            fontSize: 9,
+            fontSize: 8,
             fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
+            letterSpacing: 0.2,
             color: Colors.grey.shade600,
             fontFamily: 'Poppins',
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-          decoration: BoxDecoration(
-            color: ClassTypeColors.background(classType),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                classType,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: ClassTypeColors.foreground(classType),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 11,
-                  fontFamily: 'Poppins',
+        for (var i = 0; i < slots.length; i++) ...[
+          if (i > 0) const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            decoration: BoxDecoration(
+              color: ClassTypeColors.background(slots[i].classType),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  slots[i].classType,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: ClassTypeColors.foreground(slots[i].classType),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                    fontFamily: 'Poppins',
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                time,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color:
-                      ClassTypeColors.foreground(classType).withOpacity(0.85),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 9,
-                  fontFamily: 'Poppins',
+                const SizedBox(height: 3),
+                Text(
+                  slots[i].time,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color:
+                        ClassTypeColors.foreground(slots[i].classType).withOpacity(0.85),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 9,
+                    fontFamily: 'Poppins',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

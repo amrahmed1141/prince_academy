@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:prince_academy/core/cache/local_cache_store.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 import 'package:prince_academy/features/booking/data/datasources/booking_remote_ds.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
@@ -9,11 +10,15 @@ import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 import 'package:prince_academy/features/sessions/data/models/calendar_session_model.dart';
 
-/// Direct Supabase access — no cache/coordinator layer.
+/// Direct Supabase access with in-memory TTL (L1) + Hive disk cache (L2).
 class BookingRepository {
-  BookingRepository(this._remoteDs);
+  BookingRepository(this._remoteDs, {LocalCacheStore? cache})
+      : _cache = cache ?? LocalCacheStore.instance {
+    _hydrateFromDisk();
+  }
 
   final BookingRemoteDs _remoteDs;
+  final LocalCacheStore _cache;
   final SupabaseClient _supabase = Supabase.instance.client;
 
   RealtimeChannel? _bookingsChannel;
@@ -33,24 +38,69 @@ class BookingRepository {
   }
 
   List<BookingHistoryModel>? get cachedBookings {
-    if (_bookingsCache == null || _bookingsCachedAt == null) return null;
-    final isValid = DateTime.now().difference(_bookingsCachedAt!) < _bookingsCacheTtl;
-    return isValid ? _bookingsCache : null;
+    if (_bookingsCache != null) {
+      if (_bookingsCachedAt == null) return _bookingsCache;
+      final isValid =
+          DateTime.now().difference(_bookingsCachedAt!) < _bookingsCacheTtl;
+      if (isValid) return _bookingsCache;
+    }
+    return _bookingsCache; // stale-while-revalidate: still usable for UI
   }
 
-  Future<CoachSessionModel?> getActiveSession(String coachId) {
-    return _remoteDs.getActiveSessionForCoach(coachId);
+  void _hydrateFromDisk() {
+    if (_bookingsCache != null) return;
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    final list = _cache.getList(LocalCacheStore.bookingsKey(userId));
+    if (list == null) return;
+    try {
+      _bookingsCache = list
+          .map(
+            (e) => BookingHistoryModel.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+      _bookingsCachedAt = null; // treat disk as stale until network confirms
+    } catch (_) {}
+  }
+
+  Future<void> _persistBookings(List<BookingHistoryModel> bookings) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    await _cache.putJson(
+      LocalCacheStore.bookingsKey(userId),
+      bookings.map((b) => b.toJson()).toList(),
+    );
+  }
+
+  Future<CoachSessionModel?> getActiveSession(
+    String coachId, {
+    String? branchId,
+  }) {
+    return _remoteDs.getActiveSessionForCoach(coachId, branchId: branchId);
+  }
+
+  Future<List<CoachSessionModel>> getActiveSessions(String coachId) {
+    return _remoteDs.getActiveSessionsForCoach(coachId);
   }
 
   Future<List<BookingHistoryModel>> getUserBookings({bool force = false}) {
+    _hydrateFromDisk();
     _ensureBookingsRealtime();
 
     final cached = cachedBookings;
-    if (!force && cached != null) return Future.value(cached);
+    if (!force &&
+        cached != null &&
+        _bookingsCachedAt != null &&
+        DateTime.now().difference(_bookingsCachedAt!) < _bookingsCacheTtl) {
+      return Future.value(cached);
+    }
     if (!force && _bookingsInFlight != null) return _bookingsInFlight!;
 
     final future = _wrap(_remoteDs.getUserBookings()).then((bookings) {
       _setBookingsCache(bookings);
+      unawaited(_persistBookings(bookings));
       _bookingsController?.add(bookings);
       return bookings;
     }).whenComplete(() {

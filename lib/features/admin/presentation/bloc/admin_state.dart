@@ -23,6 +23,7 @@ class PendingPaymentsLoaded extends AdminState {
   final String? rejectingBookingId;
   final String? message;
   final bool isSuccessMessage;
+  final bool isRefreshing;
 
   const PendingPaymentsLoaded({
     required this.payments,
@@ -31,6 +32,7 @@ class PendingPaymentsLoaded extends AdminState {
     this.rejectingBookingId,
     this.message,
     this.isSuccessMessage = false,
+    this.isRefreshing = false,
   });
 
   List<PendingPaymentModel> get filteredPayments {
@@ -50,6 +52,7 @@ class PendingPaymentsLoaded extends AdminState {
     String? message,
     bool? isSuccessMessage,
     bool clearMessage = false,
+    bool? isRefreshing,
   }) {
     return PendingPaymentsLoaded(
       payments: payments ?? this.payments,
@@ -60,6 +63,7 @@ class PendingPaymentsLoaded extends AdminState {
           clearRejecting ? null : rejectingBookingId ?? this.rejectingBookingId,
       message: clearMessage ? null : message ?? this.message,
       isSuccessMessage: isSuccessMessage ?? this.isSuccessMessage,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
     );
   }
 
@@ -71,6 +75,7 @@ class PendingPaymentsLoaded extends AdminState {
         rejectingBookingId,
         message,
         isSuccessMessage,
+        isRefreshing,
       ];
 }
 

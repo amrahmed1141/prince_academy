@@ -1,12 +1,19 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:prince_academy/core/cache/local_cache_store.dart';
 import 'package:prince_academy/core/cache/ttl_cache.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
 class HomeCoachRepository {
   final SupabaseClient _supabase;
+  final LocalCacheStore _cache;
 
-  HomeCoachRepository(this._supabase);
+  HomeCoachRepository(this._supabase, {LocalCacheStore? cache})
+      : _cache = cache ?? LocalCacheStore.instance {
+    _hydrateFromDisk();
+  }
 
   static const _coachColumns =
       'id, name, specialty, photo_url, is_active, branch_id';
@@ -26,8 +33,28 @@ class HomeCoachRepository {
   final TtlCache<Map<String, String>> _classTypesCache = TtlCache();
   final TtlCache<Map<String, int>> _studentCountsCache = TtlCache();
 
+  void _hydrateFromDisk() {
+    if (_coachesCache.value != null) return;
+    final list = _cache.getList(LocalCacheStore.coachesKey());
+    if (list == null) return;
+    try {
+      final coaches = list
+          .map((e) => CoachModel.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+      _coachesCache.set(coaches);
+    } catch (_) {}
+  }
+
+  Future<void> _persistCoaches(List<CoachModel> coaches) async {
+    await _cache.putJson(
+      LocalCacheStore.coachesKey(),
+      coaches.map((c) => c.toMap()).toList(),
+    );
+  }
+
   /// Fetch all active coaches (cached). Filter by specialty in memory.
   Future<List<CoachModel>> getActiveCoaches({bool force = false}) async {
+    _hydrateFromDisk();
     if (!force) {
       final cached = _coachesCache.value;
       if (cached != null) return cached;
@@ -40,6 +67,7 @@ class HomeCoachRepository {
         .toList();
 
     _coachesCache.set(coaches);
+    unawaited(_persistCoaches(coaches));
     return coaches;
   }
 
@@ -239,7 +267,8 @@ class HomeCoachRepository {
           .from('coach_sessions')
           .select(
             'id, coach_id, branch_id, sessions_per_week, session_type, '
-            'session_date, days, time_slots, price_per_session, is_active',
+            'session_date, days, time_slots, price_per_session, is_active, '
+            'branches(name)',
           )
           .eq('coach_id', coachId)
           .eq('is_active', true)
@@ -253,6 +282,34 @@ class HomeCoachRepository {
           )
           .toList();
     } on PostgrestException catch (e) {
+      if (e.code == 'PGRST200' || e.code == 'PGRST205' || e.code == '42P01') {
+        try {
+          final response = await _supabase
+              .from('coach_sessions')
+              .select(
+                'id, coach_id, branch_id, sessions_per_week, session_type, '
+                'session_date, days, time_slots, price_per_session, is_active',
+              )
+              .eq('coach_id', coachId)
+              .eq('is_active', true)
+              .order('created_at', ascending: false);
+
+          return (response as List)
+              .map(
+                (e) => CoachSessionModel.fromJson(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
+              .toList();
+        } on PostgrestException catch (e2) {
+          if (e2.code == 'PGRST205' || e2.code == '42P01') {
+            throw Exception(
+              'Sessions are not available yet. Please contact support.',
+            );
+          }
+          throw Exception('Failed to load sessions: ${e2.message}');
+        }
+      }
       if (e.code == 'PGRST205' || e.code == '42P01') {
         throw Exception(
           'Sessions are not available yet. Please contact support.',

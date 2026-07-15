@@ -40,12 +40,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (firstLoad) {
       final cachedSnapshot = sessionsRepository.cachedSnapshot;
       final cachedBookings = bookingRepository.cachedBookings;
-      if (cachedSnapshot != null || cachedBookings != null) {
+      final cachedBranches = branchRepository.cachedBranches;
+      if (cachedSnapshot != null ||
+          cachedBookings != null ||
+          cachedBranches != null) {
         final cachedSessions = cachedSnapshot?.sessions ?? const <Session>[];
         _allSessions = cachedSessions;
         final selectedDate = current.selectedDate;
         final filtered = _filterByDate(cachedSessions, selectedDate);
         final bookings = cachedBookings ?? const <BookingHistoryModel>[];
+        final branch =
+            (cachedBranches != null && cachedBranches.isNotEmpty)
+                ? cachedBranches.first
+                : null;
 
         emit(
           current.copyWith(
@@ -61,6 +68,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             ),
             bookings: bookings,
             lastBooking: _latestBooking(bookings),
+            branch: branch,
           ),
         );
       } else {
@@ -71,10 +79,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
 
     try {
+      // Always refresh after any cached paint so UI stays fresh (SWR).
       final results = await Future.wait([
-        sessionsRepository.getSessions(),
-        bookingRepository.getUserBookings(force: event.forceRefresh),
-        branchRepository.getAllBranches(),
+        sessionsRepository.getSessions(force: true),
+        bookingRepository.getUserBookings(force: true),
+        branchRepository.getAllBranches(force: true),
       ]);
 
       _allSessions = results[0] as List<Session>;
@@ -86,23 +95,46 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final selectedDate = state.selectedDate;
       final filtered = _filterByDate(_allSessions, selectedDate);
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          isRefreshing: false,
-          hasLoaded: true,
+      final next = state.copyWith(
+        isLoading: false,
+        isRefreshing: false,
+        hasLoaded: true,
+        clearError: true,
+        allSessions: _allSessions,
+        sessionsForSelectedDate: filtered,
+        upcomingSession: _resolveUpcomingSession(
+          selectedDateSessions: filtered,
           allSessions: _allSessions,
-          sessionsForSelectedDate: filtered,
-          upcomingSession: _resolveUpcomingSession(
-            selectedDateSessions: filtered,
-            allSessions: _allSessions,
-          ),
-          bookings: bookings,
-          lastBooking: lastBooking,
-          branch: branch,
         ),
+        bookings: bookings,
+        lastBooking: lastBooking,
+        branch: branch,
       );
+
+      // Skip full rebuild when payload is unchanged; only clear refresh flags.
+      if (state.hasLoaded && _sameHomePayload(state, next)) {
+        if (state.isRefreshing || state.isLoading || state.error != null) {
+          emit(state.copyWith(
+            isRefreshing: false,
+            isLoading: false,
+            clearError: true,
+          ));
+        }
+        return;
+      }
+
+      emit(next);
     } catch (e) {
+      if (state.hasLoaded) {
+        emit(
+          state.copyWith(
+            isLoading: false,
+            isRefreshing: false,
+            error: e.toString().replaceFirst('Exception: ', ''),
+          ),
+        );
+        return;
+      }
       emit(
         state.copyWith(
           isLoading: false,
@@ -111,6 +143,35 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         ),
       );
     }
+  }
+
+  bool _sameHomePayload(HomeState a, HomeState b) {
+    if (a.bookings.length != b.bookings.length) return false;
+    if (a.allSessions.length != b.allSessions.length) return false;
+    if (a.branch?.id != b.branch?.id) return false;
+    if (a.lastBooking?.bookingId != b.lastBooking?.bookingId) return false;
+    if (a.upcomingSession?.bookingId != b.upcomingSession?.bookingId ||
+        a.upcomingSession?.sessionDate != b.upcomingSession?.sessionDate ||
+        a.upcomingSession?.selectedTime != b.upcomingSession?.selectedTime) {
+      return false;
+    }
+    for (var i = 0; i < a.bookings.length; i++) {
+      if (a.bookings[i].bookingId != b.bookings[i].bookingId ||
+          a.bookings[i].displayStatus != b.bookings[i].displayStatus) {
+        return false;
+      }
+    }
+    for (var i = 0; i < a.allSessions.length; i++) {
+      final left = a.allSessions[i];
+      final right = b.allSessions[i];
+      if (left.bookingId != right.bookingId ||
+          left.sessionDate != right.sessionDate ||
+          left.sessionStatus != right.sessionStatus ||
+          left.attendanceStatus != right.attendanceStatus) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _onSelectDate(SelectDate event, Emitter<HomeState> emit) {

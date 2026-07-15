@@ -11,21 +11,21 @@ class CategoryModel {
     CategoryModel(
       id: '_mma',
       name: 'MMA',
-      imageUrl: 'assets/images/mma.png',
+      imageUrl: 'assets/images/mma.jpg',
     ),
     CategoryModel(
       id: '_bjj',
       name: 'JiuJitsu',
-      imageUrl: 'assets/images/bjj.png',
+      imageUrl: 'assets/images/bjj.jpg',
     ),
     CategoryModel(
       id: '_box',
       name: 'Boxing',
-      imageUrl: 'assets/images/box.png',
+      imageUrl: 'assets/images/box.jpg',
     ),
     CategoryModel(
       id: '_kickbox',
       name: 'Kickboxing',
-      imageUrl: 'assets/images/kickbox.png',
+      imageUrl: 'assets/images/kickbox.jpg',
     ),
   ];

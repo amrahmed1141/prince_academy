@@ -32,12 +32,21 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       },
     );
 
-    emit(const PendingPaymentsLoading());
+    final cached = repository.cachedValue;
+    if (cached != null) {
+      emit(PendingPaymentsLoaded(payments: cached, isRefreshing: true));
+    } else {
+      emit(const PendingPaymentsLoading());
+    }
 
     try {
       final payments = await repository.refresh();
-      emit(PendingPaymentsLoaded(payments: payments));
+      emit(PendingPaymentsLoaded(payments: payments, isRefreshing: false));
     } catch (e) {
+      if (cached != null) {
+        emit(PendingPaymentsLoaded(payments: cached, isRefreshing: false));
+        return;
+      }
       emit(AdminError(_messageFrom(e)));
     }
   }

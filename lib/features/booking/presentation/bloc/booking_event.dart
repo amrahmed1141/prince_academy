@@ -17,16 +17,19 @@ class LoadCoachBooking extends BookingEvent {
   final String? coachName;
   final String? coachImage;
   final String? specialty;
+  final String? branchId;
 
   const LoadCoachBooking({
     required this.coachId,
     this.coachName,
     this.coachImage,
     this.specialty,
+    this.branchId,
   });
 
   @override
-  List<Object?> get props => [coachId, coachName, coachImage, specialty];
+  List<Object?> get props =>
+      [coachId, coachName, coachImage, specialty, branchId];
 }
 
 class SelectCoach extends BookingEvent {
@@ -94,16 +97,19 @@ class CheckDuplicateBooking extends BookingEvent {
   final String? coachName;
   final String? coachImage;
   final String? specialty;
+  final String? branchId;
 
   const CheckDuplicateBooking({
     required this.coachId,
     this.coachName,
     this.coachImage,
     this.specialty,
+    this.branchId,
   });
 
   @override
-  List<Object?> get props => [coachId, coachName, coachImage, specialty];
+  List<Object?> get props =>
+      [coachId, coachName, coachImage, specialty, branchId];
 }
 
 /// Shared wizard data carried across step states.

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
@@ -52,7 +53,7 @@ class _BookingHistoryView extends StatelessWidget {
         builder: (context, state) {
           if (state is BookingHistoryLoading ||
               state is BookingHistoryInitial) {
-            return const Center(child: CircularProgressIndicator());
+            return const BookingListShimmer();
           }
 
           if (state is BookingHistoryError) {
@@ -259,9 +260,7 @@ class _FilterCard extends StatelessWidget {
                 : Colors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isSelected
-                  ? _AppColors.primary
-                  : Colors.grey.shade200,
+              color: isSelected ? _AppColors.primary : Colors.grey.shade200,
               width: 1.5,
             ),
             boxShadow: [
@@ -277,9 +276,8 @@ class _FilterCard extends StatelessWidget {
                 '$count',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w900,
-                  color: isSelected
-                      ? _AppColors.primary
-                      : _AppColors.textPrimary,
+                  color:
+                      isSelected ? _AppColors.primary : _AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
@@ -332,133 +330,144 @@ class _BookingHistoryCard extends StatelessWidget {
           ],
         ),
         child: Column(
-        children: [
-          Row(
-            children: [
-              _BookingLeadImage(
-                coachName: booking.coachName,
-                photoUrl: booking.coachPhoto,
-                status: status,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            booking.coachName,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: _AppColors.textPrimary,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        _StatusBadge(status: status),
-                      ],
-                    ),
-                    if (booking.branchName != null &&
-                        booking.branchName!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+          children: [
+            Row(
+              children: [
+                _BookingLeadImage(
+                  coachName: booking.coachName,
+                  photoUrl: booking.coachPhoto,
+                  status: status,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Row(
                         children: [
-                          const Icon(
-                            Icons.location_on_outlined,
-                            size: 14,
-                            color: _AppColors.primary,
-                          ),
-                          const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              booking.branchName!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: _AppColors.primary,
-                                fontWeight: FontWeight.w600,
+                              booking.coachName,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                color: _AppColors.textPrimary,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          _StatusBadge(status: status),
                         ],
                       ),
+                      if (booking.branchName != null &&
+                          booking.branchName!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_outlined,
+                              size: 14,
+                              color: _AppColors.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                booking.branchName!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: _AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Text(
+                        '${booking.totalSessions} sessions • ${booking.paymentStatusText}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
-                    const SizedBox(height: 4),
-                    Text(
-                      '${booking.totalSessions} sessions • ${booking.paymentStatusText}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Icon(Iconsax.calendar_1, size: 16, color: Colors.grey.shade600),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  _formatDateRange(
-                    booking.subscriptionStart,
-                    booking.subscriptionEnd,
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-            ],
-          ),
-          if (showActions) ...[
-            const SizedBox(height: 14),
-            status == 'completed'
-                ? SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: onEnrollAgain,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text(
-                        'Enroll Again',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Iconsax.calendar_1, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _formatDateRange(
+                      booking.subscriptionStart,
+                      booking.subscriptionEnd,
                     ),
-                  )
-                : SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: onDetails,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text(
-                        'Details',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
+                ),
+              ],
+            ),
+            if (showActions) ...[
+              const SizedBox(height: 14),
+              status == 'completed'
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: onEnrollAgain,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text(
+                          'Enroll Again',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    )
+                  : Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: onDetails,
+                        style: TextButton.styleFrom(
+                          foregroundColor: _AppColors.primary,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Details',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(
+                              Icons.chevron_right,
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }

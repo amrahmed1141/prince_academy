@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/user_qr_profile_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/booking/data/repositories/booking_repository.dart';
@@ -32,9 +33,12 @@ class _MyQrScreenState extends State<MyQrScreen> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool silent = false}) async {
+    final keepVisible = silent && _qrCode != null;
     setState(() {
-      _isLoading = true;
+      if (!keepVisible) {
+        _isLoading = true;
+      }
       _error = null;
     });
 
@@ -44,16 +48,17 @@ class _MyQrScreenState extends State<MyQrScreen> {
         throw Exception('You must be signed in to view your QR code.');
       }
 
-      final qrFromProfile = await sl<BookingRepository>().getProfileQrCode(userId);
-      List<UserQrProfile> profiles = [];
-
-      try {
-        profiles = await sl<CoachRepository>().getUserQrProfileByUserId(userId);
-      } catch (_) {
-        // user_qr_profile view may not exist yet; still show QR from profiles.
-      }
+      final results = await Future.wait([
+        sl<BookingRepository>().getProfileQrCode(userId),
+        sl<CoachRepository>()
+            .getUserQrProfileByUserId(userId)
+            .catchError((_) => <UserQrProfile>[]),
+      ]);
 
       if (!mounted) return;
+
+      final qrFromProfile = results[0] as String?;
+      final profiles = results[1] as List<UserQrProfile>;
 
       final qrCode = profiles.isNotEmpty
           ? profiles.first.qrCode
@@ -62,7 +67,9 @@ class _MyQrScreenState extends State<MyQrScreen> {
       if (qrCode == null || qrCode.isEmpty) {
         setState(() {
           _isLoading = false;
-          _error = 'No QR profile found. Book a coach to get your QR code.';
+          if (!keepVisible) {
+            _error = 'No QR profile found. Book a coach to get your QR code.';
+          }
         });
         return;
       }
@@ -78,7 +85,9 @@ class _MyQrScreenState extends State<MyQrScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = e.toString().replaceFirst('Exception: ', '');
+        if (!keepVisible) {
+          _error = e.toString().replaceFirst('Exception: ', '');
+        }
       });
     }
   }
@@ -133,17 +142,13 @@ class _MyQrScreenState extends State<MyQrScreen> {
         backgroundColor: EColorConstants.authFieldBackground,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: EColorConstants.primaryColor,
-              ),
-            )
-          : _error != null
+      body: _isLoading && _qrCode == null
+          ? const QrScreenShimmer()
+          : _error != null && _qrCode == null
               ? _buildErrorState()
               : RefreshIndicator(
                   color: EColorConstants.primaryColor,
-                  onRefresh: _loadData,
+                  onRefresh: () => _loadData(silent: true),
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                     children: [

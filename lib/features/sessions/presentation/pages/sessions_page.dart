@@ -17,71 +17,114 @@ import 'package:prince_academy/features/sessions/presentation/widgets/coach_chip
 import 'package:prince_academy/features/sessions/presentation/widgets/weekly_attendance_chart.dart';
 
 class SessionsPage extends StatelessWidget {
-  const SessionsPage({super.key});
+  const SessionsPage({
+    super.key,
+    this.showBackButton = false,
+    this.usePlainBackground = false,
+  });
+
+  /// When opened via [Navigator.push] (e.g. from Profile).
+  final bool showBackButton;
+
+  /// Solid light background instead of the sessions gradient.
+  final bool usePlainBackground;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<SessionsBloc>(
       create: (_) => sl<SessionsBloc>()..add(SessionsStarted()),
-      child: const SessionsView(),
+      child: SessionsView(
+        showBackButton: showBackButton,
+        usePlainBackground: usePlainBackground,
+      ),
     );
   }
 }
 
 class SessionsView extends StatelessWidget {
-  const SessionsView({super.key});
+  const SessionsView({
+    super.key,
+    this.showBackButton = false,
+    this.usePlainBackground = false,
+  });
+
+  final bool showBackButton;
+  final bool usePlainBackground;
 
   @override
   Widget build(BuildContext context) {
+    final body = BlocBuilder<SessionsBloc, SessionsState>(
+      buildWhen: (previous, current) =>
+          current is SessionsInitial ||
+          current is SessionsLoading ||
+          current is SessionsError ||
+          current is SessionsLoaded,
+      builder: (context, state) {
+        if (state is SessionsInitial || state is SessionsLoading) {
+          return const _LoadingSkeleton();
+        }
+
+        if (state is SessionsError) {
+          return _ErrorView(
+            message: state.message,
+            onRetry: () =>
+                context.read<SessionsBloc>().add(SessionsStarted()),
+          );
+        }
+
+        if (state is SessionsLoaded) {
+          if (state.coaches.isEmpty && state.bookings.isEmpty) {
+            return _EmptySessionsPage(hideInlineHeader: showBackButton);
+          }
+
+          return _SessionsLoadedBody(
+            key: ValueKey(
+              '${state.coaches.length}_${state.selectedCoach?.coachId}_${state.bookings.length}',
+            ),
+            hideInlineHeader: showBackButton,
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
+    );
+
+    final scaffold = Scaffold(
+      backgroundColor:
+          usePlainBackground ? const Color(0xFFF7F7F7) : Colors.transparent,
+      appBar: showBackButton
+          ? AppBar(
+              backgroundColor: usePlainBackground
+                  ? const Color(0xFFF7F7F7)
+                  : Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+              title: const Text('My Sessions'),
+            )
+          : null,
+      body: showBackButton ? body : SafeArea(child: body),
+    );
+
+    if (usePlainBackground) return scaffold;
+
     return Container(
       decoration: AppGradients.sessionsScreenDecoration(),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: BlocBuilder<SessionsBloc, SessionsState>(
-            buildWhen: (previous, current) =>
-                current is SessionsInitial ||
-                current is SessionsLoading ||
-                current is SessionsError ||
-                current is SessionsLoaded,
-            builder: (context, state) {
-              if (state is SessionsInitial || state is SessionsLoading) {
-                return const _LoadingSkeleton();
-              }
-
-              if (state is SessionsError) {
-                return _ErrorView(
-                  message: state.message,
-                  onRetry: () =>
-                      context.read<SessionsBloc>().add(SessionsStarted()),
-                );
-              }
-
-              if (state is SessionsLoaded) {
-                // UPDATED: empty state checks bookings instead of session tabs
-                if (state.coaches.isEmpty && state.bookings.isEmpty) {
-                  return const _EmptySessionsPage();
-                }
-
-                return _SessionsLoadedBody(
-                  key: ValueKey(
-                    '${state.coaches.length}_${state.selectedCoach?.coachId}_${state.bookings.length}',
-                  ),
-                );
-              }
-
-              return const SizedBox.shrink();
-            },
-          ),
-        ),
-      ),
+      child: scaffold,
     );
   }
 }
 
 // UPDATED: simplified body — coach chips + vertical booking list (no tabs/progress)
 class _SessionsLoadedBody extends StatelessWidget {
-  const _SessionsLoadedBody({super.key});
+  const _SessionsLoadedBody({
+    super.key,
+    this.hideInlineHeader = false,
+  });
+
+  final bool hideInlineHeader;
 
   Future<void> _openSessionDetail(
     BuildContext context,
@@ -118,7 +161,8 @@ class _SessionsLoadedBody extends StatelessWidget {
           parent: BouncingScrollPhysics(),
         ),
         slivers: [
-          const SliverToBoxAdapter(child: _SessionsPageHeader()),
+          if (!hideInlineHeader)
+            const SliverToBoxAdapter(child: _SessionsPageHeader()),
           BlocSelector<SessionsBloc, SessionsState, WeeklyProgressSummary>(
             selector: (state) => state is SessionsLoaded
                 ? state.weeklyProgress
@@ -188,32 +232,98 @@ class _SessionsLoadedBody extends StatelessWidget {
                 );
               }
 
+              // Sort so today's session appears at the top.
+              final sortedBookings = List<BookingHistoryModel>.from(bookings)
+                ..sort((a, b) {
+                  final aHasToday =
+                      WeeklyProgressCalculator.todaySessionRecordForBooking(
+                            a,
+                            data.allSessions,
+                          ) !=
+                          null;
+                  final bHasToday =
+                      WeeklyProgressCalculator.todaySessionRecordForBooking(
+                            b,
+                            data.allSessions,
+                          ) !=
+                          null;
+                  if (aHasToday && !bHasToday) return -1;
+                  if (!aHasToday && bHasToday) return 1;
+                  return 0;
+                });
+
               return SliverPadding(
                 padding: const EdgeInsets.only(top: 4, bottom: 100),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final booking = bookings[index];
+                      final booking = sortedBookings[index];
                       final displayStatus =
                           WeeklyProgressCalculator.resolveDisplayStatus(
                         booking,
                       );
-                      final todaySession =
-                          WeeklyProgressCalculator.todaySessionForBooking(
+                      final todaySessionRecord =
+                          WeeklyProgressCalculator.todaySessionRecordForBooking(
                         booking,
                         data.allSessions,
                       );
+                      final todaySession = todaySessionRecord != null
+                          ? WeeklyProgressCalculator.todaySessionForBooking(
+                              booking,
+                              data.allSessions,
+                            )
+                          : null;
+                      final card = BookingSessionCard(
+                        key: ValueKey(booking.bookingId),
+                        booking: booking,
+                        displayStatus: displayStatus,
+                        todaySession: todaySession,
+                        includeListPadding: false,
+                        onTap: () => _openSessionDetail(context, booking),
+                      );
+                      if (todaySessionRecord != null) {
+                        return RepaintBoundary(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(22),
+                              child: DecoratedBox(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      Color(0xFFB7E27A),
+                                      Color(0xFF8FD15B),
+                                      Color(0xFF66BE47),
+                                      Color(0xFF3E9F34),
+                                    ],
+                                    stops: [0.0, 0.35, 0.68, 1.0],
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(2),
+                                  child: card,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
                       return RepaintBoundary(
-                        child: BookingSessionCard(
-                          key: ValueKey(booking.bookingId),
-                          booking: booking,
-                          displayStatus: displayStatus,
-                          todaySession: todaySession,
-                          onTap: () => _openSessionDetail(context, booking),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: card,
                         ),
                       );
                     },
-                    childCount: bookings.length,
+                    childCount: sortedBookings.length,
                   ),
                 ),
               );
@@ -252,15 +362,17 @@ class _SessionsPageHeader extends StatelessWidget {
 }
 
 class _EmptySessionsPage extends StatelessWidget {
-  const _EmptySessionsPage();
+  const _EmptySessionsPage({this.hideInlineHeader = false});
+
+  final bool hideInlineHeader;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SessionsPageHeader(),
-        Expanded(
+        if (!hideInlineHeader) const _SessionsPageHeader(),
+        const Expanded(
           child: _EmptyView(
             message: 'No active sessions',
             icon: Icons.event_busy_outlined,

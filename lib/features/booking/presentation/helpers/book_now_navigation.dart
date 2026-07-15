@@ -6,6 +6,7 @@ import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/booking/data/repositories/booking_repository.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_page.dart';
+import 'package:prince_academy/features/booking/presentation/widgets/branch_picker_sheet.dart';
 
 class BookNowNavigation {
   const BookNowNavigation._();
@@ -16,6 +17,8 @@ class BookNowNavigation {
     required String coachName,
     required String coachImage,
     required String specialty,
+    String? branchId,
+    String? branchName,
   }) async {
     List<String> bookedCoachIds = const [];
     try {
@@ -52,6 +55,33 @@ class BookNowNavigation {
 
     if (!context.mounted) return;
 
+    var resolvedBranchId = branchId;
+    var resolvedBranchName = branchName;
+
+    if (resolvedBranchId == null || resolvedBranchId.isEmpty) {
+      try {
+        final sessions =
+            await sl<BookingRepository>().getActiveSessions(coachId);
+        final branches = uniqueBranchesFromSessions(sessions);
+
+        if (branches.length > 1) {
+          if (!context.mounted) return;
+          final selected = await showBranchPickerSheet(
+            context: context,
+            branches: branches,
+          );
+          if (selected == null) return;
+          resolvedBranchId = selected.id;
+          resolvedBranchName = selected.name;
+        } else if (branches.length == 1) {
+          resolvedBranchId = branches.first.id;
+          resolvedBranchName = branches.first.name;
+        }
+      } catch (_) {}
+    }
+
+    if (!context.mounted) return;
+
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
@@ -62,6 +92,8 @@ class BookNowNavigation {
             coachImage: coachImage,
             specialty: specialty,
             coachWhatsapp: '+1234567890',
+            branchId: resolvedBranchId,
+            branchName: resolvedBranchName,
           ),
           initialBookedCoachIds: bookedCoachIds,
         ),

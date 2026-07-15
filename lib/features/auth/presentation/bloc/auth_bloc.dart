@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:bloc/bloc.dart';
 import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
@@ -16,6 +17,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthUserSignIn>(_onUserSignIn);
     on<AuthAdminSignIn>(_onAdminSignIn);
     on<AuthSignOut>(_onSignOut);
+    on<AuthRefreshProfile>(_onRefreshProfile);
 
     _authSubscription =
         Supabase.instance.client.auth.onAuthStateChange.listen((data) {
@@ -36,12 +38,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onStarted(AuthStarted event, Emitter<AuthState> emit) async {
-    await Future.delayed(const Duration(seconds: 2));
-
     try {
       if (!repo.hasSession()) {
         emit(const AuthNoSession());
         return;
+      }
+
+      final cached = repo.cachedUser();
+      if (cached != null) {
+        emit(AuthAuthed(cached));
       }
 
       final userDoc = await repo.loadUser();
@@ -234,6 +239,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthError(e.message));
     } catch (e) {
       emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> _onRefreshProfile(
+    AuthRefreshProfile event,
+    Emitter<AuthState> emit,
+  ) async {
+    try {
+      if (!repo.hasSession()) {
+        emit(const AuthNoSession());
+        return;
+      }
+
+      final userDoc = await repo.loadUser();
+      if (userDoc == null) {
+        emit(const AuthNoSession());
+        return;
+      }
+
+      emit(AuthAuthed(userDoc));
+    } catch (_) {
+      // Keep current session state on transient refresh failures.
     }
   }
 }

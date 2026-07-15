@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
@@ -70,11 +71,7 @@ class _TrackingViewState extends State<TrackingView> {
         child: BlocBuilder<TrackingBloc, TrackingState>(
           builder: (context, state) {
             if (state is TrackingInitial || state is TrackingLoading) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  color: EColorConstants.primaryColor,
-                ),
-              );
+              return const TrackingPageShimmer();
             }
 
             if (state is TrackingError) {

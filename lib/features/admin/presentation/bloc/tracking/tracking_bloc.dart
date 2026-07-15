@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
+import 'package:prince_academy/features/admin/data/models/branch_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
@@ -48,26 +49,35 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
     if (event.silent && current is TrackingLoaded) {
       emit(current.copyWith(isRefreshing: true));
+    } else if (current is TrackingLoaded) {
+      emit(current.copyWith(isRefreshing: true));
     } else {
       emit(const TrackingLoading());
     }
 
     try {
-      final coaches = await repository.getCoachUserStats();
-      final branches = await branchRepository.getAllBranches();
+      final results = await Future.wait([
+        repository.getCoachUserStats(),
+        branchRepository.getAllBranches(),
+        repository.getActiveUsersWithQr(
+          force: true,
+          limit: TrackingLoaded.subscriberPageSize,
+          offset: 0,
+        ),
+        repository.getUserIdsWithPendingPayments(),
+      ]);
+
       _serverPage = 0;
       _hasMoreFromServer = true;
       _coachUserIdsCache.clear();
       _branchUserIdsCache.clear();
 
-      final users = await repository.getActiveUsersWithQr(
-        force: true,
-        limit: TrackingLoaded.subscriberPageSize,
-        offset: 0,
-      );
+      final coaches = results[0] as List<CoachUserStats>;
+      final branches = results[1] as List<Branch>;
+      final users = results[2] as List<ActiveUser>;
+      final pendingIds = results[3] as Set<String>;
       _hasMoreFromServer = users.length >= TrackingLoaded.subscriberPageSize;
 
-      final pendingIds = await repository.getUserIdsWithPendingPayments();
       final usersWithPending = users
           .map((u) => u.copyWith(
                 hasPendingPayment: pendingIds.contains(u.userId),

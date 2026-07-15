@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/app/bottom_navigation/widgets/glass_floating_nav_bar.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/services/member_data_prefetch.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
 import 'package:prince_academy/features/home/presentation/pages/home_page.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
@@ -38,7 +39,7 @@ class _NavigationBottomState extends State<NavigationBottom> {
     _visitedTabs = List<bool>.filled(_tabBuilders.length, false);
     _visitedTabs[_currentIndex] = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _qrService.refresh(silent: _qrService.hasQrCode);
+      MemberDataPrefetch.warmUnawaited();
     });
   }
 

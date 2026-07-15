@@ -13,6 +13,7 @@ class SessionCard extends StatelessWidget {
   final TodaySessionInfo? todaySession;
   final VoidCallback? onTap;
   final bool compact;
+  final bool includeListPadding;
 
   const SessionCard({
     super.key,
@@ -20,6 +21,7 @@ class SessionCard extends StatelessWidget {
     this.todaySession,
     this.onTap,
     this.compact = false,
+    this.includeListPadding = true,
   });
 
   factory SessionCard.fromSession(
@@ -216,17 +218,7 @@ class SessionCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: Colors.grey.shade200,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppColors.primary,
-                          ),
-                          minHeight: 5,
-                        ),
-                      ),
+                      _SessionProgressBar(value: progress),
                     ],
                     if (onTap != null) ...[
                       SizedBox(height: compact ? 8 : 10),
@@ -255,6 +247,10 @@ class SessionCard extends StatelessWidget {
           ),
         ),
       );
+    }
+
+    if (!includeListPadding) {
+      return card;
     }
 
     return Padding(
@@ -390,6 +386,54 @@ class _ViewSessionLink extends StatelessWidget {
               Icons.chevron_right_rounded,
               size: 18,
               color: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SessionProgressBar extends StatelessWidget {
+  final double value;
+
+  const _SessionProgressBar({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(5),
+      child: SizedBox(
+        height: 6,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: Colors.grey.shade200),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: value.clamp(0.0, 1.0),
+                child: const SizedBox.expand(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Color(0xFFB7E27A),
+                          Color(0xFF8FD15B),
+                          Color(0xFF66BE47),
+                          Color(0xFF3E9F34),
+                        ],
+                        stops: [0.0, 0.35, 0.68, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

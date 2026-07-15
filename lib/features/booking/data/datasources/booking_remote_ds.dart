@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:prince_academy/core/helpers/image_resize_helper.dart';
 import 'package:prince_academy/core/helpers/session_schedule_helper.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
@@ -14,18 +15,44 @@ class BookingRemoteDs {
 
   BookingRemoteDs(this._supabase);
 
-  Future<CoachSessionModel?> getActiveSessionForCoach(String coachId) async {
-    final response = await _supabase
+  Future<CoachSessionModel?> getActiveSessionForCoach(
+    String coachId, {
+    String? branchId,
+  }) async {
+    var query = _supabase
         .from('coach_sessions')
         .select('*, coaches(name, specialty, photo_url), branches(name)')
         .eq('coach_id', coachId)
-        .eq('is_active', true)
+        .eq('is_active', true);
+
+    if (branchId != null && branchId.isNotEmpty) {
+      query = query.eq('branch_id', branchId);
+    }
+
+    final response = await query
         .order('created_at', ascending: false)
         .limit(1)
         .maybeSingle();
 
     if (response == null) return null;
     return CoachSessionModel.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  Future<List<CoachSessionModel>> getActiveSessionsForCoach(String coachId) async {
+    final response = await _supabase
+        .from('coach_sessions')
+        .select('*, coaches(name, specialty, photo_url), branches(name)')
+        .eq('coach_id', coachId)
+        .eq('is_active', true)
+        .order('created_at', ascending: false);
+
+    return (response as List)
+        .map(
+          (row) => CoachSessionModel.fromJson(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .toList();
   }
 
   Future<BookingModel> createBooking(BookingModel booking) async {
@@ -100,15 +127,17 @@ class BookingRemoteDs {
       throw Exception('You must be signed in.');
     }
 
-    final ext = _fileExtension(file.path);
-    final path = 'payments/$userId/$bookingId-${const Uuid().v4()}.$ext';
+    final resized =
+        await ImageResizeHelper.resizePaymentScreenshot(file);
+    final path =
+        'payments/$userId/$bookingId-${const Uuid().v4()}.jpg';
 
     await _supabase.storage.from('payment-screenshots').upload(
           path,
-          file,
-          fileOptions: FileOptions(
+          resized,
+          fileOptions: const FileOptions(
             upsert: true,
-            contentType: _mimeForExt(ext),
+            contentType: 'image/jpeg',
           ),
         );
 
@@ -339,26 +368,6 @@ class BookingRemoteDs {
       return value.map((e) => e.toString()).toList();
     }
     return const [];
-  }
-
-  String _fileExtension(String filePath) {
-    final fileName = filePath.split('/').last;
-    final dotIndex = fileName.lastIndexOf('.');
-    if (dotIndex <= 0 || dotIndex == fileName.length - 1) {
-      return 'jpg';
-    }
-    return fileName.substring(dotIndex + 1).toLowerCase();
-  }
-
-  String _mimeForExt(String ext) {
-    return switch (ext) {
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      'gif' => 'image/gif',
-      'heic' => 'image/heic',
-      'heif' => 'image/heif',
-      _ => 'image/jpeg',
-    };
   }
 
   // ── User booking management ──────────────────────────────────

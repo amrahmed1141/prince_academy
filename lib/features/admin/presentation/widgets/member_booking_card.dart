@@ -176,25 +176,26 @@ class MemberBookingCard extends StatelessWidget {
         ? data.selectedTime!
         : 'Time not set';
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    final cardWidget = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: showMarkAttendance
-              ? const Color(0xFF2E7D32)
-              : EColorConstants.primaryColor.withOpacity(0.12),
-          width: showMarkAttendance ? 1.5 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: showMarkAttendance
+            ? null
+            : Border.all(
+                color: EColorConstants.primaryColor.withOpacity(0.12),
+                width: 1,
+              ),
+        boxShadow: showMarkAttendance
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,17 +344,42 @@ class MemberBookingCard extends StatelessWidget {
             const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: data.totalSessions > 0
-                    ? (data.attendedSessions / data.totalSessions).clamp(0.0, 1.0)
-                    : 0,
-                backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  status == MemberBookingDisplayStatus.completed
-                      ? const Color(0xFF2E7D32)
-                      : EColorConstants.primaryColor,
+              child: SizedBox(
+                height: 6,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: Colors.grey.shade200),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FractionallySizedBox(
+                        widthFactor: data.totalSessions > 0
+                            ? (data.attendedSessions / data.totalSessions).clamp(0.0, 1.0)
+                            : 0.0,
+                        child: const SizedBox.expand(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [
+                                  Color(0xFFB7E27A),
+                                  Color(0xFF8FD15B),
+                                  Color(0xFF66BE47),
+                                  Color(0xFF3E9F34),
+                                ],
+                                stops: [0.0, 0.35, 0.68, 1.0],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                minHeight: 6,
               ),
             ),
           ],
@@ -500,6 +526,49 @@ class MemberBookingCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+
+    if (showMarkAttendance) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Color(0xFFB7E27A),
+                  Color(0xFF8FD15B),
+                  Color(0xFF66BE47),
+                  Color(0xFF3E9F34),
+                ],
+                stops: [0.0, 0.35, 0.68, 1.0],
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: cardWidget,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: cardWidget,
     );
   }
 }

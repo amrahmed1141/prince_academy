@@ -32,4 +32,15 @@ class CoachSummary {
         remainingSessions: (json['remaining_sessions'] as num?)?.toInt() ?? 0,
         activeBooking: json['active_booking'] as bool? ?? false,
       );
+
+  Map<String, dynamic> toJson() => {
+        'coach_id': coachId,
+        'coach_name': coachName,
+        'coach_photo': coachPhoto,
+        'coach_specialty': coachSpecialty,
+        'total_sessions': totalSessions,
+        'attended_sessions': attendedSessions,
+        'remaining_sessions': remainingSessions,
+        'active_booking': activeBooking,
+      };
 }

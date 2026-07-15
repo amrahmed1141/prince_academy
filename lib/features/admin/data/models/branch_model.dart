@@ -20,4 +20,12 @@ class Branch {
         phone: json['phone'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'address': address,
+        'phone': phone,
+        'created_at': createdAt.toIso8601String(),
+      };
 }
