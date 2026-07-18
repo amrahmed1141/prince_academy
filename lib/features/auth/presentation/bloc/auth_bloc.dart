@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:bloc/bloc.dart';
+import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/services/firebase_messaging_service.dart';
 import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
+import 'package:prince_academy/features/notifications/data/repositories/notification_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
@@ -231,6 +234,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onSignOut(AuthSignOut event, Emitter<AuthState> emit) async {
     emit(const AuthLoading());
     try {
+      // Clear device token while the session is still valid.
+      try {
+        if (sl.isRegistered<NotificationRepository>()) {
+          await sl<NotificationRepository>().clearFcmToken();
+          await sl<NotificationRepository>().disposeSession();
+        }
+        await FirebaseMessagingService.clearLocalToken();
+      } catch (_) {}
+
       await repo.signOut();
       emit(const AuthNoSession());
     } on AuthException catch (e) {

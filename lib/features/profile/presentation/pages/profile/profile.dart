@@ -15,6 +15,7 @@ import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
+import 'package:prince_academy/features/notifications/presentation/widgets/notification_bell_button.dart';
 import 'package:prince_academy/features/profile/presentation/pages/profile/edit_profile_page.dart';
 import 'package:prince_academy/features/profile/presentation/pages/profile/payments_page.dart';
 import 'package:prince_academy/features/sessions/presentation/pages/sessions_page.dart';
@@ -94,9 +95,9 @@ class _ProfilePageState extends State<ProfilePage> {
           elevation: 0,
           title: const Text('Profile'),
           actions: [
-            IconButton(
-              icon: const Icon(Iconsax.notification),
-              onPressed: () {},
+            const NotificationBellButton(
+              variant: NotificationBellVariant.plain,
+              padded: false,
             ),
           ],
         ),

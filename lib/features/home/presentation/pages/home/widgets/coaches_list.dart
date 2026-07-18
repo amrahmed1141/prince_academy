@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/core/di/injection.dart';
@@ -28,7 +27,11 @@ class _CoachesListState extends State<CoachesList> {
   void initState() {
     super.initState();
     widget.selectedCategoryNotifier.addListener(_onCategoryChanged);
-    _loadCoaches(initial: true);
+    // Defer load so a sync cache hit never setStates during mount/build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadCoaches(initial: true);
+    });
   }
 
   @override
@@ -95,18 +98,30 @@ class _CoachesListState extends State<CoachesList> {
       final memberCounts = results[1] as Map<String, int>;
 
       if (!mounted) return;
+      final coaches = allCoaches
+          .map<CoachModel>(
+            (coach) => coach.copyWith(
+              memberCount: memberCounts[coach.id] ?? coach.memberCount,
+            ),
+          )
+          .toList();
+      final specialty =
+          _mapCategoryToSpecialty(widget.selectedCategoryNotifier.value);
+      final filtered = specialty == null
+          ? List<CoachModel>.from(coaches)
+          : coaches
+              .where(
+                (c) => c.specialty.toLowerCase() == specialty.toLowerCase(),
+              )
+              .toList();
+
       setState(() {
-        _allCoaches = allCoaches
-            .map<CoachModel>(
-              (coach) => coach.copyWith(
-                memberCount: memberCounts[coach.id] ?? coach.memberCount,
-              ),
-            )
-            .toList();
+        _allCoaches = coaches;
         _classTypesByCoachId = classTypes;
+        _filteredCoaches = filtered;
         _isInitialLoading = false;
+        _errorMessage = null;
       });
-      _applyCategoryFilter();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -133,8 +148,6 @@ class _CoachesListState extends State<CoachesList> {
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
-
     if (_isInitialLoading) {
       return const SliverToBoxAdapter(
         child: Padding(
@@ -154,10 +167,10 @@ class _CoachesListState extends State<CoachesList> {
               children: [
                 Icon(Iconsax.warning_2, color: Colors.red[400], size: 40),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Failed to load coaches',
                   style: TextStyle(
-                    color: dark ? Colors.white : Colors.black,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -193,10 +206,10 @@ class _CoachesListState extends State<CoachesList> {
               children: [
                 Icon(Iconsax.user_remove, color: Colors.grey[400], size: 40),
                 const SizedBox(height: 12),
-                Text(
+                const Text(
                   'No coaches found',
                   style: TextStyle(
-                    color: dark ? Colors.white70 : Colors.black87,
+                    color: Colors.black87,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -221,7 +234,7 @@ class _CoachesListState extends State<CoachesList> {
               key: ValueKey(coach.id),
               coach: coach,
               classType: _classTypesByCoachId[coach.id],
-              dark: dark,
+              dark: false,
             ),
           );
         },

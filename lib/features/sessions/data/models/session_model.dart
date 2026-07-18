@@ -47,12 +47,18 @@ class Session {
                     ?.toInt() ??
                 0,
         remainingSessions: (json['remaining_sessions'] as num?)?.toInt() ?? 0,
-        sessionDate: DateTime.parse(json['session_date'].toString()),
+        sessionDate: _parseSessionDate(json['session_date']),
         dayName: json['day_name']?.toString() ?? '',
         isTrainingDay: json['is_training_day'] as bool? ?? true,
         sessionStatus: json['session_status']?.toString() ?? 'upcoming',
         attendanceStatus: json['attendance_status']?.toString(),
       );
+
+  static DateTime _parseSessionDate(dynamic raw) {
+    final parsed = DateTime.tryParse(raw?.toString() ?? '') ?? DateTime.now();
+    final local = parsed.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
 
   Map<String, dynamic> toJson() => {
         'booking_id': bookingId,

@@ -12,6 +12,7 @@ import 'package:prince_academy/features/admin/presentation/widgets/admin_dropdow
 import 'package:prince_academy/features/admin/presentation/widgets/admin_text_field.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_draft_row.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/session_frequency_selector.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/session_conflict_dialog.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/branch_management_dialog.dart';
@@ -153,6 +154,36 @@ class _EditSessionPageState extends State<EditSessionPage> {
       return;
     }
 
+    final draft = SessionDraft(
+      coachId: widget.session.coachId,
+      branchId: _selectedBranchId,
+      timeSlot: _selectedTimeSlot,
+      pricePerSession: price,
+      sessionsPerWeek: _sessionsPerWeek,
+      sessions: List<SessionSlot>.from(_sessionSlots),
+    );
+
+    try {
+      final conflict = await sl<CoachRepository>().findSessionConflict(draft);
+      if (!mounted) return;
+      if (conflict != null) {
+        final createAnyway = await SessionConflictDialog.show(
+          context,
+          conflict: conflict,
+        );
+        if (!createAnyway) return;
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar(
+          'Could not verify schedule conflicts: $e',
+          Colors.redAccent,
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
     setState(() => _isSaving = true);
 
     try {

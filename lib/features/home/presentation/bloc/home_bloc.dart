@@ -24,11 +24,18 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<SelectDate>(_onSelectDate);
   }
 
-  static DateTime dateOnly(DateTime date) =>
-      DateTime(date.year, date.month, date.day);
+  static DateTime dateOnly(DateTime date) {
+    final local = date.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
 
-  static bool isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
+  static bool isSameDay(DateTime a, DateTime b) {
+    final al = a.toLocal();
+    final bl = b.toLocal();
+    return al.year == bl.year && al.month == bl.month && al.day == bl.day;
+  }
+
+  static DateTime today() => dateOnly(DateTime.now());
 
   Future<void> _onLoadHomeData(
     LoadHomeData event,
@@ -36,6 +43,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   ) async {
     final current = state;
     final firstLoad = !current.hasLoaded;
+    // Default to today on first open; keep the user's pick on later refreshes.
+    final selectedDate = firstLoad ? today() : dateOnly(current.selectedDate);
 
     if (firstLoad) {
       final cachedSnapshot = sessionsRepository.cachedSnapshot;
@@ -46,7 +55,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           cachedBranches != null) {
         final cachedSessions = cachedSnapshot?.sessions ?? const <Session>[];
         _allSessions = cachedSessions;
-        final selectedDate = current.selectedDate;
         final filtered = _filterByDate(cachedSessions, selectedDate);
         final bookings = cachedBookings ?? const <BookingHistoryModel>[];
         final branch =
@@ -60,6 +68,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             isRefreshing: true,
             hasLoaded: true,
             clearError: true,
+            selectedDate: selectedDate,
             allSessions: cachedSessions,
             sessionsForSelectedDate: filtered,
             upcomingSession: _resolveUpcomingSession(
@@ -72,7 +81,12 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           ),
         );
       } else {
-        emit(current.copyWith(isLoading: true, isRefreshing: false, clearError: true));
+        emit(current.copyWith(
+          isLoading: true,
+          isRefreshing: false,
+          clearError: true,
+          selectedDate: selectedDate,
+        ));
       }
     } else {
       emit(current.copyWith(isRefreshing: true, clearError: true));
@@ -92,14 +106,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
       final lastBooking = _latestBooking(bookings);
       final branch = branches.isNotEmpty ? branches.first : null;
-      final selectedDate = state.selectedDate;
-      final filtered = _filterByDate(_allSessions, selectedDate);
+      final activeDate = dateOnly(state.selectedDate);
+      final filtered = _filterByDate(_allSessions, activeDate);
 
       final next = state.copyWith(
         isLoading: false,
         isRefreshing: false,
         hasLoaded: true,
         clearError: true,
+        selectedDate: activeDate,
         allSessions: _allSessions,
         sessionsForSelectedDate: filtered,
         upcomingSession: _resolveUpcomingSession(
@@ -191,10 +206,21 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   List<Session> _filterByDate(List<Session> sessions, DateTime date) {
-    return sessions
-        .where((s) => isSameDay(s.sessionDate, date))
-        .toList()
-      ..sort((a, b) => a.selectedTime.compareTo(b.selectedTime));
+    final target = dateOnly(date);
+    final isToday = isSameDay(target, today());
+
+    return sessions.where((s) {
+      if (isSameDay(s.sessionDate, target)) return true;
+      // Match Sessions-page "today" logic when calendar is on today.
+      if (isToday && s.isToday) return true;
+      return false;
+    }).toList()
+      ..sort((a, b) {
+        final dateCompare =
+            dateOnly(a.sessionDate).compareTo(dateOnly(b.sessionDate));
+        if (dateCompare != 0) return dateCompare;
+        return a.selectedTime.compareTo(b.selectedTime);
+      });
   }
 
   Session? _firstUpcoming(List<Session> sessions) {

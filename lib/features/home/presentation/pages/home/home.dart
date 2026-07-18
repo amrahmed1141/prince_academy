@@ -6,6 +6,7 @@ import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/category_list.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/coaches_list.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/searchbar.dart';
+import 'package:prince_academy/features/home/presentation/pages/coaches_page.dart';
 import 'package:prince_academy/features/maps/data/models/maps_model.dart';
 import 'package:prince_academy/features/maps/presentation/pages/maps/widgets/maps.dart'; // Add this import
 
@@ -115,7 +116,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      _selectedCategoryNotifier.value = 'All';
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const CoachesPage(),
+                        ),
+                      );
                     },
                     child: const Text(
                       'View All',

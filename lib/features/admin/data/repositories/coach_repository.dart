@@ -171,30 +171,61 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     }
 
     try {
-      final response = await _supabase
-          .from('coach_sessions')
-          .select(
-            'coach_id, days, session_type, session_date, time_slots, '
-            'branch_id, is_active, coaches(name)',
-          )
-          .eq('branch_id', draft.branchId!)
-          .eq('is_active', true)
-          .neq('coach_id', draft.coachId!);
+      final response = await _supabase.rpc(
+        'find_coach_session_conflict',
+        params: {
+          'p_branch_id': draft.branchId,
+          'p_coach_id': draft.coachId,
+          'p_time_slot': draft.timeSlot,
+          'p_days': draft.sessions.map((s) => s.day).toList(),
+          'p_class_types': draft.sessions.map((s) => s.classType).toList(),
+        },
+      );
 
-      final sessions = (response as List)
-          .map(
-            (e) => CoachSessionModel.fromJson(
-              Map<String, dynamic>.from(e as Map),
-            ),
-          )
-          .toList();
+      final rows = response as List? ?? const [];
+      if (rows.isEmpty) return null;
 
-      return SessionConflictDetector.find(
-        draft: draft,
-        existingSessions: sessions,
+      final first = Map<String, dynamic>.from(rows.first as Map);
+      final name = (first['coach_name'] as String?)?.trim();
+      final classType = (first['class_type'] as String?)?.trim();
+      final timeSlot = (first['time_slot'] as String?)?.trim();
+      return SessionConflictInfo(
+        coachName: (name != null && name.isNotEmpty) ? name : 'Another coach',
+        classType: (classType != null && classType.isNotEmpty)
+            ? classType
+            : 'session',
+        timeSlot: (timeSlot != null && timeSlot.isNotEmpty)
+            ? timeSlot
+            : draft.timeSlot.trim(),
       );
     } on PostgrestException catch (e) {
-      throw Exception(_mapPostgrestError(e, 'check session conflict'));
+      // Fallback if RPC is unavailable: load branch sessions and check locally.
+      try {
+        final response = await _supabase
+            .from('coach_sessions')
+            .select(
+              'id, coach_id, days, session_type, session_date, time_slots, '
+              'branch_id, is_active, coaches(name)',
+            )
+            .eq('branch_id', draft.branchId!)
+            .eq('is_active', true)
+            .neq('coach_id', draft.coachId!);
+
+        final sessions = (response as List)
+            .map(
+              (e) => CoachSessionModel.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ),
+            )
+            .toList();
+
+        return SessionConflictDetector.find(
+          draft: draft,
+          existingSessions: sessions,
+        );
+      } on PostgrestException catch (_) {
+        throw Exception(_mapPostgrestError(e, 'check session conflict'));
+      }
     }
   }
 

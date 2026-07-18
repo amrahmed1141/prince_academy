@@ -35,6 +35,8 @@ class LocalCacheStore {
   static String bookingsKey(String userId) => 'bookings_$userId';
   static String coachesKey() => 'coaches_active';
   static String branchesKey() => 'branches_all';
+  static String coachProfileKey(String coachId) => 'coach_profile_$coachId';
+  static String coachSessionsKey(String coachId) => 'coach_sessions_$coachId';
 
   // ── Read / write ──────────────────────────────────────────────────
 

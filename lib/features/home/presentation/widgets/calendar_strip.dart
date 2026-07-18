@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
+import 'package:prince_academy/features/home/presentation/bloc/home_bloc.dart';
 import 'package:prince_academy/features/sessions/data/models/session_model.dart';
-import 'package:prince_academy/features/sessions/presentation/bloc/sessions_bloc.dart';
 
 class CalendarStrip extends StatelessWidget {
   final DateTime selectedDate;
@@ -17,17 +17,25 @@ class CalendarStrip extends StatelessWidget {
   });
 
   List<DateTime> _weekDays() {
-    final weekStart = SessionsBloc.startOfWeek(selectedDate);
+    final weekStart = _startOfWeek(selectedDate);
     return List.generate(
       7,
       (index) => weekStart.add(Duration(days: index)),
     );
   }
 
+  DateTime _startOfWeek(DateTime date) {
+    final d = HomeBloc.dateOnly(date);
+    return d.subtract(Duration(days: d.weekday - DateTime.monday));
+  }
+
   bool _hasSessionOnDay(DateTime day) {
-    return allSessions.any(
-      (s) => SessionsBloc.isSameDay(s.sessionDate, day),
-    );
+    final isToday = HomeBloc.isSameDay(day, HomeBloc.today());
+    return allSessions.any((s) {
+      if (HomeBloc.isSameDay(s.sessionDate, day)) return true;
+      if (isToday && s.isToday) return true;
+      return false;
+    });
   }
 
   @override
@@ -47,13 +55,13 @@ class CalendarStrip extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final day = days[index];
-          final isSelected = SessionsBloc.isSameDay(day, selectedDate);
+          final isSelected = HomeBloc.isSameDay(day, selectedDate);
           final dayName = DateFormat('E').format(day);
           final dayNumber = day.day.toString();
-          final hasSession = _hasSessionOnDay(day); // keeps indicator behavior.
+          final hasSession = _hasSessionOnDay(day);
 
           return GestureDetector(
-            onTap: () => onDateSelected(day),
+            onTap: () => onDateSelected(HomeBloc.dateOnly(day)),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 46,
@@ -62,7 +70,8 @@ class CalendarStrip extends StatelessWidget {
                 color: isSelected ? Colors.white : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isSelected ? const Color(0xFFE6E8EB) : Colors.transparent,
+                  color:
+                      isSelected ? const Color(0xFFE6E8EB) : Colors.transparent,
                 ),
                 boxShadow: isSelected
                     ? [
@@ -82,8 +91,9 @@ class CalendarStrip extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color:
-                          isSelected ? AppColors.textPrimary : const Color(0xFF9AA0A6),
+                      color: isSelected
+                          ? AppColors.textPrimary
+                          : const Color(0xFF9AA0A6),
                     ),
                   ),
                   const SizedBox(height: 7),
@@ -92,20 +102,18 @@ class CalendarStrip extends StatelessWidget {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                     
                       border: Border.all(
-                        color:Color.fromARGB(255, 187, 187, 187), 
+                        color: const Color.fromARGB(255, 187, 187, 187),
                       ),
                       borderRadius: BorderRadius.circular(17),
                     ),
                     child: Center(
                       child: Text(
                         dayNumber,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color:
-                              isSelected ? AppColors.textPrimary : AppColors.textPrimary, 
+                          color: AppColors.textPrimary,
                         ),
                       ),
                     ),
@@ -113,16 +121,18 @@ class CalendarStrip extends StatelessWidget {
                   const SizedBox(height: 5),
                   AnimatedOpacity(
                     duration: const Duration(milliseconds: 200),
-                    opacity: hasSession ? 1 : 0,
+                    opacity: isSelected || hasSession ? 1 : 0,
                     child: Container(
                       width: 3,
                       height: 3,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.primary,
+                        color: isSelected || hasSession
+                            ? AppColors.primary
+                            : Colors.transparent,
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
             ),

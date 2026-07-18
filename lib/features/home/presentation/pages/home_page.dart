@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/constants/text.dart';
@@ -19,6 +18,9 @@ import 'package:prince_academy/features/home/presentation/pages/home/widgets/cat
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/coaches_list.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/searchbar.dart';
 import 'package:prince_academy/features/home/presentation/widgets/calendar_strip.dart';
+import 'package:prince_academy/features/home/presentation/widgets/first_time_booking_card.dart';
+import 'package:prince_academy/features/home/presentation/pages/coaches_page.dart';
+import 'package:prince_academy/features/notifications/presentation/widgets/notification_bell_button.dart';
 import 'package:prince_academy/features/sessions/data/models/session_model.dart';
 import 'package:prince_academy/features/sessions/domain/weekly_progress_calculator.dart';
 import 'package:prince_academy/features/sessions/presentation/pages/user_session_detail_page.dart';
@@ -55,15 +57,25 @@ class _HomePageBodyState extends State<_HomePageBody> {
     super.dispose();
   }
 
+  void _openCoachesPage() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => const CoachesPage(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: AppGradients.sessionsScreenDecoration(),
+      decoration: AppGradients.homeScreenDecoration(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
           elevation: 0,
+          scrolledUnderElevation: 0,
           titleSpacing: 12,
           title: BlocSelector<AuthBloc, AuthState, _HomeGreetingData>(
             selector: (state) {
@@ -120,20 +132,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
             },
           ),
           actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.grey[100],
-                  ),
-                  child: const Icon(Iconsax.notification, size: 20),
-                ),
-                onPressed: () {},
-              ),
-            ),
+            const NotificationBellButton(),
           ],
         ),
         body: BrandedPullToRefresh(
@@ -213,8 +212,15 @@ class _HomePageBodyState extends State<_HomePageBody> {
                       const SliverToBoxAdapter(child: SizedBox(height: 8)),
                       SliverToBoxAdapter(
                         child: _HomeInsightsCarousel(
+                          selectedDate: data.selectedDate,
                           allSessions: data.allSessions,
+                          sessionsForSelectedDate:
+                              data.sessionsForSelectedDate,
                           bookings: data.bookings,
+                          // NEW: first-time CTA when no active/upcoming sessions
+                          showFirstTimeBookingCard:
+                              data.showFirstTimeBookingCard,
+                          onBookCoach: _openCoachesPage,
                           onBookingTap: (booking) =>
                               _openSessionDetail(context, booking),
                         ),
@@ -259,9 +265,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
                             ),
                       ),
                       TextButton(
-                        onPressed: () {
-                          _selectedCategoryNotifier.value = 'All';
-                        },
+                        onPressed: _openCoachesPage,
                         child: const Text(
                           'View All',
                           style: TextStyle(
@@ -354,6 +358,20 @@ class _HomeSectionsViewData {
     required this.hasSessionsForSelectedDate,
   });
 
+  // NEW: first-time users = no upcoming sessions and no active bookings
+  bool get showFirstTimeBookingCard {
+    if (!hasLoaded || isLoading) return false;
+    if (upcomingSession != null) return false;
+
+    final hasActiveBooking = bookings.any((booking) {
+      final status = booking.effectiveDisplayStatus.toLowerCase();
+      return status == 'active' ||
+          status == 'pending' ||
+          status == 'pending_payment';
+    });
+    return !hasActiveBooking;
+  }
+
   @override
   bool operator ==(Object other) {
     return other is _HomeSectionsViewData &&
@@ -368,7 +386,9 @@ class _HomeSectionsViewData {
         other.lastBooking?.bookingId == lastBooking?.bookingId &&
         other.branch?.id == branch?.id &&
         other.hasSessionsForSelectedDate == hasSessionsForSelectedDate &&
-        other.allSessions.length == allSessions.length;
+        other.allSessions.length == allSessions.length &&
+        // NEW: include first-time flag so BlocSelector rebuilds correctly
+        other.showFirstTimeBookingCard == showFirstTimeBookingCard;
   }
 
   @override
@@ -383,24 +403,29 @@ class _HomeSectionsViewData {
         branch?.id,
         hasSessionsForSelectedDate,
         allSessions.length,
+        showFirstTimeBookingCard, // NEW
       );
 }
 
 class _HomeInsightsCarousel extends StatelessWidget {
+  final DateTime selectedDate;
   final List<Session> allSessions;
+  final List<Session> sessionsForSelectedDate;
   final List<BookingHistoryModel> bookings;
+  // NEW
+  final bool showFirstTimeBookingCard;
+  final VoidCallback onBookCoach;
   final void Function(BookingHistoryModel booking) onBookingTap;
 
   const _HomeInsightsCarousel({
+    required this.selectedDate,
     required this.allSessions,
+    required this.sessionsForSelectedDate,
     required this.bookings,
+    required this.showFirstTimeBookingCard, // NEW
+    required this.onBookCoach, // NEW
     required this.onBookingTap,
   });
-
-  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-
-  static bool _isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
 
   BookingHistoryModel _bookingForSession(Session session) {
     for (final booking in bookings) {
@@ -411,16 +436,11 @@ class _HomeInsightsCarousel extends StatelessWidget {
     return SessionCard.bookingFromSession(session);
   }
 
-  Session? _todaySession() {
-    final today = _dateOnly(DateTime.now());
-    final candidates = allSessions
-        .where((s) => _isSameDay(_dateOnly(s.sessionDate), today))
-        .toList()
+  List<Session> _sessionsForSelectedDay() {
+    if (sessionsForSelectedDate.isEmpty) return const [];
+    final sorted = List<Session>.from(sessionsForSelectedDate)
       ..sort((a, b) => a.selectedTime.compareTo(b.selectedTime));
-    if (candidates.isEmpty) return null;
-
-    final preferred = candidates.where((s) => s.isToday).toList(growable: false);
-    return preferred.isNotEmpty ? preferred.first : candidates.first;
+    return sorted;
   }
 
   Widget _buildSessionCard(Session session, {bool showTodayBanner = false}) {
@@ -439,20 +459,49 @@ class _HomeInsightsCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final todaySession = _todaySession();
+    final daySessions = _sessionsForSelectedDay();
     final weeklyProgress = WeeklyProgressCalculator.calculate(
       bookings: bookings,
       sessions: allSessions,
     );
     final showProgress = weeklyProgress.days.isNotEmpty;
-
-    if (todaySession == null && !showProgress) {
-      return const SizedBox.shrink();
-    }
-
+    final isTodaySelected = HomeBloc.isSameDay(
+      selectedDate,
+      HomeBloc.today(),
+    );
     final screenWidth = MediaQuery.sizeOf(context).width;
 
-    // Content-sized height — avoids empty gap above Category.
+    // NEW: first-time booking CTA (replaces empty day copy when applicable)
+    if (showFirstTimeBookingCard) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FirstTimeBookingCard(onBookCoach: onBookCoach),
+          if (showProgress)
+            SizedBox(
+              width: screenWidth - 24,
+              child: WeeklyAttendanceChart(summary: weeklyProgress),
+            ),
+        ],
+      );
+    }
+
+    if (daySessions.isEmpty && !showProgress) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+        child: Text(
+          isTodaySelected
+              ? 'No sessions scheduled for today'
+              : 'No sessions on this day',
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       primary: false,
@@ -464,11 +513,11 @@ class _HomeInsightsCarousel extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (todaySession != null)
+          for (final session in daySessions)
             RepaintBoundary(
               child: _buildSessionCard(
-                todaySession,
-                showTodayBanner: true,
+                session,
+                showTodayBanner: isTodaySelected,
               ),
             ),
           if (showProgress)

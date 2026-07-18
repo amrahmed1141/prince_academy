@@ -33,6 +33,11 @@ class HomeCoachRepository {
   final TtlCache<Map<String, String>> _classTypesCache = TtlCache();
   final TtlCache<Map<String, int>> _studentCountsCache = TtlCache();
 
+  final Map<String, CoachModel> _coachByIdCache = {};
+  final Map<String, List<CoachSessionModel>> _coachSessionsCache = {};
+  final Set<String> _fetchingCoachIds = {};
+  final Set<String> _fetchingSessionCoachIds = {};
+
   void _hydrateFromDisk() {
     if (_coachesCache.value != null) return;
     final list = _cache.getList(LocalCacheStore.coachesKey());
@@ -42,10 +47,82 @@ class HomeCoachRepository {
           .map((e) => CoachModel.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList();
       _coachesCache.set(coaches);
+      for (final coach in coaches) {
+        _coachByIdCache[coach.id] = coach;
+      }
     } catch (_) {}
   }
 
+  CoachModel? cachedCoach(String coachId) {
+    _hydrateFromDisk();
+    final memory = _coachByIdCache[coachId];
+    if (memory != null) return memory;
+
+    final list = _coachesCache.value;
+    if (list != null) {
+      for (final coach in list) {
+        if (coach.id == coachId) {
+          _coachByIdCache[coachId] = coach;
+          return coach;
+        }
+      }
+    }
+
+    final map = _cache.getMap(LocalCacheStore.coachProfileKey(coachId));
+    if (map == null) return null;
+    try {
+      final coach = CoachModel.fromMap(map);
+      _coachByIdCache[coachId] = coach;
+      return coach;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<CoachSessionModel>? cachedCoachSessions(String coachId) {
+    final memory = _coachSessionsCache[coachId];
+    if (memory != null) return memory;
+
+    final list = _cache.getList(LocalCacheStore.coachSessionsKey(coachId));
+    if (list == null) return null;
+    try {
+      final sessions = list
+          .map(
+            (e) => CoachSessionModel.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+      _coachSessionsCache[coachId] = sessions;
+      return sessions;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _persistCoach(CoachModel coach) async {
+    _coachByIdCache[coach.id] = coach;
+    await _cache.putJson(
+      LocalCacheStore.coachProfileKey(coach.id),
+      coach.toMap(),
+    );
+  }
+
+  Future<void> _persistCoachSessions(
+    String coachId,
+    List<CoachSessionModel> sessions,
+  ) async {
+    _coachSessionsCache[coachId] = sessions;
+    await _cache.putJson(
+      LocalCacheStore.coachSessionsKey(coachId),
+      sessions.map((s) => s.toMap()).toList(),
+    );
+  }
+
   Future<void> _persistCoaches(List<CoachModel> coaches) async {
+    for (final coach in coaches) {
+      _coachByIdCache[coach.id] = coach;
+    }
     await _cache.putJson(
       LocalCacheStore.coachesKey(),
       coaches.map((c) => c.toMap()).toList(),
@@ -116,26 +193,50 @@ class HomeCoachRepository {
         .toList();
   }
 
-  Future<CoachModel> getCoachById(String coachId) async {
+  Future<CoachModel> getCoachById(
+    String coachId, {
+    bool force = false,
+  }) async {
+    if (!force) {
+      final cached = cachedCoach(coachId);
+      if (cached != null) return cached;
+    }
+
+    if (_fetchingCoachIds.contains(coachId)) {
+      final cached = cachedCoach(coachId);
+      if (cached != null) return cached;
+    }
+
+    _fetchingCoachIds.add(coachId);
     try {
-      final response = await _supabase
-          .from('coaches')
-          .select(_coachColumnsWithCounts)
-          .eq('id', coachId)
-          .single();
-      return CoachModel.fromMap(Map<String, dynamic>.from(response));
-    } on PostgrestException catch (e) {
-      if (e.code == 'PGRST200' || e.code == 'PGRST205' || e.code == '42P01') {
+      try {
         final response = await _supabase
             .from('coaches')
-            .select(_coachColumns)
+            .select(_coachColumnsWithCounts)
             .eq('id', coachId)
             .single();
-        final coach = CoachModel.fromMap(Map<String, dynamic>.from(response));
-        final counts = await getStudentCountsForCoaches([coachId]);
-        return _withMemberCount(coach, counts);
+        final coach =
+            CoachModel.fromMap(Map<String, dynamic>.from(response));
+        unawaited(_persistCoach(coach));
+        return coach;
+      } on PostgrestException catch (e) {
+        if (e.code == 'PGRST200' || e.code == 'PGRST205' || e.code == '42P01') {
+          final response = await _supabase
+              .from('coaches')
+              .select(_coachColumns)
+              .eq('id', coachId)
+              .single();
+          final coach =
+              CoachModel.fromMap(Map<String, dynamic>.from(response));
+          final counts = await getStudentCountsForCoaches([coachId]);
+          final withCount = _withMemberCount(coach, counts);
+          unawaited(_persistCoach(withCount));
+          return withCount;
+        }
+        rethrow;
       }
-      rethrow;
+    } finally {
+      _fetchingCoachIds.remove(coachId);
     }
   }
 
@@ -259,9 +360,35 @@ class HomeCoachRepository {
     _coachesCache.invalidate();
     _classTypesCache.invalidate();
     _studentCountsCache.invalidate();
+    _coachByIdCache.clear();
+    _coachSessionsCache.clear();
   }
 
-  Future<List<CoachSessionModel>> getCoachSessions(String coachId) async {
+  Future<List<CoachSessionModel>> getCoachSessions(
+    String coachId, {
+    bool force = false,
+  }) async {
+    if (!force) {
+      final cached = cachedCoachSessions(coachId);
+      if (cached != null) return cached;
+    }
+
+    if (_fetchingSessionCoachIds.contains(coachId)) {
+      final cached = cachedCoachSessions(coachId);
+      if (cached != null) return cached;
+    }
+
+    _fetchingSessionCoachIds.add(coachId);
+    try {
+      final sessions = await _fetchCoachSessions(coachId);
+      unawaited(_persistCoachSessions(coachId, sessions));
+      return sessions;
+    } finally {
+      _fetchingSessionCoachIds.remove(coachId);
+    }
+  }
+
+  Future<List<CoachSessionModel>> _fetchCoachSessions(String coachId) async {
     try {
       final response = await _supabase
           .from('coach_sessions')

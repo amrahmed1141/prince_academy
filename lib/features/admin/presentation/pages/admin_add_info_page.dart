@@ -335,19 +335,18 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
       slots: _sessionSlots,
     ).toDraft();
 
-    // Prefer already-loaded sessions (same data shown in Saved Sessions cards).
-    final localConflict = SessionConflictDetector.find(
+    // Local check first (fast), then authoritative Supabase RPC.
+    SessionConflictInfo? conflict = SessionConflictDetector.find(
       draft: draft,
       existingSessions: context.read<AdminHomeBloc>().state.sessions,
     );
 
-    SessionConflictInfo? conflict = localConflict;
-
-    // Fall back to a fresh Supabase check if local list has no match.
-    if (conflict == null) {
-      try {
-        conflict = await sl<CoachRepository>().findSessionConflict(draft);
-      } catch (e) {
+    try {
+      final remoteConflict =
+          await sl<CoachRepository>().findSessionConflict(draft);
+      if (remoteConflict != null) conflict = remoteConflict;
+    } catch (e) {
+      if (conflict == null) {
         if (mounted) {
           _showSnackBar(
             'Could not verify schedule conflicts: $e',
@@ -363,7 +362,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
     if (conflict != null) {
       final createAnyway = await SessionConflictDialog.show(
         context,
-        coachName: conflict.coachName,
+        conflict: conflict,
       );
       if (!createAnyway) return;
     }

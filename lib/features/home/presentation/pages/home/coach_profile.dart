@@ -4,14 +4,14 @@ import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
+import 'package:prince_academy/core/theme/theme.dart';
+import 'package:prince_academy/core/widgets/offline_banner.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/booking/presentation/helpers/book_now_navigation.dart';
 import 'package:prince_academy/features/booking/presentation/widgets/branch_picker_sheet.dart';
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/session_info_card.dart';
 import 'package:prince_academy/core/di/injection.dart';
-import 'package:prince_academy/core/widgets/custom_snackbar.dart';
 
 class CoachProfilePage extends StatefulWidget {
   final String coachId;
@@ -26,83 +26,95 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
   CoachModel? _coach;
   List<CoachSessionModel> _sessions = [];
   List<CoachBranchOption> _branches = [];
-  String? _selectedBranchId;
   bool _isLoading = true;
+  bool _isRefreshing = false;
+  bool _hasLoaded = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+    _seedFromCache();
     _loadData();
   }
 
-  Future<void> _loadData({bool silent = false}) async {
+  void _seedFromCache() {
+    final repository = sl<HomeCoachRepository>();
+    final cachedCoach = repository.cachedCoach(widget.coachId);
+    final cachedSessions = repository.cachedCoachSessions(widget.coachId);
+
+    if (cachedCoach == null && cachedSessions == null) return;
+
+    if (cachedSessions != null) {
+      _sessions = cachedSessions;
+      _branches = uniqueBranchesFromSessions(cachedSessions);
+    }
+
+    if (cachedCoach != null) {
+      _coach = cachedCoach;
+      _isLoading = false;
+      _hasLoaded = true;
+    }
+  }
+
+  void _applyLoadedData({
+    required CoachModel coach,
+    required List<CoachSessionModel> sessions,
+  }) {
     setState(() {
-      if (!silent || _coach == null) {
-        _isLoading = true;
-      }
+      _coach = coach;
+      _sessions = sessions;
+      _branches = uniqueBranchesFromSessions(sessions);
+      _isLoading = false;
+      _isRefreshing = false;
+      _hasLoaded = true;
       _errorMessage = null;
+    });
+  }
+
+  Future<void> _loadData({bool forceRefresh = true}) async {
+    final hasCachedUi = _coach != null;
+
+    setState(() {
+      if (hasCachedUi) {
+        _isRefreshing = true;
+        _errorMessage = null;
+      } else {
+        _isLoading = true;
+        _errorMessage = null;
+      }
     });
 
     try {
       final repository = sl<HomeCoachRepository>();
       final results = await Future.wait([
-        repository.getCoachById(widget.coachId),
-        repository.getCoachSessions(widget.coachId),
+        repository.getCoachById(widget.coachId, force: forceRefresh),
+        repository.getCoachSessions(widget.coachId, force: forceRefresh),
       ]);
 
-      if (mounted) {
-        final sessions = results[1] as List<CoachSessionModel>;
-        final branches = uniqueBranchesFromSessions(sessions);
-        setState(() {
-          _coach = results[0] as CoachModel?;
-          _sessions = sessions;
-          _branches = branches;
-          _selectedBranchId = branches.length == 1
-              ? branches.first.id
-              : (_selectedBranchId != null &&
-                      branches.any((b) => b.id == _selectedBranchId)
-                  ? _selectedBranchId
-                  : null);
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+
+      _applyLoadedData(
+        coach: results[0] as CoachModel,
+        sessions: results[1] as List<CoachSessionModel>,
+      );
     } catch (e) {
-      if (mounted) {
-        setState(() {
+      if (!mounted) return;
+      setState(() {
+        _isRefreshing = false;
+        _isLoading = false;
+        if (!_hasLoaded || _coach == null) {
           _errorMessage = e.toString();
-          _isLoading = false;
-        });
-      }
+        }
+      });
     }
   }
 
-  List<CoachSessionModel> get _visibleSessions {
-    if (_selectedBranchId == null || _branches.length <= 1) {
-      return _sessions;
-    }
-    return _sessions
-        .where((s) => s.branchId == _selectedBranchId)
-        .toList();
-  }
-
-  String? get _selectedBranchName {
-    if (_selectedBranchId == null) return null;
-    for (final branch in _branches) {
-      if (branch.id == _selectedBranchId) return branch.name;
-    }
-    return null;
-  }
+  int get _totalSessionCount => expandCoachSessions(_sessions).length;
 
   Future<void> _onBookNowTap(BuildContext context, CoachModel coach) async {
-    if (_branches.length > 1 &&
-        (_selectedBranchId == null || _selectedBranchId!.isEmpty)) {
-      CustomSnackbar.show(
-        context: context,
-        message: 'Please select a branch first',
-      );
-      return;
-    }
+    // Branch is chosen in the booking flow when the coach has multiple branches.
+    final singleBranch = _branches.length == 1 ? _branches.first : null;
 
     await BookNowNavigation.openBookingForCoach(
       context: context,
@@ -110,16 +122,18 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
       coachName: coach.name,
       coachImage: coach.photoUrl ?? '',
       specialty: coach.specialty,
-      branchId: _selectedBranchId,
-      branchName: _selectedBranchName,
+      branchId: singleBranch?.id,
+      branchName: singleBranch?.name,
     );
   }
 
   Widget _buildCoachHeaderImage(String? photoUrl, Size size) {
     if (photoUrl == null || photoUrl.isEmpty) {
-      return Container(
-        color: Colors.grey[900],
-        child: const Icon(Iconsax.user, color: Colors.white24, size: 80),
+      return ColoredBox(
+        color: Colors.grey[900]!,
+        child: const Center(
+          child: Icon(Iconsax.user, color: Colors.white24, size: 80),
+        ),
       );
     }
     if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
@@ -131,137 +145,204 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
           width: cacheWidth,
         ),
         fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        alignment: Alignment.topCenter,
         gaplessPlayback: true,
-        errorBuilder: (context, error, stackTrace) => Container(
-          color: Colors.grey[900],
-          child: const Icon(Iconsax.user, color: Colors.white24, size: 80),
+        errorBuilder: (context, error, stackTrace) => ColoredBox(
+          color: Colors.grey[900]!,
+          child: const Center(
+            child: Icon(Iconsax.user, color: Colors.white24, size: 80),
+          ),
         ),
       );
     }
     return Image.asset(
       photoUrl,
       fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      alignment: Alignment.topCenter,
+    );
+  }
+
+  Widget _overlayIconButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: Colors.black.withOpacity(0.45),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _statsRow({
+    required int memberCount,
+    required int sessionCount,
+    required bool dark,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: _StatItem(
+            icon: Iconsax.profile_2user,
+            value: '$memberCount',
+            label: 'Members',
+            dark: dark,
+          ),
+        ),
+        Container(
+          width: 1,
+          height: 48,
+          color: dark ? Colors.grey[700] : Colors.grey[300],
+        ),
+        Expanded(
+          child: _StatItem(
+            icon: Iconsax.calendar_1,
+            value: '$sessionCount',
+            label: 'Sessions',
+            dark: dark,
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
-    final size = MediaQuery.of(context).size;
+    // Same light look as Home / Coaches directory (ignore system dark mode).
+    return Theme(
+      data: EAppTheme.lightTheme,
+      child: Builder(
+        builder: (context) {
+          const dark = false;
+          final size = MediaQuery.of(context).size;
+          final topInset = MediaQuery.of(context).padding.top;
 
-    if (_isLoading && _coach == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Coach Profile')),
-        body: const CoachProfileShimmer(),
-      );
-    }
+          if (_isLoading && _coach == null) {
+            return Scaffold(
+              backgroundColor: Colors.white,
+              appBar: AppBar(title: const Text('Coach Profile')),
+              body: const CoachProfileShimmer(),
+            );
+          }
 
-    if (_errorMessage != null || _coach == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Coach Profile'),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Iconsax.warning_2, color: Colors.red[400], size: 48),
-                const SizedBox(height: 12),
-                Text(
-                  'Failed to load profile',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _errorMessage ?? 'Coach not found.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _loadData,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: EColorConstants.primaryColor,
+          if ((_errorMessage != null && _coach == null) ||
+              (!_isLoading && !_isRefreshing && _coach == null)) {
+            return Scaffold(
+              backgroundColor: Colors.white,
+              appBar: AppBar(
+                title: const Text('Coach Profile'),
+              ),
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Iconsax.warning_2, color: Colors.red[400], size: 48),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Failed to load profile',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _errorMessage ?? 'Coach not found.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => _loadData(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: EColorConstants.primaryColor,
+                        ),
+                        child: const Text('Retry',
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
                   ),
-                  child: const Text('Retry',
-                      style: TextStyle(color: Colors.white)),
                 ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+              ),
+            );
+          }
 
+          return _buildLoadedProfile(
+            context: context,
+            dark: dark,
+            size: size,
+            topInset: topInset,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildLoadedProfile({
+    required BuildContext context,
+    required bool dark,
+    required Size size,
+    required double topInset,
+  }) {
     final coach = _coach!;
-    final visibleSessions = _visibleSessions;
-    final sheetColor =
-        dark ? EColorConstants.darkContainerColor : Colors.white;
+    const sheetColor = Colors.white;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Column(
         children: [
+          SilentRefreshBar(visible: _isRefreshing && _hasLoaded),
           SizedBox(
-            height: size.height * 0.4,
+            height: size.height * 0.42,
             width: double.infinity,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 _buildCoachHeaderImage(coach.photoUrl, size),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.55),
-                        Colors.transparent,
-                      ],
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: topInset + 72,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.45),
+                          Colors.transparent,
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.black.withOpacity(0.5),
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                            ),
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.black.withOpacity(0.5),
-                            ),
-                            child: const Icon(
-                              Iconsax.share,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                          onPressed: () {},
-                        ),
-                      ],
-                    ),
+                Positioned(
+                  top: topInset + 8,
+                  left: 16,
+                  right: 16,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _overlayIconButton(
+                        icon: Icons.arrow_back_ios_new_rounded,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      _overlayIconButton(
+                        icon: Iconsax.share,
+                        onPressed: () {},
+                      ),
+                    ],
                   ),
                 ),
                 Positioned(
@@ -303,11 +384,13 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                       Flexible(
                         child: Text(
                           coach.name,
-                          style:
-                              Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 24,
-                                  ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                              ),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -318,53 +401,16 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              EColorConstants.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: EColorConstants.primaryColor
-                                .withOpacity(0.2),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Iconsax.user,
-                              size: 14,
-                              color: EColorConstants.primaryColor,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              coach.memberCount == 1
-                                  ? '1 Member Trained'
-                                  : '${coach.memberCount} Members Trained',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: EColorConstants.primaryColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 18),
+                  _statsRow(
+                    memberCount: coach.memberCount,
+                    sessionCount: _totalSessionCount,
+                    dark: dark,
                   ),
                   if (_branches.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     Text(
-                      _branches.length > 1 ? 'Choose Branch' : 'Branch',
+                      _branches.length > 1 ? 'Branches' : 'Branch',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                             fontSize: 18,
@@ -375,66 +421,40 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                       spacing: 8,
                       runSpacing: 8,
                       children: _branches.map((branch) {
-                        final selected = _selectedBranchId == branch.id;
-                        final isSelectable = _branches.length > 1;
-                        return GestureDetector(
-                          onTap: isSelectable
-                              ? () => setState(
-                                    () => _selectedBranchId = branch.id,
-                                  )
-                              : null,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? EColorConstants.primaryColor
-                                      .withOpacity(0.12)
-                                  : (dark
-                                      ? Colors.grey[800]
-                                      : Colors.grey[100]),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: selected
-                                    ? EColorConstants.primaryColor
-                                    : Colors.transparent,
-                                width: 1.5,
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: dark ? Colors.grey[800] : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Iconsax.location,
+                                size: 14,
+                                color: dark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Iconsax.location,
-                                  size: 14,
-                                  color: selected
-                                      ? EColorConstants.primaryColor
-                                      : (dark
-                                          ? Colors.grey[400]
-                                          : Colors.grey[600]),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  branch.name,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(
-                                        color: selected
-                                            ? EColorConstants.primaryColor
-                                            : (dark
-                                                ? Colors.white
-                                                : Colors.black87),
-                                        fontSize: 12,
-                                        fontWeight: selected
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                      ),
-                                ),
-                              ],
-                            ),
+                              const SizedBox(width: 6),
+                              Text(
+                                branch.name,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: dark
+                                          ? Colors.white
+                                          : Colors.black87,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                              ),
+                            ],
                           ),
                         );
                       }).toList(),
@@ -442,105 +462,25 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                   ],
                   const SizedBox(height: 24),
                   Text(
-                    'Classes Taught',
+                    'Sessions by Branch',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                           fontSize: 18,
                         ),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: (() {
-                      final classesTaught = visibleSessions
-                          .map((s) => s.sessionType)
-                          .where((t) => t.isNotEmpty)
-                          .expand((t) => t.split(',').map((e) => e.trim()))
-                          .where((t) => t.isNotEmpty)
-                          .toSet()
-                          .toList();
-                      if (classesTaught.isEmpty) {
-                        return [
-                          Text(
-                            'No classes listed yet',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: dark
-                                      ? Colors.grey[400]
-                                      : Colors.grey[600],
-                                ),
-                          ),
-                        ];
-                      }
-                      return classesTaught
-                          .map(
-                            (className) =>
-                                _buildClassChip(className, context),
-                          )
-                          .toList();
-                    })(),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Sessions',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 18,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (visibleSessions.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 32,
-                        horizontal: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: dark ? Colors.grey[900] : Colors.grey[50],
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color:
-                              dark ? Colors.grey[800]! : Colors.grey[200]!,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Iconsax.calendar_remove,
-                            size: 40,
-                            color:
-                                dark ? Colors.grey[600] : Colors.grey[400],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _branches.length > 1 &&
-                                    _selectedBranchId == null
-                                ? 'Select a branch to view sessions'
-                                : 'No sessions available yet',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyLarge
-                                ?.copyWith(
-                                  color: dark
-                                      ? Colors.grey[400]
-                                      : Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                          ),
-                        ],
-                      ),
-                    )
+                  if (_sessionsByBranch.isEmpty ||
+                      _sessionsByBranch.every((g) => g.pairs.isEmpty))
+                    _EmptySessionsCard(dark: dark)
                   else
-                    ...expandCoachSessions(visibleSessions).map(
-                      (pair) => SessionInfoCard(
-                        classType: pair.classType,
-                        day: pair.day,
-                        time: pair.time,
-                        sessionsPerWeek: pair.sessionsPerWeek,
+                    ..._sessionsByBranch.map(
+                      (group) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _BranchSessionsCard(
+                          branchName: group.branchName,
+                          pairs: group.pairs,
+                          dark: dark,
+                        ),
                       ),
                     ),
                   const SizedBox(height: 24),
@@ -618,23 +558,255 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
     );
   }
 
-  Widget _buildClassChip(String className, BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
+  List<_BranchSessionsGroup> get _sessionsByBranch {
+    if (_branches.isEmpty) {
+      final pairs = expandCoachSessions(_sessions);
+      if (pairs.isEmpty) return const [];
+      return [
+        _BranchSessionsGroup(branchName: 'Sessions', pairs: pairs),
+      ];
+    }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: dark
-            ? Colors.grey[800]
-            : EColorConstants.primaryColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        className,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: dark ? Colors.white : EColorConstants.primaryColor,
-              fontSize: 12,
+    return _branches.map((branch) {
+      final branchSessions =
+          _sessions.where((s) => s.branchId == branch.id).toList();
+      return _BranchSessionsGroup(
+        branchName: branch.name,
+        pairs: expandCoachSessions(branchSessions),
+      );
+    }).toList();
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.dark,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20, color: EColorConstants.primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: dark ? Colors.white : Colors.black,
+              ),
             ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: dark ? Colors.grey[400] : Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BranchSessionsGroup {
+  const _BranchSessionsGroup({
+    required this.branchName,
+    required this.pairs,
+  });
+
+  final String branchName;
+  final List<SessionDayTypePair> pairs;
+}
+
+String _compactDay(String day) {
+  final value = day.trim();
+  if (value.isEmpty || value == 'Day not set') return value;
+  const map = {
+    'monday': 'Mon',
+    'tuesday': 'Tue',
+    'wednesday': 'Wed',
+    'thursday': 'Thu',
+    'friday': 'Fri',
+    'saturday': 'Sat',
+    'sunday': 'Sun',
+    'mon': 'Mon',
+    'tue': 'Tue',
+    'wed': 'Wed',
+    'thu': 'Thu',
+    'fri': 'Fri',
+    'sat': 'Sat',
+    'sun': 'Sun',
+  };
+  return map[value.toLowerCase()] ?? value;
+}
+
+String _compactTime(String time) {
+  var value = time.trim();
+  if (value.isEmpty || value == 'Time not set') return value;
+  value = value.replaceAll(':00', '');
+  value = value.replaceAll(' ', '');
+  return value;
+}
+
+String _sessionScheduleLabel(SessionDayTypePair pair) {
+  final day = _compactDay(pair.day);
+  final time = _compactTime(pair.time);
+  if (day.isEmpty || day == 'Day not set') return time;
+  if (time.isEmpty || time == 'Time not set') return day;
+  return '$day $time';
+}
+
+class _BranchSessionsCard extends StatelessWidget {
+  const _BranchSessionsCard({
+    required this.branchName,
+    required this.pairs,
+    required this.dark,
+  });
+
+  final String branchName;
+  final List<SessionDayTypePair> pairs;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        color: dark ? Colors.grey[900] : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: dark ? Colors.grey[800]! : Colors.grey[200]!,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            branchName,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+          ),
+          if (pairs.isEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'No sessions yet',
+              style: TextStyle(
+                fontSize: 13,
+                color: dark ? Colors.grey[500] : Colors.grey[500],
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const columns = 3;
+                const spacing = 8.0;
+                final itemWidth =
+                    (constraints.maxWidth - spacing * (columns - 1)) / columns;
+
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: 14,
+                  children: pairs.map((pair) {
+                    return SizedBox(
+                      width: itemWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            pair.classType,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: dark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _sessionScheduleLabel(pair),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  dark ? Colors.grey[400] : Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptySessionsCard extends StatelessWidget {
+  const _EmptySessionsCard({required this.dark});
+
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      decoration: BoxDecoration(
+        color: dark ? Colors.grey[900] : Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: dark ? Colors.grey[800]! : Colors.grey[200]!,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Iconsax.calendar_remove,
+            size: 40,
+            color: dark ? Colors.grey[600] : Colors.grey[400],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No sessions available yet',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: dark ? Colors.grey[400] : Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+        ],
       ),
     );
   }

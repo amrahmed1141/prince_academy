@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/notifications/presentation/widgets/notification_bell_button.dart';
 
 class AdminHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onAvatarTap;
-  final VoidCallback? onNotificationTap;
 
   const AdminHeader({
     super.key,
     this.onAvatarTap,
-    this.onNotificationTap,
   });
 
   @override
@@ -89,29 +88,9 @@ class AdminHeader extends StatelessWidget implements PreferredSizeWidget {
                   ],
                 ),
               ),
-              GestureDetector(
-                onTap: onNotificationTap,
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: EColorConstants.authCardWhite,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: EColorConstants.authFieldBorder),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Iconsax.notification,
-                    size: 20,
-                    color: EColorConstants.authTextDarkBrown,
-                  ),
-                ),
+              const NotificationBellButton(
+                variant: NotificationBellVariant.admin,
+                padded: false,
               ),
               const SizedBox(width: 10),
               Image.asset(

@@ -55,6 +55,7 @@ post_install do |installer|
     target.build_configurations.each do |config|
       # 1) Force all pods to iOS 14
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
 
       # 2) Remove ONLY standalone '-G' from target-level flags
       if ['BoringSSL-GRPC', 'gRPC-C++', 'gRPC-Core', 'grpc'].include?(target.name)

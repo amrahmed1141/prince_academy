@@ -49,6 +49,13 @@ class AppGradients {
       );
 
   static BoxDecoration sessionsScreenDecoration() => BoxDecoration(
+        color: Colors.white,
+        gradient: screenSessions,
+      );
+
+  /// Home feed + Coaches directory — keep these screens visually identical.
+  static BoxDecoration homeScreenDecoration() => BoxDecoration(
+        color: const Color(0xFFFFF9F5),
         gradient: screenSessions,
       );
 }

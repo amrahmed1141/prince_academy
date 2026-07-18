@@ -26,6 +26,8 @@ import 'package:prince_academy/features/home/presentation/bloc/home_bloc.dart';
 import 'package:prince_academy/features/sessions/data/repositories/sessions_repository.dart';
 import 'package:prince_academy/features/sessions/presentation/bloc/sessions_bloc.dart';
 import 'package:prince_academy/features/sessions/presentation/bloc/user_session_detail_bloc.dart';
+import 'package:prince_academy/features/notifications/data/repositories/notification_repository.dart';
+import 'package:prince_academy/features/notifications/presentation/bloc/notification_bloc.dart';
 
 final sl = GetIt.I;
 
@@ -84,4 +86,10 @@ Future<void> setupDI() async {
         bookingRepository: sl(),
         branchRepository: sl(),
       ));
+
+  sl.registerLazySingleton<NotificationRepository>(
+    () => NotificationRepository(sl()),
+  );
+  // App-scoped while authenticated (provided in PrinceAcademyApp).
+  sl.registerFactory<NotificationBloc>(() => NotificationBloc(sl()));
 }

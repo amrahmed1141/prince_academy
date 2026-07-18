@@ -192,6 +192,11 @@ class CoachSessionModel {
       'is_active': isActive,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+      'branch_id': branchId,
+      'branch_name': branchName,
+      'coach_name': coachName,
+      'coach_specialty': coachSpecialty,
+      'coach_photo_url': coachPhotoUrl,
     };
   }
 }

@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/admin/data/models/session_conflict_info.dart';
 
 class SessionConflictDialog extends StatelessWidget {
-  final String coachName;
+  final SessionConflictInfo conflict;
 
   const SessionConflictDialog({
     super.key,
-    required this.coachName,
+    required this.conflict,
   });
 
   /// Returns `true` when the admin chooses to create anyway, `false` on cancel.
   static Future<bool> show(
     BuildContext context, {
-    required String coachName,
+    required SessionConflictInfo conflict,
   }) {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => SessionConflictDialog(coachName: coachName),
+      builder: (_) => SessionConflictDialog(conflict: conflict),
     ).then((value) => value ?? false);
   }
 
@@ -54,51 +55,15 @@ class SessionConflictDialog extends StatelessWidget {
           ),
         ],
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'There is already a session at this time',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: EColorConstants.authTextDarkBrown,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: EColorConstants.authFieldBackground,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: EColorConstants.authFieldBorder),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Iconsax.user,
-                  size: 18,
-                  color: EColorConstants.primaryColor,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    coachName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: EColorConstants.authTextDarkBrown,
-                      fontFamily: 'Poppins',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      content: Text(
+        conflict.message,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          height: 1.45,
+          color: EColorConstants.authTextDarkBrown,
+          fontFamily: 'Poppins',
+        ),
       ),
       actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       actions: [
