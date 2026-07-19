@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/features/admin/data/models/branch_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
@@ -14,6 +16,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final BranchRepository branchRepository;
 
   List<Session> _allSessions = [];
+  StreamSubscription<List<BookingHistoryModel>>? _bookingsSubscription;
+  StreamSubscription<SessionsSnapshot>? _sessionsSubscription;
 
   HomeBloc({
     required this.sessionsRepository,
@@ -22,6 +26,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }) : super(HomeState.initial()) {
     on<LoadHomeData>(_onLoadHomeData);
     on<SelectDate>(_onSelectDate);
+    on<_HomeBookingsUpdated>(_onBookingsUpdated);
+    on<_HomeSessionsUpdated>(_onSessionsUpdated);
+    _ensureStreamSubscriptions();
   }
 
   static DateTime dateOnly(DateTime date) {
@@ -37,10 +44,21 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   static DateTime today() => dateOnly(DateTime.now());
 
+  void _ensureStreamSubscriptions() {
+    _bookingsSubscription ??= bookingRepository.bookingsStream.listen(
+      (bookings) => add(_HomeBookingsUpdated(bookings)),
+    );
+    _sessionsSubscription ??= sessionsRepository.sessionsStream.listen(
+      (snapshot) => add(_HomeSessionsUpdated(snapshot)),
+    );
+  }
+
   Future<void> _onLoadHomeData(
     LoadHomeData event,
     Emitter<HomeState> emit,
   ) async {
+    _ensureStreamSubscriptions();
+
     final current = state;
     final firstLoad = !current.hasLoaded;
     // Default to today on first open; keep the user's pick on later refreshes.
@@ -77,6 +95,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             ),
             bookings: bookings,
             lastBooking: _latestBooking(bookings),
+            clearLastBooking: bookings.isEmpty,
             branch: branch,
           ),
         );
@@ -108,6 +127,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final branch = branches.isNotEmpty ? branches.first : null;
       final activeDate = dateOnly(state.selectedDate);
       final filtered = _filterByDate(_allSessions, activeDate);
+      final upcoming = _resolveUpcomingSession(
+        selectedDateSessions: filtered,
+        allSessions: _allSessions,
+      );
 
       final next = state.copyWith(
         isLoading: false,
@@ -117,12 +140,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         selectedDate: activeDate,
         allSessions: _allSessions,
         sessionsForSelectedDate: filtered,
-        upcomingSession: _resolveUpcomingSession(
-          selectedDateSessions: filtered,
-          allSessions: _allSessions,
-        ),
+        upcomingSession: upcoming,
+        clearUpcomingSession: upcoming == null,
         bookings: bookings,
         lastBooking: lastBooking,
+        clearLastBooking: lastBooking == null,
         branch: branch,
       );
 
@@ -160,6 +182,51 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
+  void _onBookingsUpdated(
+    _HomeBookingsUpdated event,
+    Emitter<HomeState> emit,
+  ) {
+    if (!state.hasLoaded) return;
+
+    final bookings = event.bookings;
+    final lastBooking = _latestBooking(bookings);
+    final next = state.copyWith(
+      bookings: bookings,
+      lastBooking: lastBooking,
+      clearLastBooking: lastBooking == null,
+      clearError: true,
+    );
+
+    if (_sameHomePayload(state, next)) return;
+    emit(next);
+  }
+
+  void _onSessionsUpdated(
+    _HomeSessionsUpdated event,
+    Emitter<HomeState> emit,
+  ) {
+    if (!state.hasLoaded) return;
+
+    _allSessions = event.snapshot.sessions;
+    final activeDate = dateOnly(state.selectedDate);
+    final filtered = _filterByDate(_allSessions, activeDate);
+    final upcoming = _resolveUpcomingSession(
+      selectedDateSessions: filtered,
+      allSessions: _allSessions,
+    );
+
+    final next = state.copyWith(
+      allSessions: _allSessions,
+      sessionsForSelectedDate: filtered,
+      upcomingSession: upcoming,
+      clearUpcomingSession: upcoming == null,
+      clearError: true,
+    );
+
+    if (_sameHomePayload(state, next)) return;
+    emit(next);
+  }
+
   bool _sameHomePayload(HomeState a, HomeState b) {
     if (a.bookings.length != b.bookings.length) return false;
     if (a.allSessions.length != b.allSessions.length) return false;
@@ -192,15 +259,17 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   void _onSelectDate(SelectDate event, Emitter<HomeState> emit) {
     final selectedDate = dateOnly(event.date);
     final filtered = _filterByDate(_allSessions, selectedDate);
+    final upcoming = _resolveUpcomingSession(
+      selectedDateSessions: filtered,
+      allSessions: _allSessions,
+    );
 
     emit(
       state.copyWith(
         selectedDate: selectedDate,
         sessionsForSelectedDate: filtered,
-        upcomingSession: _resolveUpcomingSession(
-          selectedDateSessions: filtered,
-          allSessions: _allSessions,
-        ),
+        upcomingSession: upcoming,
+        clearUpcomingSession: upcoming == null,
       ),
     );
   }
@@ -263,4 +332,29 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       });
     return sorted.first;
   }
+
+  @override
+  Future<void> close() async {
+    await _bookingsSubscription?.cancel();
+    await _sessionsSubscription?.cancel();
+    return super.close();
+  }
+}
+
+class _HomeBookingsUpdated extends HomeEvent {
+  final List<BookingHistoryModel> bookings;
+
+  const _HomeBookingsUpdated(this.bookings);
+
+  @override
+  List<Object?> get props => [bookings];
+}
+
+class _HomeSessionsUpdated extends HomeEvent {
+  final SessionsSnapshot snapshot;
+
+  const _HomeSessionsUpdated(this.snapshot);
+
+  @override
+  List<Object?> get props => [snapshot];
 }

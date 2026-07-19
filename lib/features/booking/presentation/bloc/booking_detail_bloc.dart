@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:prince_academy/core/services/member_data_sync.dart';
 import 'package:prince_academy/features/booking/data/repositories/booking_repository.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_detail_event.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_detail_state.dart';
@@ -29,6 +30,7 @@ class BookingDetailBloc
     emit(const BookingDetailLoading());
     try {
       await _repository.cancelBooking(event.bookingId);
+      MemberDataSync.afterBookingMutationUnawaited();
       emit(const BookingDetailSuccess('Booking cancelled successfully'));
     } catch (e) {
       emit(BookingDetailError(
@@ -47,6 +49,7 @@ class BookingDetailBloc
         bookingId: event.bookingId,
         days: event.days,
       );
+      MemberDataSync.afterBookingMutationUnawaited();
       emit(const BookingDetailSuccess('Booking updated successfully'));
     } catch (e) {
       emit(BookingDetailError(
@@ -65,6 +68,7 @@ class BookingDetailBloc
         bookingId: event.bookingId,
         startDate: event.startDate,
       );
+      MemberDataSync.afterBookingMutationUnawaited();
       emit(const BookingDetailSuccess('Booking rescheduled successfully'));
     } catch (e) {
       emit(BookingDetailError(

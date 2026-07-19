@@ -59,7 +59,7 @@ class SessionsRepository {
   final Map<String, StreamController<List<SessionDetail>>> _bookingControllers =
       {};
 
-  RealtimeChannel? _attendanceChannel;
+  RealtimeChannel? _realtimeChannel;
   String? _subscribedUserId;
   bool _isFetchingSnapshot = false;
   final Set<String> _fetchingBookings = {};
@@ -197,13 +197,13 @@ class SessionsRepository {
   void _ensureRealtimeSubscription() {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
-    if (_subscribedUserId == userId && _attendanceChannel != null) return;
+    if (_subscribedUserId == userId && _realtimeChannel != null) return;
 
-    _attendanceChannel?.unsubscribe();
+    _realtimeChannel?.unsubscribe();
     _subscribedUserId = userId;
 
-    _attendanceChannel = supabase
-        .channel('user-sessions-attendance-$userId')
+    _realtimeChannel = supabase
+        .channel('user-sessions-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
@@ -213,12 +213,23 @@ class SessionsRepository {
             column: 'user_id',
             value: userId,
           ),
-          callback: (_) => unawaited(_onAttendanceChanged()),
+          callback: (_) => unawaited(_onRealtimeChanged()),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'bookings',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (_) => unawaited(_onRealtimeChanged()),
         )
         .subscribe();
   }
 
-  Future<void> _onAttendanceChanged() async {
+  Future<void> _onRealtimeChanged() async {
     try {
       await refreshSessions(force: true);
       for (final bookingId in _bookingControllers.keys.toList()) {

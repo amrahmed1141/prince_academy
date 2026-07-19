@@ -5,6 +5,7 @@ import 'package:prince_academy/core/helpers/payment_reference_helper.dart';
 import 'package:prince_academy/core/helpers/session_schedule_helper.dart';
 import 'package:prince_academy/core/helpers/subscription_pricing.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/services/member_data_sync.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
 import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/booking/data/repositories/booking_repository.dart';
@@ -325,6 +326,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
         ),
       );
 
+      MemberDataSync.afterBookingMutationUnawaited();
       add(const LoadUserActiveBookings());
     } catch (e) {
       emit(BookingError(
@@ -377,6 +379,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
 
     try {
       await _repository.confirmInstaPayPayment(bookingId);
+      MemberDataSync.afterBookingMutationUnawaited();
     } catch (e) {
       emit(BookingError(
         e.toString().replaceFirst('Exception: ', ''),
