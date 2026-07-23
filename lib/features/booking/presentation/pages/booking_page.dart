@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/app/app.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/services/main_tab_controller.dart';
 import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/booking/data/repositories/booking_repository.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_bloc.dart';
@@ -11,7 +12,6 @@ import 'package:prince_academy/features/booking/presentation/bloc/booking_event.
 import 'package:prince_academy/features/booking/presentation/bloc/booking_state.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_details/widgets/booking_bottom_bar.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_details/widgets/coach_header_card.dart';
-import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
 import 'package:prince_academy/features/booking/presentation/widgets/booking_confirmation_dialog.dart';
 import 'package:prince_academy/features/booking/presentation/widgets/calendar_schedule_picker.dart';
 import 'package:prince_academy/features/booking/presentation/widgets/day_selector.dart';
@@ -149,6 +149,11 @@ class _BookingWizardViewState extends State<_BookingWizardView> {
     return data?.totalPrice ?? 0;
   }
 
+  void _exitBookingFlow({required int tabIndex}) {
+    sl<MainTabController>().select(tabIndex);
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   @override
   Widget build(BuildContext context) {
     const scaffoldBg = Color(0xFFF7F7F7);
@@ -189,14 +194,9 @@ class _BookingWizardViewState extends State<_BookingWizardView> {
               booking: state.booking,
               startDate: state.data.startDate!,
               endDate: state.data.endDate!,
-              onViewBookings: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => const BookingHistoryPage(),
-                  ),
-                  (route) => route.isFirst,
-                );
-              },
+              onClose: () => _exitBookingFlow(tabIndex: MainTabController.home),
+              onViewBookings: () =>
+                  _exitBookingFlow(tabIndex: MainTabController.booking),
             );
           } else {
             InstaPayPaymentSheet.show(
@@ -227,12 +227,7 @@ class _BookingWizardViewState extends State<_BookingWizardView> {
                 context.read<BookingBloc>().add(const ConfirmInstaPayPayment());
                 if (!context.mounted) return;
                 Navigator.of(context).pop();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => const BookingHistoryPage(),
-                  ),
-                  (route) => route.isFirst,
-                );
+                _exitBookingFlow(tabIndex: MainTabController.booking);
               },
             );
           }
@@ -328,14 +323,12 @@ class _BookingWizardViewState extends State<_BookingWizardView> {
             );
           }
           if (state is BookingCreated) {
+            // Dialog / payment sheet is shown via the listener; keep a calm
+            // backdrop instead of a stuck loading spinner.
             return Scaffold(
               appBar: AppBar(title: const Text('Book a Session')),
               backgroundColor: scaffoldBg,
-              body: const Center(
-                child: CircularProgressIndicator(
-                  color: EColorConstants.primaryColor,
-                ),
-              ),
+              body: const SizedBox.shrink(),
             );
           }
           return Scaffold(

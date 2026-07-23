@@ -19,6 +19,7 @@ import 'package:prince_academy/features/booking/data/repositories/booking_reposi
 import 'package:prince_academy/features/booking/presentation/bloc/booking_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_detail_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_bloc.dart';
+import 'package:prince_academy/core/services/main_tab_controller.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
 import '../../features/auth/data/datasources/auth_remote_ds.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -56,6 +57,7 @@ Future<void> setupDI() async {
     () => BookingRepository(sl(), cache: sl()),
   );
   sl.registerLazySingleton<UserQrService>(() => UserQrService(sl()));
+  sl.registerLazySingleton<MainTabController>(() => MainTabController());
 
   sl.registerLazySingleton<AuthRemoteDs>(
     () => AuthRemoteDs(sl(), cache: sl()),

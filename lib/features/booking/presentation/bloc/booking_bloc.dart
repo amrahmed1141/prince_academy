@@ -11,6 +11,7 @@ import 'package:prince_academy/features/booking/data/models/booking_model.dart';
 import 'package:prince_academy/features/booking/data/repositories/booking_repository.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_event.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_state.dart';
+import 'package:prince_academy/features/sessions/data/repositories/sessions_repository.dart';
 
 class BookingBloc extends Bloc<BookingEvent, BookingState> {
   final BookingRepository _repository;
@@ -303,6 +304,12 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
           final qrCode = await _repository.ensureUserQrCode(userId);
           sl<UserQrService>().setQrCode(qrCode);
         }
+      } catch (_) {}
+
+      try {
+        final sessionsRepository = sl<SessionsRepository>();
+        sessionsRepository.invalidateCache();
+        await sessionsRepository.refreshSessions(force: true);
       } catch (_) {}
 
       final period = SessionScheduleHelper.formatPeriod(

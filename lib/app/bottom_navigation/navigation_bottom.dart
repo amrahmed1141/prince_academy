@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/app/bottom_navigation/widgets/glass_floating_nav_bar.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/services/main_tab_controller.dart';
 import 'package:prince_academy/core/services/member_data_prefetch.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
 import 'package:prince_academy/features/home/presentation/pages/home_page.dart';
@@ -17,29 +18,49 @@ class NavigationBottom extends StatefulWidget {
 }
 
 class _NavigationBottomState extends State<NavigationBottom> {
-  int _currentIndex = 0;
+  late final MainTabController _tabController;
   late final UserQrService _qrService;
   late final List<WidgetBuilder> _tabBuilders;
   late final List<bool> _visitedTabs;
+  late int _currentIndex;
 
   @override
   void initState() {
     super.initState();
+    _tabController = sl<MainTabController>();
     _qrService = sl<UserQrService>();
+    _currentIndex = _tabController.index;
     _tabBuilders = [
       (_) => const RepaintBoundary(child: HomePage()),
       (_) => const RepaintBoundary(child: BookingHistoryPage()),
       (_) => const RepaintBoundary(child: SessionsPage()),
       (_) => RepaintBoundary(
             child: ProfilePage(
-              isActive: _currentIndex == 3,
+              isActive: _currentIndex == MainTabController.profile,
             ),
           ),
     ];
     _visitedTabs = List<bool>.filled(_tabBuilders.length, false);
     _visitedTabs[_currentIndex] = true;
+    _tabController.addListener(_onTabControllerChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       MemberDataPrefetch.warmUnawaited();
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabControllerChanged);
+    super.dispose();
+  }
+
+  void _onTabControllerChanged() {
+    if (!mounted) return;
+    final index = _tabController.index;
+    if (index == _currentIndex) return;
+    setState(() {
+      _currentIndex = index;
+      _visitedTabs[index] = true;
     });
   }
 
@@ -82,11 +103,7 @@ class _NavigationBottomState extends State<NavigationBottom> {
                     selectedIndex: _currentIndex,
                     hasQrCode: _qrService.hasQrCode,
                     onDestinationSelected: (index) {
-                      if (index == _currentIndex) return;
-                      setState(() {
-                        _currentIndex = index;
-                        _visitedTabs[index] = true;
-                      });
+                      _tabController.select(index);
                     },
                   ),
                 ),

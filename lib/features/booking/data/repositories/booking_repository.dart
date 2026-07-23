@@ -101,7 +101,7 @@ class BookingRepository {
     final future = _wrap(_remoteDs.getUserBookings()).then((bookings) {
       _setBookingsCache(bookings);
       unawaited(_persistBookings(bookings));
-      _bookingsController?.add(bookings);
+      _emitBookings(bookings);
       return bookings;
     }).whenComplete(() {
       _bookingsInFlight = null;
@@ -123,8 +123,10 @@ class BookingRepository {
     return _wrap(_remoteDs.getUserCalendarSessions());
   }
 
-  Future<BookingModel> submitBooking(BookingModel booking) {
-    return _wrap(_remoteDs.createBooking(booking));
+  Future<BookingModel> submitBooking(BookingModel booking) async {
+    final created = await _wrap(_remoteDs.createBooking(booking));
+    await refreshBookingsAfterMutation();
+    return created;
   }
 
   Future<BookingModel> createBookingWithSchedule({
@@ -136,8 +138,8 @@ class BookingRepository {
     required double price,
     required String method,
     String? paymentReference,
-  }) {
-    return _wrap(
+  }) async {
+    final created = await _wrap(
       _remoteDs.createBookingWithSchedule(
         coachId: coachId,
         branchId: branchId,
@@ -149,6 +151,24 @@ class BookingRepository {
         paymentReference: paymentReference,
       ),
     );
+    await refreshBookingsAfterMutation();
+    return created;
+  }
+
+  /// Clears L1/L2 bookings cache so Booking/Sessions tabs show the new booking.
+  void invalidateBookingsCache() {
+    _bookingsCache = null;
+    _bookingsCachedAt = null;
+    _bookingsInFlight = null;
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId != null) {
+      unawaited(_cache.delete(LocalCacheStore.bookingsKey(userId)));
+    }
+  }
+
+  Future<List<BookingHistoryModel>> refreshBookingsAfterMutation() async {
+    invalidateBookingsCache();
+    return getUserBookings(force: true);
   }
 
   Future<String> uploadPaymentScreenshot({
@@ -243,6 +263,12 @@ class BookingRepository {
   void _setBookingsCache(List<BookingHistoryModel> bookings) {
     _bookingsCache = bookings;
     _bookingsCachedAt = DateTime.now();
+  }
+
+  void _emitBookings(List<BookingHistoryModel> bookings) {
+    _bookingsController ??=
+        StreamController<List<BookingHistoryModel>>.broadcast();
+    _bookingsController!.add(bookings);
   }
 
   void _ensureBookingsRealtime() {

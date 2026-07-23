@@ -115,7 +115,7 @@ class SessionsRepository {
 
   Future<SessionsSnapshot> refreshSessions({bool force = false}) async {
     _hydrateFromDisk();
-    if (_isFetchingSnapshot && _cachedSnapshot != null) {
+    if (!force && _isFetchingSnapshot && _cachedSnapshot != null) {
       return _cachedSnapshot!;
     }
     if (!force && _cachedSnapshot != null) {
@@ -145,7 +145,7 @@ class SessionsRepository {
       );
       _cachedSnapshot = snapshot;
       unawaited(_persistSnapshot(snapshot));
-      _snapshotController?.add(snapshot);
+      _emitSnapshot(snapshot);
       return snapshot;
     } finally {
       _isFetchingSnapshot = false;
@@ -192,6 +192,11 @@ class SessionsRepository {
 
   void _ensureSnapshotController() {
     _snapshotController ??= StreamController<SessionsSnapshot>.broadcast();
+  }
+
+  void _emitSnapshot(SessionsSnapshot snapshot) {
+    _ensureSnapshotController();
+    _snapshotController!.add(snapshot);
   }
 
   void _ensureRealtimeSubscription() {

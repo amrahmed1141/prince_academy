@@ -8,6 +8,7 @@ class BookingConfirmationDialog extends StatelessWidget {
   final BookingModel booking;
   final DateTime startDate;
   final DateTime endDate;
+  final VoidCallback onClose;
   final VoidCallback onViewBookings;
 
   const BookingConfirmationDialog({
@@ -15,6 +16,7 @@ class BookingConfirmationDialog extends StatelessWidget {
     required this.booking,
     required this.startDate,
     required this.endDate,
+    required this.onClose,
     required this.onViewBookings,
   });
 
@@ -23,6 +25,7 @@ class BookingConfirmationDialog extends StatelessWidget {
     required BookingModel booking,
     required DateTime startDate,
     required DateTime endDate,
+    required VoidCallback onClose,
     required VoidCallback onViewBookings,
   }) {
     return showDialog<void>(
@@ -32,6 +35,7 @@ class BookingConfirmationDialog extends StatelessWidget {
         booking: booking,
         startDate: startDate,
         endDate: endDate,
+        onClose: onClose,
         onViewBookings: onViewBookings,
       ),
     );
@@ -91,7 +95,10 @@ class BookingConfirmationDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            Navigator.of(context).pop();
+            onClose();
+          },
           child: const Text('Close'),
         ),
         ElevatedButton(
