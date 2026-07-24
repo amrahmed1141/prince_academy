@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/search/search_cubit.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/theme/theme.dart';
+import 'package:prince_academy/core/widgets/app_search_bar.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/home_coach_card.dart';
-import 'package:prince_academy/features/home/presentation/pages/home/widgets/searchbar.dart';
 
 /// Full coaches directory with search — opened from Home "View All"
 /// and the First Time Booking Card CTA.
-///
-/// Local [setState] is enough here: one-shot fetch + client-side search.
-/// A Cubit/Bloc would add boilerplate without reducing rebuilds for this scope.
 class CoachesPage extends StatefulWidget {
   const CoachesPage({super.key});
 
@@ -25,17 +24,25 @@ class CoachesPage extends StatefulWidget {
 
 class _CoachesPageState extends State<CoachesPage> {
   final TextEditingController _searchController = TextEditingController();
+  final Map<String, String> _classTypesByCoachId = {};
 
-  List<CoachModel> _allCoaches = const [];
-  List<CoachModel> _filteredCoaches = const [];
-  Map<String, String> _classTypesByCoachId = const {};
+  late final SearchCubit<CoachModel> _searchCubit;
+
   bool _isLoading = true;
   String? _errorMessage;
-  String _query = '';
 
   @override
   void initState() {
     super.initState();
+    _searchCubit = SearchCubit<CoachModel>(
+      matcher: (coach, query) {
+        final classType =
+            (_classTypesByCoachId[coach.id] ?? '').toLowerCase();
+        return coach.name.toLowerCase().contains(query) ||
+            coach.specialty.toLowerCase().contains(query) ||
+            classType.contains(query);
+      },
+    );
     // Defer so a sync cache hit never setStates during the first build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -46,22 +53,8 @@ class _CoachesPageState extends State<CoachesPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchCubit.close();
     super.dispose();
-  }
-
-  List<CoachModel> _filterCoaches({
-    required List<CoachModel> coaches,
-    required String query,
-    required Map<String, String> classTypes,
-  }) {
-    if (query.isEmpty) return List<CoachModel>.from(coaches);
-
-    return coaches.where((coach) {
-      final classType = (classTypes[coach.id] ?? '').toLowerCase();
-      return coach.name.toLowerCase().contains(query) ||
-          coach.specialty.toLowerCase().contains(query) ||
-          classType.contains(query);
-    }).toList();
   }
 
   Future<void> _loadCoaches({bool force = false}) async {
@@ -92,17 +85,13 @@ class _CoachesPageState extends State<CoachesPage> {
             ),
           )
           .toList();
-      final filtered = _filterCoaches(
-        coaches: coaches,
-        query: _query,
-        classTypes: classTypes,
-      );
 
-      // Single setState — never chain setState → setState after load.
+      _classTypesByCoachId
+        ..clear()
+        ..addAll(classTypes);
+      _searchCubit.setItems(coaches);
+
       setState(() {
-        _allCoaches = coaches;
-        _classTypesByCoachId = classTypes;
-        _filteredCoaches = filtered;
         _isLoading = false;
         _errorMessage = null;
       });
@@ -115,57 +104,44 @@ class _CoachesPageState extends State<CoachesPage> {
     }
   }
 
-  void _onSearchChanged(String value) {
-    final query = value.trim().toLowerCase();
-    final filtered = _filterCoaches(
-      coaches: _allCoaches,
-      query: query,
-      classTypes: _classTypesByCoachId,
-    );
-    setState(() {
-      _query = query;
-      _filteredCoaches = filtered;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Match Home: always paint the light cream gradient, even if the device
-    // is in dark mode (MaterialApp follows system brightness by default).
-    return Theme(
-      data: EAppTheme.lightTheme.copyWith(
-        scaffoldBackgroundColor: Colors.transparent,
-      ),
-      child: Material(
-        color: const Color(0xFFFFF9F5),
-        child: Container(
-          decoration: AppGradients.homeScreenDecoration(),
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            appBar: AppBar(
+    return BlocProvider.value(
+      value: _searchCubit,
+      child: Theme(
+        data: EAppTheme.lightTheme.copyWith(
+          scaffoldBackgroundColor: Colors.transparent,
+        ),
+        child: Material(
+          color: const Color(0xFFFFF9F5),
+          child: Container(
+            decoration: AppGradients.homeScreenDecoration(),
+            child: Scaffold(
               backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              foregroundColor: Colors.black,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-              leading: IconButton(
-                icon: const Icon(Iconsax.arrow_left),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              title: const Text('Choose Your Coach'),
-              centerTitle: false,
-            ),
-            body: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                HomeSearchBar(
-                  controller: _searchController,
-                  onChanged: _onSearchChanged,
-                  hintText: 'Search coaches by name or specialty',
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Iconsax.arrow_left),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                const SizedBox(height: 8),
-                Expanded(child: _buildBody()),
-              ],
+                title: const Text('Choose Your Coach'),
+                centerTitle: false,
+              ),
+              body: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CubitSearchBar<CoachModel>(
+                    controller: _searchController,
+                    hintText: 'Search coaches by name or specialty',
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(child: _buildBody()),
+                ],
+              ),
             ),
           ),
         ),
@@ -209,7 +185,8 @@ class _CoachesPageState extends State<CoachesPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: EColorConstants.primaryColor,
                 ),
-                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                child:
+                    const Text('Retry', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -217,51 +194,54 @@ class _CoachesPageState extends State<CoachesPage> {
       );
     }
 
-    if (_filteredCoaches.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Iconsax.user_remove, color: Colors.grey[400], size: 40),
-              const SizedBox(height: 12),
-              Text(
-                _query.isEmpty ? 'No coaches found' : 'No matching coaches',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+    return BlocBuilder<SearchCubit<CoachModel>, SearchState<CoachModel>>(
+      builder: (context, state) {
+        if (state.filteredItems.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Iconsax.user_remove, color: Colors.grey[400], size: 40),
+                  const SizedBox(height: 12),
+                  Text(
+                    state.hasQuery ? 'No matching coaches' : 'No coaches found',
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    state.hasQuery
+                        ? 'Try a different name or specialty.'
+                        : 'Check back later for available coaches.',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                _query.isEmpty
-                    ? 'Check back later for available coaches.'
-                    : 'Try a different name or specialty.',
-                style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+            ),
+          );
+        }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(15, 4, 15, 24),
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      itemCount: _filteredCoaches.length,
-      itemBuilder: (context, index) {
-        final coach = _filteredCoaches[index];
-        return RepaintBoundary(
-          child: HomeCoachCard(
-            key: ValueKey(coach.id),
-            coach: coach,
-            classType: _classTypesByCoachId[coach.id],
-            dark: false,
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(15, 4, 15, 24),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
           ),
+          itemCount: state.filteredItems.length,
+          itemBuilder: (context, index) {
+            final coach = state.filteredItems[index];
+            return RepaintBoundary(
+              child: HomeCoachCard(
+                key: ValueKey(coach.id),
+                coach: coach,
+                classType: _classTypesByCoachId[coach.id],
+              ),
+            );
+          },
         );
       },
     );

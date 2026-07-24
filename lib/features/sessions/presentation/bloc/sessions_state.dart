@@ -33,6 +33,7 @@ class SessionsLoaded extends SessionsState {
   final bool showCoachFilter;
   final bool isLoading;
   final WeeklyProgressSummary weeklyProgress;
+  final String searchQuery;
 
   const SessionsLoaded({
     required this.coaches,
@@ -51,6 +52,7 @@ class SessionsLoaded extends SessionsState {
     required this.showCoachFilter,
     this.isLoading = false,
     required this.weeklyProgress,
+    this.searchQuery = '',
   });
 
   SessionsLoaded copyWith({
@@ -72,6 +74,7 @@ class SessionsLoaded extends SessionsState {
     bool? showCoachFilter,
     bool? isLoading,
     WeeklyProgressSummary? weeklyProgress,
+    String? searchQuery,
   }) {
     return SessionsLoaded(
       coaches: coaches ?? this.coaches,
@@ -91,8 +94,11 @@ class SessionsLoaded extends SessionsState {
       showCoachFilter: showCoachFilter ?? this.showCoachFilter,
       isLoading: isLoading ?? this.isLoading,
       weeklyProgress: weeklyProgress ?? this.weeklyProgress,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
+
+  bool get hasSearchQuery => searchQuery.isNotEmpty;
 
   @override
   List<Object?> get props => [
@@ -112,6 +118,7 @@ class SessionsLoaded extends SessionsState {
         showCoachFilter,
         isLoading,
         weeklyProgress,
+        searchQuery,
       ];
 }
 

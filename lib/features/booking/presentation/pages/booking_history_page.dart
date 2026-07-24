@@ -3,9 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/widgets/app_search_bar.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_event.dart';
@@ -40,11 +40,10 @@ class _BookingHistoryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: dark ? Colors.black : const Color(0xFFF7F7F7),
+      backgroundColor: const Color(0xFFF7F7F7),
       appBar: AppBar(
         automaticallyImplyLeading: Navigator.canPop(context),
         title: const Text('Booking History'),
@@ -92,6 +91,21 @@ class _BookingHistoryView extends StatelessWidget {
                   const LinearProgressIndicator(minHeight: 2),
                   const SizedBox(height: 8),
                 ],
+                AppSearchBar(
+                  hintText: 'Search by coach, specialty, or status',
+                  padding: EdgeInsets.zero,
+                  onChanged: (value) {
+                    context
+                        .read<BookingHistoryBloc>()
+                        .add(SearchBookings(value));
+                  },
+                  onClear: () {
+                    context
+                        .read<BookingHistoryBloc>()
+                        .add(const SearchBookings(''));
+                  },
+                ),
+                const SizedBox(height: 12),
                 _FilterCardsRow(
                   totalCount: state.countForFilter(null),
                   activeCount: state.countForFilter('active'),
@@ -111,7 +125,9 @@ class _BookingHistoryView extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 48),
                     child: Center(
                       child: Text(
-                        'No bookings match this filter',
+                        state.hasSearchQuery
+                            ? 'No bookings match your search'
+                            : 'No bookings match this filter',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: _AppColors.textSecondary,
                         ),
@@ -129,6 +145,28 @@ class _BookingHistoryView extends StatelessWidget {
                       ),
                     ),
                   ),
+                if (state.hasMore || state.isLoadingMore) ...[
+                  const SizedBox(height: 8),
+                  Center(
+                    child: state.isLoadingMore
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : TextButton(
+                            onPressed: () {
+                              context
+                                  .read<BookingHistoryBloc>()
+                                  .add(const LoadMoreBookingHistory());
+                            },
+                            child: const Text('Load more'),
+                          ),
+                  ),
+                ],
               ],
             ),
           );

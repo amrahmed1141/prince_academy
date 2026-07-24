@@ -1,14 +1,6 @@
-
 import 'package:flutter/material.dart';
 
-
 class EHelperFunction {
-
-   // Method to check if dark mode is enabled
-  static bool isDarkMode(BuildContext context) {
-    return MediaQuery.of(context).platformBrightness == Brightness.dark;
-  }
-
   // Method to get product color
   static Color? getProductColor(String colorName) {
     switch (colorName.toLowerCase()) {

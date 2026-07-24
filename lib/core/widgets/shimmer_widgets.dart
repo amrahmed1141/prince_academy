@@ -221,6 +221,39 @@ class TrackingPageShimmer extends StatelessWidget {
   }
 }
 
+class UserTrackingDetailShimmer extends StatelessWidget {
+  const UserTrackingDetailShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: const [
+        _ShimmerBox(width: double.infinity, height: 148, borderRadius: 20),
+        SizedBox(height: 16),
+        _ShimmerBox(width: 140, height: 14, borderRadius: 6),
+        SizedBox(height: 12),
+        Row(
+          children: [
+            _ShimmerBox(width: 110, height: 36, borderRadius: 20),
+            SizedBox(width: 8),
+            _ShimmerBox(width: 96, height: 36, borderRadius: 20),
+            SizedBox(width: 8),
+            _ShimmerBox(width: 96, height: 36, borderRadius: 20),
+          ],
+        ),
+        SizedBox(height: 16),
+        _ShimmerBox(width: double.infinity, height: 42, borderRadius: 12),
+        SizedBox(height: 16),
+        _ShimmerBox(width: 100, height: 14, borderRadius: 6),
+        SizedBox(height: 12),
+        CoachCardShimmer(),
+        CoachCardShimmer(),
+      ],
+    );
+  }
+}
+
 class QrScreenShimmer extends StatelessWidget {
   const QrScreenShimmer({super.key});
 

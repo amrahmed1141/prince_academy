@@ -176,30 +176,35 @@ class MemberBookingCard extends StatelessWidget {
         ? data.selectedTime!
         : 'Time not set';
 
-    final cardWidget = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    final cardWidget = Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onViewSessions,
         borderRadius: BorderRadius.circular(16),
-        border: showMarkAttendance
-            ? null
-            : Border.all(
-                color: EColorConstants.primaryColor.withOpacity(0.12),
-                width: 1,
-              ),
-        boxShadow: showMarkAttendance
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: showMarkAttendance
+                ? null
+                : Border.all(
+                    color: EColorConstants.primaryColor.withOpacity(0.12),
+                    width: 1,
+                  ),
+            boxShadow: showMarkAttendance
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -525,6 +530,8 @@ class MemberBookingCard extends StatelessWidget {
             ),
           ],
         ],
+          ),
+        ),
       ),
     );
 

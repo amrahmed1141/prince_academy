@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
+import 'package:prince_academy/core/widgets/app_search_bar.dart';
 import 'package:prince_academy/features/sessions/presentation/pages/user_session_detail_page.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
 import 'package:prince_academy/features/sessions/data/models/coach_summary_model.dart';
@@ -163,6 +164,18 @@ class _SessionsLoadedBody extends StatelessWidget {
         slivers: [
           if (!hideInlineHeader)
             const SliverToBoxAdapter(child: _SessionsPageHeader()),
+          SliverToBoxAdapter(
+            child: AppSearchBar(
+              hintText: 'Search by coach, specialty, or branch',
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              onChanged: (value) {
+                context.read<SessionsBloc>().add(SearchSessions(value));
+              },
+              onClear: () {
+                context.read<SessionsBloc>().add(const SearchSessions(''));
+              },
+            ),
+          ),
           BlocSelector<SessionsBloc, SessionsState, WeeklyProgressSummary>(
             selector: (state) => state is SessionsLoaded
                 ? state.weeklyProgress
@@ -218,15 +231,18 @@ class _SessionsLoadedBody extends StatelessWidget {
               return _BookingListData(
                 bookings: state.bookings,
                 allSessions: state.allSessions,
+                hasSearchQuery: state.hasSearchQuery,
               );
             },
             builder: (context, data) {
               final bookings = data.bookings;
               if (bookings.isEmpty) {
-                return const SliverFillRemaining(
+                return SliverFillRemaining(
                   hasScrollBody: false,
                   child: _EmptyView(
-                    message: 'No active bookings yet',
+                    message: data.hasSearchQuery
+                        ? 'No sessions match your search'
+                        : 'No active bookings yet',
                     icon: Icons.event_busy_outlined,
                   ),
                 );
@@ -341,21 +357,15 @@ class _SessionsPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'My Sessions',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'My Sessions',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
       ),
     );
   }
@@ -400,15 +410,18 @@ class _CoachFilterData {
 class _BookingListData {
   final List<BookingHistoryModel> bookings;
   final List<Session> allSessions;
+  final bool hasSearchQuery;
 
   const _BookingListData({
     required this.bookings,
     required this.allSessions,
+    this.hasSearchQuery = false,
   });
 
   const _BookingListData.empty()
       : bookings = const [],
-        allSessions = const [];
+        allSessions = const [],
+        hasSearchQuery = false;
 }
 
 // UPDATED: skeleton matches booking-card list layout

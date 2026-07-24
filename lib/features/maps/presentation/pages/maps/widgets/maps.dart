@@ -4,7 +4,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/features/maps/data/models/maps_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/features/maps/presentation/pages/maps/map_page.dart';
 
 class GymMapContainer extends StatelessWidget {
@@ -14,8 +13,6 @@ class GymMapContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
-    
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -28,7 +25,7 @@ class GymMapContainer extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: dark ? Colors.grey[800] : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(

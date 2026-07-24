@@ -9,13 +9,11 @@ import 'package:prince_academy/features/home/presentation/pages/home/coach_profi
 class HomeCoachCard extends StatelessWidget {
   final CoachModel coach;
   final String? classType;
-  final bool dark;
 
   const HomeCoachCard({
     super.key,
     required this.coach,
     this.classType,
-    required this.dark,
   });
 
   @override
@@ -38,7 +36,7 @@ class HomeCoachCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: dark ? Colors.grey[800] : Colors.white,
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -78,10 +76,10 @@ class HomeCoachCard extends StatelessWidget {
                                   coach.name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
-                                    color: dark ? Colors.white : Colors.black,
+                                    color: Colors.black,
                                     fontFamily: 'Poppins',
                                   ),
                                 ),
@@ -97,12 +95,10 @@ class HomeCoachCard extends StatelessWidget {
                           const SizedBox(height: 8),
                           _ClassTypeChip(
                             label: displayClassType,
-                            dark: dark,
                           ),
                           const SizedBox(height: 6),
                           _MemberCountRow(
                             count: coach.memberCount,
-                            dark: dark,
                           ),
                         ],
                       ),
@@ -160,11 +156,9 @@ class HomeCoachCard extends StatelessWidget {
 
 class _MemberCountRow extends StatelessWidget {
   final int count;
-  final bool dark;
 
   const _MemberCountRow({
     required this.count,
-    required this.dark,
   });
 
   @override
@@ -177,7 +171,7 @@ class _MemberCountRow extends StatelessWidget {
         Icon(
           Iconsax.user,
           size: 14,
-          color: dark ? Colors.white60 : Colors.grey[600],
+          color: Colors.grey[600],
         ),
         const SizedBox(width: 5),
         Text(
@@ -185,7 +179,7 @@ class _MemberCountRow extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: dark ? Colors.white70 : Colors.grey[700],
+            color: Colors.grey[700],
             fontFamily: 'Poppins',
           ),
         ),
@@ -196,11 +190,9 @@ class _MemberCountRow extends StatelessWidget {
 
 class _ClassTypeChip extends StatelessWidget {
   final String label;
-  final bool dark;
 
   const _ClassTypeChip({
     required this.label,
-    required this.dark,
   });
 
   @override
@@ -208,26 +200,20 @@ class _ClassTypeChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: dark
-            ? EColorConstants.primaryColor.withOpacity(0.18)
-            : EColorConstants.authFieldBackground,
+        color: EColorConstants.authFieldBackground,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: dark
-              ? EColorConstants.primaryColor.withOpacity(0.35)
-              : EColorConstants.authFieldBorder,
+          color: EColorConstants.authFieldBorder,
         ),
       ),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: dark
-              ? EColorConstants.authLightPrimary
-              : EColorConstants.primaryColor,
+          color: EColorConstants.primaryColor,
           fontFamily: 'Poppins',
           letterSpacing: 0.2,
         ),

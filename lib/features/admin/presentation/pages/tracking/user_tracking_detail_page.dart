@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/admin_scan_profile_model.dart';
 import 'package:prince_academy/features/admin/data/models/payment_verification_data.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
@@ -32,6 +35,9 @@ class UserTrackingDetailPage extends StatefulWidget {
 class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
   static const _successGreen = Color(0xFF2E7D32);
 
+  late final CoachRepository _repository;
+  StreamSubscription<List<AdminScanProfile>>? _profilesSub;
+
   bool _isLoading = true;
   String? _error;
   List<AdminScanProfile> _bookings = [];
@@ -42,26 +48,48 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
   @override
   void initState() {
     super.initState();
-    _loadBookings();
+    _repository = sl<CoachRepository>();
+
+    final cached = _repository.getCachedUserScanProfiles(widget.userId);
+    if (cached != null) {
+      _bookings = cached;
+      _isLoading = false;
+    }
+
+    _profilesSub = _repository.watchUserScanProfiles(widget.userId).listen(
+      (bookings) {
+        if (!mounted) return;
+        setState(() {
+          _bookings = bookings;
+          _isLoading = false;
+          _error = null;
+        });
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        // Keep showing cached content on background refresh failures.
+        if (_bookings.isNotEmpty) return;
+        setState(() {
+          _error = e.toString().replaceFirst('Exception: ', '');
+          _isLoading = false;
+        });
+      },
+    );
   }
 
-  Future<void> _loadBookings() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _profilesSub?.cancel();
+    _repository.stopWatchingUserScanProfiles(widget.userId);
+    super.dispose();
+  }
 
+  Future<void> _reload({bool force = true}) async {
     try {
-      final bookings =
-          await sl<CoachRepository>().getUserScanProfiles(widget.userId);
-
-      if (!mounted) return;
-      setState(() {
-        _bookings = bookings;
-        _isLoading = false;
-      });
+      await _repository.getUserScanProfiles(widget.userId, force: force);
     } catch (e) {
       if (!mounted) return;
+      if (_bookings.isNotEmpty) return;
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
@@ -116,7 +144,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
     setState(() => _busyBookingIds.add(booking.bookingId));
 
     try {
-      await sl<CoachRepository>().markAttendance(
+      await _repository.markAttendance(
         bookingId: booking.bookingId,
         userId: widget.userId,
         coachId: booking.coachId,
@@ -178,7 +206,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
     );
 
     if (verified == true) {
-      await _loadBookings();
+      await _reload(force: true);
     }
   }
 
@@ -198,7 +226,7 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
     );
 
     if (refreshed == true) {
-      await _loadBookings();
+      await _reload(force: true);
     }
   }
 
@@ -219,16 +247,12 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
       backgroundColor: EColorConstants.authFieldBackground,
       body: SafeArea(
         child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: EColorConstants.primaryColor,
-                ),
-              )
+            ? const UserTrackingDetailShimmer()
             : _error != null
-                ? _ErrorBody(message: _error!, onRetry: _loadBookings)
+                ? _ErrorBody(message: _error!, onRetry: () => _reload(force: true))
                 : RefreshIndicator(
                     color: EColorConstants.primaryColor,
-                    onRefresh: _loadBookings,
+                    onRefresh: () => _reload(force: true),
                     child: CustomScrollView(
                       physics: const AlwaysScrollableScrollPhysics(
                         parent: BouncingScrollPhysics(),

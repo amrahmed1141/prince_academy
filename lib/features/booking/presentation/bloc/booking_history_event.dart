@@ -16,6 +16,10 @@ class LoadBookingHistory extends BookingHistoryEvent {
   List<Object?> get props => [forceRefresh];
 }
 
+class LoadMoreBookingHistory extends BookingHistoryEvent {
+  const LoadMoreBookingHistory();
+}
+
 class FilterBookings extends BookingHistoryEvent {
   final String? status;
 
@@ -23,4 +27,13 @@ class FilterBookings extends BookingHistoryEvent {
 
   @override
   List<Object?> get props => [status];
+}
+
+class SearchBookings extends BookingHistoryEvent {
+  final String query;
+
+  const SearchBookings(this.query);
+
+  @override
+  List<Object?> get props => [query];
 }

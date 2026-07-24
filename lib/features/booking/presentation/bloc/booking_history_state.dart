@@ -19,32 +19,63 @@ class BookingHistoryLoading extends BookingHistoryState {
 class BookingHistoryLoaded extends BookingHistoryState {
   final List<BookingHistoryModel> allBookings;
   final String? activeFilter;
+  final String searchQuery;
   final bool isRefreshing;
+  final bool hasMore;
+  final bool isLoadingMore;
+
+  static const int pageSize = 50;
 
   const BookingHistoryLoaded({
     required this.allBookings,
     this.activeFilter,
+    this.searchQuery = '',
     this.isRefreshing = false,
+    this.hasMore = false,
+    this.isLoadingMore = false,
   });
 
   BookingHistoryLoaded copyWith({
     List<BookingHistoryModel>? allBookings,
     String? activeFilter,
     bool clearFilter = false,
+    String? searchQuery,
     bool? isRefreshing,
+    bool? hasMore,
+    bool? isLoadingMore,
   }) {
     return BookingHistoryLoaded(
       allBookings: allBookings ?? this.allBookings,
       activeFilter: clearFilter ? null : (activeFilter ?? this.activeFilter),
+      searchQuery: searchQuery ?? this.searchQuery,
       isRefreshing: isRefreshing ?? this.isRefreshing,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     );
   }
 
   List<BookingHistoryModel> get bookings {
-    if (activeFilter == null) return allBookings;
-    return allBookings
-        .where((booking) => booking.effectiveDisplayStatus == activeFilter)
-        .toList();
+    var list = allBookings;
+    if (activeFilter != null) {
+      list = list
+          .where((booking) => booking.effectiveDisplayStatus == activeFilter)
+          .toList();
+    }
+    if (searchQuery.isNotEmpty) {
+      list = list.where(_matchesSearch).toList();
+    }
+    return list;
+  }
+
+  bool get hasSearchQuery => searchQuery.isNotEmpty;
+
+  bool _matchesSearch(BookingHistoryModel booking) {
+    final q = searchQuery;
+    return booking.coachName.toLowerCase().contains(q) ||
+        (booking.coachSpecialty?.toLowerCase().contains(q) ?? false) ||
+        (booking.branchName?.toLowerCase().contains(q) ?? false) ||
+        booking.effectiveDisplayStatus.toLowerCase().contains(q) ||
+        booking.bookingStatus.toLowerCase().contains(q);
   }
 
   int countForFilter(String? filter) {
@@ -55,7 +86,8 @@ class BookingHistoryLoaded extends BookingHistoryState {
   }
 
   @override
-  List<Object?> get props => [allBookings, activeFilter, isRefreshing];
+  List<Object?> get props =>
+      [allBookings, activeFilter, searchQuery, isRefreshing, hasMore, isLoadingMore];
 }
 
 class BookingHistoryError extends BookingHistoryState {

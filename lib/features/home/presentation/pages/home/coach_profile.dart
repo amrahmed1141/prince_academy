@@ -188,7 +188,6 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
   Widget _statsRow({
     required int memberCount,
     required int sessionCount,
-    required bool dark,
   }) {
     return Row(
       children: [
@@ -197,20 +196,18 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
             icon: Iconsax.profile_2user,
             value: '$memberCount',
             label: 'Members',
-            dark: dark,
           ),
         ),
         Container(
           width: 1,
           height: 48,
-          color: dark ? Colors.grey[700] : Colors.grey[300],
+          color: Colors.grey[300],
         ),
         Expanded(
           child: _StatItem(
             icon: Iconsax.calendar_1,
             value: '$sessionCount',
             label: 'Sessions',
-            dark: dark,
           ),
         ),
       ],
@@ -219,12 +216,10 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Same light look as Home / Coaches directory (ignore system dark mode).
     return Theme(
       data: EAppTheme.lightTheme,
       child: Builder(
         builder: (context) {
-          const dark = false;
           final size = MediaQuery.of(context).size;
           final topInset = MediaQuery.of(context).padding.top;
 
@@ -279,7 +274,6 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
 
           return _buildLoadedProfile(
             context: context,
-            dark: dark,
             size: size,
             topInset: topInset,
           );
@@ -290,7 +284,6 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
 
   Widget _buildLoadedProfile({
     required BuildContext context,
-    required bool dark,
     required Size size,
     required double topInset,
   }) {
@@ -405,7 +398,6 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                   _statsRow(
                     memberCount: coach.memberCount,
                     sessionCount: _totalSessionCount,
-                    dark: dark,
                   ),
                   if (_branches.isNotEmpty) ...[
                     const SizedBox(height: 24),
@@ -427,7 +419,7 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: dark ? Colors.grey[800] : Colors.grey[100],
+                            color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
@@ -436,9 +428,7 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                               Icon(
                                 Iconsax.location,
                                 size: 14,
-                                color: dark
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600],
+                                color: Colors.grey[600],
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -447,9 +437,7 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                                     .textTheme
                                     .bodyMedium
                                     ?.copyWith(
-                                      color: dark
-                                          ? Colors.white
-                                          : Colors.black87,
+                                      color: Colors.black87,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -471,7 +459,7 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                   const SizedBox(height: 12),
                   if (_sessionsByBranch.isEmpty ||
                       _sessionsByBranch.every((g) => g.pairs.isEmpty))
-                    _EmptySessionsCard(dark: dark)
+                    const _EmptySessionsCard()
                   else
                     ..._sessionsByBranch.map(
                       (group) => Padding(
@@ -479,7 +467,6 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
                         child: _BranchSessionsCard(
                           branchName: group.branchName,
                           pairs: group.pairs,
-                          dark: dark,
                         ),
                       ),
                     ),
@@ -493,7 +480,7 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
-          color: dark ? Colors.grey[900] : Colors.white,
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
@@ -583,13 +570,11 @@ class _StatItem extends StatelessWidget {
     required this.icon,
     required this.value,
     required this.label,
-    required this.dark,
   });
 
   final IconData icon;
   final String value;
   final String label;
-  final bool dark;
 
   @override
   Widget build(BuildContext context) {
@@ -602,10 +587,10 @@ class _StatItem extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               value,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: dark ? Colors.white : Colors.black,
+                color: Colors.black,
               ),
             ),
           ],
@@ -613,10 +598,10 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: dark ? Colors.grey[400] : Colors.black87,
+            color: Colors.black87,
           ),
         ),
       ],
@@ -676,12 +661,10 @@ class _BranchSessionsCard extends StatelessWidget {
   const _BranchSessionsCard({
     required this.branchName,
     required this.pairs,
-    required this.dark,
   });
 
   final String branchName;
   final List<SessionDayTypePair> pairs;
-  final bool dark;
 
   @override
   Widget build(BuildContext context) {
@@ -689,10 +672,10 @@ class _BranchSessionsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       decoration: BoxDecoration(
-        color: dark ? Colors.grey[900] : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: dark ? Colors.grey[800]! : Colors.grey[200]!,
+          color: Colors.grey[200]!,
         ),
         boxShadow: [
           BoxShadow(
@@ -718,7 +701,7 @@ class _BranchSessionsCard extends StatelessWidget {
               'No sessions yet',
               style: TextStyle(
                 fontSize: 13,
-                color: dark ? Colors.grey[500] : Colors.grey[500],
+                color: Colors.grey[500],
               ),
             ),
           ] else ...[
@@ -743,10 +726,10 @@ class _BranchSessionsCard extends StatelessWidget {
                             pair.classType,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: dark ? Colors.white : Colors.black87,
+                              color: Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -756,8 +739,7 @@ class _BranchSessionsCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,
-                              color:
-                                  dark ? Colors.grey[400] : Colors.grey[500],
+                              color: Colors.grey[500],
                             ),
                           ),
                         ],
@@ -775,9 +757,7 @@ class _BranchSessionsCard extends StatelessWidget {
 }
 
 class _EmptySessionsCard extends StatelessWidget {
-  const _EmptySessionsCard({required this.dark});
-
-  final bool dark;
+  const _EmptySessionsCard();
 
   @override
   Widget build(BuildContext context) {
@@ -785,10 +765,10 @@ class _EmptySessionsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
       decoration: BoxDecoration(
-        color: dark ? Colors.grey[900] : Colors.grey[50],
+        color: Colors.grey[50],
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: dark ? Colors.grey[800]! : Colors.grey[200]!,
+          color: Colors.grey[200]!,
         ),
       ),
       child: Column(
@@ -796,13 +776,13 @@ class _EmptySessionsCard extends StatelessWidget {
           Icon(
             Iconsax.calendar_remove,
             size: 40,
-            color: dark ? Colors.grey[600] : Colors.grey[400],
+            color: Colors.grey[400],
           ),
           const SizedBox(height: 12),
           Text(
             'No sessions available yet',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: dark ? Colors.grey[400] : Colors.grey[600],
+                  color: Colors.grey[600],
                   fontWeight: FontWeight.w500,
                 ),
           ),

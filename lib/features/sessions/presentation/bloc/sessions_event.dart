@@ -62,3 +62,12 @@ class SelectDate extends SessionsEvent {
   @override
   List<Object?> get props => [date];
 }
+
+class SearchSessions extends SessionsEvent {
+  final String query;
+
+  const SearchSessions(this.query);
+
+  @override
+  List<Object?> get props => [query];
+}

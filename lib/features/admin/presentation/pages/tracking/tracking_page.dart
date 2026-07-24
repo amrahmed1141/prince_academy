@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
+import 'package:prince_academy/core/widgets/app_search_bar.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
@@ -12,6 +15,8 @@ import 'package:prince_academy/features/admin/data/repositories/coach_repository
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_event.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/tracking/tracking_state.dart';
+import 'package:prince_academy/features/admin/presentation/pages/tracking/all_coaches_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/tracking/all_members_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/user_tracking_detail_page.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 
@@ -40,6 +45,7 @@ class TrackingView extends StatefulWidget {
 class _TrackingViewState extends State<TrackingView> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -55,8 +61,17 @@ class _TrackingViewState extends State<TrackingView> {
     }
   }
 
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      context.read<TrackingBloc>().add(SearchUsers(value));
+    });
+  }
+
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
@@ -126,62 +141,16 @@ class _TrackingViewState extends State<TrackingView> {
             ),
           ),
           SliverToBoxAdapter(
-            child: Padding(
+            child: AppSearchBar(
+              controller: _searchController,
+              hintText: 'Search by name or phone...',
+              variant: AppSearchBarVariant.outlined,
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  color: EColorConstants.authTextDarkBrown,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Search by name or phone...',
-                  hintStyle: const TextStyle(
-                    fontFamily: 'Poppins',
-                    color: EColorConstants.authPlaceholderGray,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: EColorConstants.authPlaceholderGray,
-                  ),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            context
-                                .read<TrackingBloc>()
-                                .add(const SearchUsers(''));
-                            setState(() {});
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: EColorConstants.authCardWhite,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: EColorConstants.authFieldBorder,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: EColorConstants.authFieldBorder,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: EColorConstants.primaryColor,
-                    ),
-                  ),
-                ),
-                onChanged: (value) {
-                  context.read<TrackingBloc>().add(SearchUsers(value));
-                  setState(() {});
-                },
-              ),
+              onChanged: _onSearchChanged,
+              onClear: () {
+                _searchDebounce?.cancel();
+                context.read<TrackingBloc>().add(const SearchUsers(''));
+              },
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
@@ -242,26 +211,49 @@ class _TrackingViewState extends State<TrackingView> {
                     color: EColorConstants.primaryColor,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    state.displayCoaches.isEmpty
-                        ? 'COACH OVERVIEW'
-                        : 'COACH OVERVIEW (${state.displayCoaches.length})',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.4,
-                      color: EColorConstants.authTextDarkBrown,
-                      fontFamily: 'Poppins',
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            state.displayCoaches.isEmpty
+                                ? 'COACH OVERVIEW'
+                                : 'COACH OVERVIEW (${state.displayCoaches.length})',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                              color: EColorConstants.authTextDarkBrown,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ),
+                        if (state.isFiltering) ...[
+                          const SizedBox(width: 8),
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  if (state.isFiltering) ...[
-                    const SizedBox(width: 8),
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ],
+                  _ViewAllButton(
+                    onTap: () async {
+                      final coachId = await Navigator.of(context).push<String>(
+                        MaterialPageRoute(
+                          builder: (_) => AllCoachesPage(
+                            initialCoaches: state.displayCoaches,
+                          ),
+                        ),
+                      );
+                      if (!context.mounted || coachId == null) return;
+                      context
+                          .read<TrackingBloc>()
+                          .add(FilterByCoach(coachId));
+                    },
+                  ),
                 ],
               ),
             ),
@@ -351,24 +343,43 @@ class _TrackingViewState extends State<TrackingView> {
                         color: EColorConstants.primaryColor,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'ALL SUBSCRIBERS (${state.filteredUsers.length})',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
-                          color: EColorConstants.authTextDarkBrown,
-                          fontFamily: 'Poppins',
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'ALL MEMBERS (${state.membersCountLabel})',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.4,
+                                  color: EColorConstants.authTextDarkBrown,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ),
+                            if (state.isSearching) ...[
+                              const SizedBox(width: 8),
+                              const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (state.isSearching) ...[
-                        const SizedBox(width: 8),
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ],
+                      _ViewAllButton(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AllMembersPage(
+                                initialMembers: state.visibleUsers,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                   if (state.selectedCoachName != null) ...[
@@ -418,8 +429,8 @@ class _TrackingViewState extends State<TrackingView> {
                     const SizedBox(height: 12),
                     Text(
                       state.users.isEmpty
-                          ? 'No subscribers in database yet.'
-                          : 'No subscribers match this filter.',
+                          ? 'No members in database yet.'
+                          : 'No members match this filter.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 13,
@@ -437,6 +448,35 @@ class _TrackingViewState extends State<TrackingView> {
                 (context, index) {
                   final visible = state.visibleUsers;
                   if (index >= visible.length) {
+                    if (state.loadMoreError != null) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 20,
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              state.loadMoreError!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: EColorConstants.authPlaceholderGray,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                context
+                                    .read<TrackingBloc>()
+                                    .add(const LoadMoreSubscribers());
+                              },
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(
@@ -469,11 +509,41 @@ class _TrackingViewState extends State<TrackingView> {
                   );
                 },
                 childCount: state.visibleUsers.length +
-                    (state.isLoadingMore || state.hasMoreSubscribers ? 1 : 0),
+                    (state.isLoadingMore ||
+                            state.hasMoreSubscribers ||
+                            state.loadMoreError != null
+                        ? 1
+                        : 0),
               ),
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
+      ),
+    );
+  }
+}
+
+class _ViewAllButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ViewAllButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Text(
+          'View All',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: EColorConstants.primaryColor,
+            fontFamily: 'Poppins',
+          ),
+        ),
       ),
     );
   }

@@ -14,9 +14,10 @@ import 'package:prince_academy/features/booking/data/models/booking_history_mode
 import 'package:prince_academy/features/home/presentation/bloc/home_bloc.dart';
 import 'package:prince_academy/features/home/presentation/bloc/home_event.dart';
 import 'package:prince_academy/features/home/presentation/bloc/home_state.dart';
+import 'package:prince_academy/core/widgets/app_search_bar.dart';
+import 'package:prince_academy/core/search/search_query_cubit.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/category_list.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/coaches_list.dart';
-import 'package:prince_academy/features/home/presentation/pages/home/widgets/searchbar.dart';
 import 'package:prince_academy/features/home/presentation/widgets/calendar_strip.dart';
 import 'package:prince_academy/features/home/presentation/widgets/first_time_booking_card.dart';
 import 'package:prince_academy/features/home/presentation/pages/coaches_page.dart';
@@ -50,10 +51,18 @@ class _HomePageBody extends StatefulWidget {
 class _HomePageBodyState extends State<_HomePageBody> {
   final ValueNotifier<String?> _selectedCategoryNotifier =
       ValueNotifier<String?>('All');
+  late final SearchQueryCubit _searchQueryCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchQueryCubit = SearchQueryCubit();
+  }
 
   @override
   void dispose() {
     _selectedCategoryNotifier.dispose();
+    _searchQueryCubit.close();
     super.dispose();
   }
 
@@ -67,7 +76,9 @@ class _HomePageBodyState extends State<_HomePageBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return BlocProvider.value(
+      value: _searchQueryCubit,
+      child: Container(
       decoration: AppGradients.homeScreenDecoration(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -171,7 +182,9 @@ class _HomePageBodyState extends State<_HomePageBody> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 8),
-                    HomeSearchBar(),
+                    QuerySearchBar(
+                      hintText: 'Search For Coaches, Classes, or Events',
+                    ),
                     SizedBox(height: 8),
                   ],
                 ),
@@ -284,6 +297,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
                     const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                 sliver: CoachesList(
                   selectedCategoryNotifier: _selectedCategoryNotifier,
+                  searchQueryCubit: _searchQueryCubit,
                 ),
               ),
               const SliverToBoxAdapter(
@@ -292,6 +306,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

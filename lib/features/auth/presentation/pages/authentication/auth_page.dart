@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/app/app.dart';
-import 'package:prince_academy/app/bottom_navigation/navigation_bottom.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/constants/text.dart';
-import 'package:prince_academy/features/admin/presentation/pages/admin_home.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
@@ -82,11 +80,12 @@ class _AuthPageState extends State<AuthPage>
 
       if (!mounted) return;
 
+      // Must use AuthenticatedShell so NotificationBloc (header bell) is in tree.
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => state.user.role == 'admin'
-              ? const AdminHomeScreen()
-              : const NavigationBottom(),
+          builder: (_) => AuthenticatedShell(
+            isAdmin: state.user.role == 'admin',
+          ),
         ),
         (route) => false,
       );

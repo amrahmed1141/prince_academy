@@ -31,6 +31,7 @@ class ActiveUser {
       activeBookings: (json['active_bookings'] as num?)?.toInt() ?? 0,
       expiredBookings: (json['expired_bookings'] as num?)?.toInt() ?? 0,
       latestSubscriptionEnd: _parseDate(json['latest_subscription_end']),
+      hasPendingPayment: json['has_pending_payment'] as bool? ?? false,
     );
   }
 

@@ -6,7 +6,6 @@ import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/features/auth/data/models/app_user.dart';
@@ -33,11 +32,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Demo stats (replace later from enrollments/sessions repo)
-  static const int _activeEnrollments = 1;
-  static const int _completedEnrollments = 3;
-  static const int _remainingSessions = 7;
-
   bool notificationsEnabled = true;
   bool _isUploadingAvatar = false;
 
@@ -83,11 +77,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
-
     return Container(
-      decoration: dark ? null : AppGradients.screenDecoration(),
-      color: dark ? Colors.black : null,
+      decoration: AppGradients.screenDecoration(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -128,12 +119,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   onAvatarTap: user == null
                       ? null
                       : () => _pickAndUploadAvatar(user),
-                ),
-                const SizedBox(height: 12),
-                const _StatsRow(
-                  activeEnrollments: _activeEnrollments,
-                  completedEnrollments: _completedEnrollments,
-                  remainingSessions: _remainingSessions,
                 ),
                 const SizedBox(height: 16),
                 const _SectionTitle(title: 'My Account'),
@@ -422,72 +407,6 @@ class _ProfileHeaderCard extends StatelessWidget {
               ],
             ),
           )
-        ],
-      ),
-    );
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({
-    required this.activeEnrollments,
-    required this.completedEnrollments,
-    required this.remainingSessions,
-  });
-
-  final int activeEnrollments;
-  final int completedEnrollments;
-  final int remainingSessions;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-            child: _StatCard(label: 'Active', value: '$activeEnrollments')),
-        const SizedBox(width: 10),
-        Expanded(
-            child:
-                _StatCard(label: 'Completed', value: '$completedEnrollments')),
-        const SizedBox(width: 10),
-        Expanded(
-            child: _StatCard(label: 'Remaining', value: '$remainingSessions')),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
         ],
       ),
     );

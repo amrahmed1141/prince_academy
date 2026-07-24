@@ -45,7 +45,17 @@ import 'package:prince_academy/features/admin/presentation/widgets/admin_home/ad
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
 class AdminAddInfoPage extends StatefulWidget {
-  const AdminAddInfoPage({super.key});
+  const AdminAddInfoPage({
+    super.key,
+    this.showAsStandalone = false,
+    this.initialTabIndex = 0,
+  });
+
+  /// When true, shows a back button and "Manage Academy" title (pushed route).
+  final bool showAsStandalone;
+
+  /// 0 = Add Coach, 1 = Sessions.
+  final int initialTabIndex;
 
   @override
   State<AdminAddInfoPage> createState() => _AdminAddInfoPageState();
@@ -99,7 +109,16 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
     super.initState();
     _coachNameFocusNode = FocusNode();
     _fetchBranches();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncCoachSelection());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncCoachSelection();
+      _openInitialTabIfNeeded();
+    });
+  }
+
+  void _openInitialTabIfNeeded() {
+    final index = widget.initialTabIndex;
+    if (index <= 0) return;
+    _tabLayoutKey.currentState?.animateToTab(index);
   }
 
   void _syncCoachSelection() {
@@ -543,8 +562,6 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final dark = MediaQuery.of(context).platformBrightness == Brightness.dark;
-
     return BlocConsumer<AdminHomeBloc, AdminHomeState>(
       listenWhen: (prev, next) =>
           prev.message != next.message ||
@@ -581,16 +598,19 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
         return SafeArea(
           child: Column(
             children: [
-              AdminHeader(
-                onAvatarTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AdminProfilePage(),
-                    ),
-                  );
-                },
-              ),
+              if (widget.showAsStandalone)
+                _buildStandaloneHeader(context)
+              else
+                AdminHeader(
+                  onAvatarTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminProfilePage(),
+                      ),
+                    );
+                  },
+                ),
               Expanded(
                 child: ScrollConfiguration(
                   behavior: const AdminSmoothScrollBehavior(),
@@ -598,8 +618,8 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                     key: _tabLayoutKey,
                     labels: const ['Add Coach', 'Sessions'],
                     children: [
-                      _buildAddCoachTab(dark, admin),
-                      _buildSessionsTab(dark, admin),
+                      _buildAddCoachTab(admin),
+                      _buildSessionsTab(admin),
                     ],
                   ),
                 ),
@@ -611,10 +631,38 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
     );
   }
 
+  Widget _buildStandaloneHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 20, 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(
+              Iconsax.arrow_left,
+              color: EColorConstants.authTextDarkBrown,
+            ),
+          ),
+          const Expanded(
+            child: Text(
+              'Manage Academy',
+              style: TextStyle(
+                color: EColorConstants.authTextDarkBrown,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// -----------------------------------------------------------------
   /// TAB 1: ADD COACH
   /// -----------------------------------------------------------------
-  Widget _buildAddCoachTab(bool dark, AdminHomeState admin) {
+  Widget _buildAddCoachTab(AdminHomeState admin) {
     final filteredCoaches = _coachFilter == 'All Coaches'
         ? admin.coaches
         : admin.coaches.where((c) => c.specialty == _coachFilter).toList();
@@ -946,7 +994,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
   /// -----------------------------------------------------------------
   /// TAB 2: SESSIONS
   /// -----------------------------------------------------------------
-  Widget _buildSessionsTab(bool dark, AdminHomeState admin) {
+  Widget _buildSessionsTab(AdminHomeState admin) {
     final groupedSessions = _groupedFilteredSessions(admin);
 
     return AdminSmoothScrollView(
@@ -959,7 +1007,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildAddSessionForm(dark, admin),
+          _buildAddSessionForm(admin),
             const SizedBox(height: 28),
             Container(
               padding: const EdgeInsets.only(bottom: 12),
@@ -1112,7 +1160,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
     );
   }
 
-  Widget _buildAddSessionForm(bool dark, AdminHomeState admin) {
+  Widget _buildAddSessionForm(AdminHomeState admin) {
     final hasCoaches = admin.coaches.isNotEmpty;
     final isSavingSession = admin.isSavingSession;
 

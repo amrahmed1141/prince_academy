@@ -50,6 +50,15 @@ CREATE INDEX IF NOT EXISTS idx_profiles_qr_code
   ON public.profiles (qr_code)
   WHERE qr_code IS NOT NULL;
 
+-- Admin member search (see also get_active_users_page.sql)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX IF NOT EXISTS idx_profiles_full_name_trgm
+  ON public.profiles USING gin (full_name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_phone_trgm
+  ON public.profiles USING gin (phone gin_trgm_ops);
+
 -- Future multi-gym (uncomment when gym_id column exists):
 -- CREATE INDEX IF NOT EXISTS idx_bookings_gym_id ON public.bookings (gym_id);
 -- CREATE INDEX IF NOT EXISTS idx_coaches_gym_id ON public.coaches (gym_id);

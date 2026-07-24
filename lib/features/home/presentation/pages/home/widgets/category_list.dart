@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/features/home/data/models/catgeory_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
 
 class CategoryList extends StatelessWidget {
   final ValueNotifier<String?> selectedCategoryNotifier;
@@ -13,8 +12,6 @@ class CategoryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
-
     final List<CategoryModel> displayCategories = [
       CategoryModel(id: 'all', name: 'All'),
       ...categories,
@@ -53,14 +50,12 @@ class CategoryList extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? EColorConstants.primaryColor
-                        : (dark ? Colors.grey[800] : Colors.white),
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     border: isSelected
                         ? null
                         : Border.all(
-                            color: dark
-                                ? Colors.white.withOpacity(0.15)
-                                : Colors.grey.shade300,
+                            color: Colors.grey.shade300,
                           ),
                   ),
                   child: Text(
@@ -68,12 +63,11 @@ class CategoryList extends StatelessWidget {
                     style: TextStyle(
                       color: isSelected
                           ? Colors.white
-                          : (dark ? Colors.white : const Color(0xFF2B2B2B)),
+                          : const Color(0xFF2B2B2B),
                       fontSize: 14,
                       fontWeight:
                           isSelected ? FontWeight.w700 : FontWeight.w500,
                       fontFamily: 'Poppins',
-                    
                     ),
                   ),
                 ),

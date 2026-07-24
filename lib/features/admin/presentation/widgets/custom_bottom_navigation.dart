@@ -4,14 +4,25 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 
 class _AdminNavDestination {
-  const _AdminNavDestination({required this.icon, required this.label});
+  const _AdminNavDestination({
+    this.icon,
+    this.assetIcon,
+    required this.label,
+  }) : assert(icon != null || assetIcon != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? assetIcon;
   final String label;
+
+  bool get hasAssetIcon => assetIcon != null;
 }
 
 const _destinations = [
-  _AdminNavDestination(icon: Iconsax.home_1, label: 'Home'),
+  _AdminNavDestination(
+    assetIcon: 'assets/icons/logo.png',
+    label: 'Home',
+  ),
+  _AdminNavDestination(icon: Iconsax.add_circle, label: 'Add Info'),
   _AdminNavDestination(icon: Iconsax.chart, label: 'Tracking'),
   _AdminNavDestination(icon: Iconsax.receipt_2, label: 'Finance'),
 ];
@@ -40,7 +51,7 @@ class AdminGlassNavBar extends StatelessWidget {
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: Container(
                 height: 72,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.7),
                   borderRadius: BorderRadius.circular(36),
@@ -59,6 +70,7 @@ class AdminGlassNavBar extends StatelessWidget {
                     return Expanded(
                       child: _AdminNavPillItem(
                         icon: destination.icon,
+                        assetIcon: destination.assetIcon,
                         label: destination.label,
                         isSelected: selectedIndex == index,
                         onTap: () => onDestinationSelected(index),
@@ -78,13 +90,15 @@ class AdminGlassNavBar extends StatelessWidget {
 }
 
 class _AdminNavPillItem extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final String? assetIcon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _AdminNavPillItem({
-    required this.icon,
+    this.icon,
+    this.assetIcon,
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -93,6 +107,7 @@ class _AdminNavPillItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unselectedColor = Colors.grey.shade500;
+    final isBrandHome = assetIcon != null;
 
     return GestureDetector(
       onTap: onTap,
@@ -104,25 +119,31 @@ class _AdminNavPillItem extends StatelessWidget {
           AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            width: 28,
-            height: 28,
+            width: isBrandHome ? 32 : 28,
+            height: isBrandHome ? 32 : 28,
             decoration: BoxDecoration(
               color: isSelected ? Colors.grey.shade200 : Colors.transparent,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: isSelected
-                  ? EColorConstants.authTextDarkBrown
-                  : unselectedColor,
-            ),
+            alignment: Alignment.center,
+            child: isBrandHome
+                ? _BrandHomeIcon(
+                    assetPath: assetIcon!,
+                    isSelected: isSelected,
+                  )
+                : Icon(
+                    icon,
+                    size: 18,
+                    color: isSelected
+                        ? EColorConstants.authTextDarkBrown
+                        : unselectedColor,
+                  ),
           ),
           const SizedBox(height: 1),
           AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 220),
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               color: isSelected
                   ? EColorConstants.authTextDarkBrown
@@ -138,6 +159,38 @@ class _AdminNavPillItem extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Home tab uses [logo.png] as the brand mark (same as member nav).
+class _BrandHomeIcon extends StatelessWidget {
+  const _BrandHomeIcon({
+    required this.assetPath,
+    required this.isSelected,
+  });
+
+  final String assetPath;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: isSelected ? 1 : 0.55,
+      child: Image.asset(
+        assetPath,
+        width: 22,
+        height: 22,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, __, ___) => Icon(
+          Icons.home_rounded,
+          size: 18,
+          color: isSelected
+              ? EColorConstants.authTextDarkBrown
+              : Colors.grey.shade500,
+        ),
       ),
     );
   }

@@ -9,6 +9,23 @@
 <!-- For Android 13+ (SDK 33+) use the new media permissions -->
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
+    <!-- Needed for url_launcher (tel / WhatsApp) on Android 11+ -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="whatsapp" />
+        </intent>
+        <package android:name="com.whatsapp" />
+    </queries>
+
     <application
         android:label="Prince Academy"
         android:name="${applicationName}"

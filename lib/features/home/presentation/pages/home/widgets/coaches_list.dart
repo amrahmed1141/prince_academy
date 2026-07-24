@@ -1,16 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
-import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/search/search_query_cubit.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
+import 'package:prince_academy/features/home/data/models/coaches_model.dart';
+import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/home_coach_card.dart';
 
 class CoachesList extends StatefulWidget {
   final ValueNotifier<String?> selectedCategoryNotifier;
+  final SearchQueryCubit? searchQueryCubit;
 
-  const CoachesList({super.key, required this.selectedCategoryNotifier});
+  const CoachesList({
+    super.key,
+    required this.selectedCategoryNotifier,
+    this.searchQueryCubit,
+  });
 
   @override
   State<CoachesList> createState() => _CoachesListState();
@@ -22,12 +30,13 @@ class _CoachesListState extends State<CoachesList> {
   Map<String, String> _classTypesByCoachId = {};
   bool _isInitialLoading = true;
   String? _errorMessage;
+  StreamSubscription<String>? _searchSub;
 
   @override
   void initState() {
     super.initState();
-    widget.selectedCategoryNotifier.addListener(_onCategoryChanged);
-    // Defer load so a sync cache hit never setStates during mount/build.
+    widget.selectedCategoryNotifier.addListener(_onFiltersChanged);
+    _bindSearchCubit(widget.searchQueryCubit);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _loadCoaches(initial: true);
@@ -38,21 +47,31 @@ class _CoachesListState extends State<CoachesList> {
   void didUpdateWidget(covariant CoachesList oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedCategoryNotifier != widget.selectedCategoryNotifier) {
-      oldWidget.selectedCategoryNotifier.removeListener(_onCategoryChanged);
-      widget.selectedCategoryNotifier.addListener(_onCategoryChanged);
-      _applyCategoryFilter();
+      oldWidget.selectedCategoryNotifier.removeListener(_onFiltersChanged);
+      widget.selectedCategoryNotifier.addListener(_onFiltersChanged);
+      _applyFilters();
     }
+    if (oldWidget.searchQueryCubit != widget.searchQueryCubit) {
+      _bindSearchCubit(widget.searchQueryCubit);
+      _applyFilters();
+    }
+  }
+
+  void _bindSearchCubit(SearchQueryCubit? cubit) {
+    _searchSub?.cancel();
+    _searchSub = cubit?.stream.listen((_) {
+      if (mounted) _applyFilters();
+    });
   }
 
   @override
   void dispose() {
-    widget.selectedCategoryNotifier.removeListener(_onCategoryChanged);
+    widget.selectedCategoryNotifier.removeListener(_onFiltersChanged);
+    _searchSub?.cancel();
     super.dispose();
   }
 
-  void _onCategoryChanged() {
-    _applyCategoryFilter();
-  }
+  void _onFiltersChanged() => _applyFilters();
 
   String? _mapCategoryToSpecialty(String? categoryName) {
     if (categoryName == null || categoryName == 'All') return null;
@@ -85,14 +104,8 @@ class _CoachesListState extends State<CoachesList> {
       final allCoaches = await repository.getActiveCoaches(force: force);
       final coachIds = allCoaches.map((c) => c.id).toList();
       final results = await Future.wait([
-        repository.getPrimaryClassTypesForCoaches(
-          coachIds,
-          force: force,
-        ),
-        repository.getStudentCountsForCoaches(
-          coachIds,
-          force: force,
-        ),
+        repository.getPrimaryClassTypesForCoaches(coachIds, force: force),
+        repository.getStudentCountsForCoaches(coachIds, force: force),
       ]);
       final classTypes = results[0] as Map<String, String>;
       final memberCounts = results[1] as Map<String, int>;
@@ -105,23 +118,14 @@ class _CoachesListState extends State<CoachesList> {
             ),
           )
           .toList();
-      final specialty =
-          _mapCategoryToSpecialty(widget.selectedCategoryNotifier.value);
-      final filtered = specialty == null
-          ? List<CoachModel>.from(coaches)
-          : coaches
-              .where(
-                (c) => c.specialty.toLowerCase() == specialty.toLowerCase(),
-              )
-              .toList();
 
       setState(() {
         _allCoaches = coaches;
         _classTypesByCoachId = classTypes;
-        _filteredCoaches = filtered;
         _isInitialLoading = false;
         _errorMessage = null;
       });
+      _applyFilters();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -132,16 +136,27 @@ class _CoachesListState extends State<CoachesList> {
     }
   }
 
-  void _applyCategoryFilter() {
+  void _applyFilters() {
     if (!mounted) return;
     final specialty =
         _mapCategoryToSpecialty(widget.selectedCategoryNotifier.value);
+    final query = widget.searchQueryCubit?.state ?? '';
 
-    final filtered = specialty == null
-        ? _allCoaches
+    var filtered = specialty == null
+        ? List<CoachModel>.from(_allCoaches)
         : _allCoaches
             .where((c) => c.specialty.toLowerCase() == specialty.toLowerCase())
             .toList();
+
+    if (query.isNotEmpty) {
+      filtered = filtered.where((coach) {
+        final classType =
+            (_classTypesByCoachId[coach.id] ?? '').toLowerCase();
+        return coach.name.toLowerCase().contains(query) ||
+            coach.specialty.toLowerCase().contains(query) ||
+            classType.contains(query);
+      }).toList();
+    }
 
     setState(() => _filteredCoaches = filtered);
   }
@@ -197,6 +212,7 @@ class _CoachesListState extends State<CoachesList> {
     }
 
     if (_filteredCoaches.isEmpty) {
+      final hasQuery = widget.searchQueryCubit?.hasQuery ?? false;
       return SliverToBoxAdapter(
         child: Center(
           child: Padding(
@@ -206,17 +222,19 @@ class _CoachesListState extends State<CoachesList> {
               children: [
                 Icon(Iconsax.user_remove, color: Colors.grey[400], size: 40),
                 const SizedBox(height: 12),
-                const Text(
-                  'No coaches found',
-                  style: TextStyle(
+                Text(
+                  hasQuery ? 'No matching coaches' : 'No coaches found',
+                  style: const TextStyle(
                     color: Colors.black87,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Try selecting another category or check back later.',
-                  style: TextStyle(color: Colors.grey[550], fontSize: 12),
+                  hasQuery
+                      ? 'Try a different name or specialty.'
+                      : 'Try selecting another category or check back later.',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 ),
               ],
             ),
@@ -234,7 +252,6 @@ class _CoachesListState extends State<CoachesList> {
               key: ValueKey(coach.id),
               coach: coach,
               classType: _classTypesByCoachId[coach.id],
-              dark: false,
             ),
           );
         },

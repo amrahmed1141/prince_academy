@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:load_it/load_it.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 
 class GradientButton extends StatelessWidget {
@@ -42,13 +43,9 @@ class GradientButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             child: Center(
               child: loading
-                  ? const SizedBox(
-                      height: 22,
-                      width: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.white,
-                      ),
+                  ? const BouncingDotsIndicator(
+                      color: Colors.white,
+                      size: 28,
                     )
                   : Text(
                       text,

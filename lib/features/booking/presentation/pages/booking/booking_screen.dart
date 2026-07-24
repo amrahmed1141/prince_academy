@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
+import 'package:prince_academy/core/search/search_cubit.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
+import 'package:prince_academy/core/widgets/app_search_bar.dart';
 
-class BookingScreen extends StatefulWidget {
+class BookingScreen extends StatelessWidget {
   const BookingScreen({super.key});
 
-  @override
-  State<BookingScreen> createState() => _BookingScreenState();
-}
-
-class _BookingScreenState extends State<BookingScreen> {
-  // Demo data (replace with repo/BLoC later)
-  final List<_EnrollmentItem> enrollments = [
+  static const List<_EnrollmentItem> _demoEnrollments = [
     _EnrollmentItem(
       id: 'enr_001',
       coachName: 'Coach Ahmed',
@@ -46,81 +42,120 @@ class _BookingScreenState extends State<BookingScreen> {
     ),
   ];
 
+  static bool _matches(_EnrollmentItem item, String query) {
+    return item.coachName.toLowerCase().contains(query) ||
+        item.paidLabel.toLowerCase().contains(query) ||
+        item.startDateLabel.toLowerCase().contains(query) ||
+        item.endDateLabel.toLowerCase().contains(query) ||
+        item.status.name.toLowerCase().contains(query) ||
+        _EnrollmentStatusUI.from(item.status).label.toLowerCase().contains(query);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
+    return BlocProvider(
+      create: (_) => SearchCubit<_EnrollmentItem>(
+        matcher: _matches,
+        initialItems: _demoEnrollments,
+      ),
+      child: const _BookingScreenView(),
+    );
+  }
+}
 
-    final activeCount =
-        enrollments.where((e) => e.status == _EnrollmentStatus.active).length;
-    final completedCount =
-        enrollments.where((e) => e.status == _EnrollmentStatus.completed).length;
+class _BookingScreenView extends StatelessWidget {
+  const _BookingScreenView();
 
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      decoration: dark ? null : AppGradients.screenDecoration(),
-      color: dark ? Colors.black : null,
+      decoration: AppGradients.screenDecoration(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text('Booking History'),
-        actions: [
-          IconButton(
-            onPressed: () {
-              // later: filters (month/coach/status)
-            },
-            icon: const Icon(Iconsax.filter),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
-        children: [
-          _EnrollmentStatsHeader(
-            total: enrollments.length,
-            active: activeCount,
-            completed: completedCount,
-          ),
-          const SizedBox(height: 12),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text('Booking History'),
+          actions: [
+            IconButton(
+              onPressed: () {
+                // later: filters (month/coach/status)
+              },
+              icon: const Icon(Iconsax.filter),
+            ),
+          ],
+        ),
+        body: BlocBuilder<SearchCubit<_EnrollmentItem>,
+            SearchState<_EnrollmentItem>>(
+          builder: (context, state) {
+            final enrollments = state.filteredItems;
+            final activeCount = enrollments
+                .where((e) => e.status == _EnrollmentStatus.active)
+                .length;
+            final completedCount = enrollments
+                .where((e) => e.status == _EnrollmentStatus.completed)
+                .length;
 
-          if (enrollments.isEmpty)
-            const _EmptyEnrollments()
-          else
-            ...enrollments.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _EnrollmentCard(
-                    item: e,
-                    onViewSessions: () {
-                      // Navigate to "Sessions of this enrollment"
-                      // Example:
-                      // Navigator.push(context, MaterialPageRoute(
-                      //  builder: (_) => EnrollmentSessionsPage(enrollmentId: e.id),
-                      // ));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Open sessions for ${e.id}')),
-                      );
-                    },
-                    onEnrollAgain: e.status == _EnrollmentStatus.completed
-                        ? () {
-                            // Later: start new booking with same coach
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Enroll again with ${e.coachName}')),
-                            );
-                          }
-                        : null,
-                    onPayNow: e.status == _EnrollmentStatus.pendingPayment
-                        ? () {
-                            // Later: open payment page for that enrollment
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Go to payment for ${e.id}')),
-                            );
-                          }
-                        : null,
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
+              children: [
+                const CubitSearchBar<_EnrollmentItem>(
+                  hintText: 'Search by coach, status, or date',
+                  padding: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 12),
+                _EnrollmentStatsHeader(
+                  total: enrollments.length,
+                  active: activeCount,
+                  completed: completedCount,
+                ),
+                const SizedBox(height: 12),
+                if (enrollments.isEmpty)
+                  _EmptyEnrollments(hasQuery: state.hasQuery)
+                else
+                  ...enrollments.map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _EnrollmentCard(
+                        item: e,
+                        onViewSessions: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Open sessions for ${e.id}'),
+                            ),
+                          );
+                        },
+                        onEnrollAgain: e.status == _EnrollmentStatus.completed
+                            ? () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Enroll again with ${e.coachName}',
+                                    ),
+                                  ),
+                                );
+                              }
+                            : null,
+                        onPayNow:
+                            e.status == _EnrollmentStatus.pendingPayment
+                                ? () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Go to payment for ${e.id}',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                      ),
+                    ),
                   ),
-                )),
-        ],
+              ],
+            );
+          },
+        ),
       ),
-    ),
     );
   }
 }
@@ -264,7 +299,11 @@ class _EnrollmentCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        _StatusChip(label: statusUI.label, fg: statusUI.fg, bg: statusUI.bg),
+                        _StatusChip(
+                          label: statusUI.label,
+                          fg: statusUI.fg,
+                          bg: statusUI.bg,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -280,10 +319,7 @@ class _EnrollmentCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-
-          // Dates row
           Row(
             children: [
               Icon(Iconsax.calendar_1, size: 16, color: Colors.grey.shade600),
@@ -299,10 +335,7 @@ class _EnrollmentCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-
-          // Progress
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -332,10 +365,7 @@ class _EnrollmentCard extends StatelessWidget {
               color: statusUI.fg,
             ),
           ),
-
           const SizedBox(height: 14),
-
-          // Actions
           Row(
             children: [
               Expanded(
@@ -407,7 +437,9 @@ class _StatusChip extends StatelessWidget {
 }
 
 class _EmptyEnrollments extends StatelessWidget {
-  const _EmptyEnrollments();
+  const _EmptyEnrollments({this.hasQuery = false});
+
+  final bool hasQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -424,18 +456,24 @@ class _EmptyEnrollments extends StatelessWidget {
                 color: EColorConstants.primaryColor.withOpacity(0.10),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Iconsax.ticket, color: EColorConstants.primaryColor, size: 28),
+              child: const Icon(
+                Iconsax.ticket,
+                color: EColorConstants.primaryColor,
+                size: 28,
+              ),
             ),
             const SizedBox(height: 14),
             Text(
-              'No enrollments yet',
+              hasQuery ? 'No matching enrollments' : 'No enrollments yet',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Once you book a package with a coach, it will appear here.',
+              hasQuery
+                  ? 'Try a different coach name, status, or date.'
+                  : 'Once you book a package with a coach, it will appear here.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey.shade600,

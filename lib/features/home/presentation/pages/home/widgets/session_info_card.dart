@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
 class SessionDayTypePair {
@@ -95,18 +94,16 @@ class SessionInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
-    final secondaryColor =
-        dark ? Colors.grey[400]! : EColorConstants.authPlaceholderGray;
+    const secondaryColor = EColorConstants.authPlaceholderGray;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: dark ? Colors.grey[900] : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: dark ? Colors.grey[800]! : Colors.grey[200]!,
+          color: Colors.grey[200]!,
         ),
         boxShadow: [
           BoxShadow(
@@ -127,7 +124,7 @@ class SessionInfoCard extends StatelessWidget {
                   classType,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: dark ? Colors.white : Colors.black,
+                        color: Colors.black,
                       ),
                 ),
               ),

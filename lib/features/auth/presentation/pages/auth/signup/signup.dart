@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/app/app.dart';
-import 'package:prince_academy/app/bottom_navigation/navigation_bottom.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
 import 'package:prince_academy/features/auth/presentation/pages/auth/common_widgets/divider.dart';
@@ -37,7 +36,11 @@ class SignupScreen extends StatelessWidget {
           }
 
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const NavigationBottom()),
+            MaterialPageRoute(
+              builder: (_) => AuthenticatedShell(
+                isAdmin: state.user.role == 'admin',
+              ),
+            ),
             (route) => false,
           );
         }

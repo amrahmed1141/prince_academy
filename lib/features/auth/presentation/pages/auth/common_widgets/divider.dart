@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/core/constants/text.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
 
 class CustomDivider extends StatelessWidget {
   const CustomDivider({super.key, required int indent});
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -17,7 +15,7 @@ class CustomDivider extends StatelessWidget {
         Flexible(
           child: Divider(
             thickness: 0.5,
-            color: dark ? Colors.white.withOpacity(0.5) : Colors.grey,
+            color: Colors.grey,
             indent: 60,
             endIndent: 5,
           ),
@@ -26,8 +24,8 @@ class CustomDivider extends StatelessWidget {
           ETexts.signinWithLabel,
           style: Theme.of(context).textTheme.labelMedium,
         ),
-       const Flexible(
-          child:  Divider(
+        const Flexible(
+          child: Divider(
             thickness: 0.5,
             color: Colors.grey,
             indent: 5,

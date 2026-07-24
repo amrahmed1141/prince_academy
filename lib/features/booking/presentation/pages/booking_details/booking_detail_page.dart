@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/core/helpers/subscription_pricing.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
@@ -263,7 +262,6 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
     final theme = Theme.of(context);
     final booking = _displayBooking;
     final status = booking.effectiveDisplayStatus;
@@ -276,7 +274,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
         canPop: true,
         onPopInvoked: _onPopInvoked,
         child: Scaffold(
-          backgroundColor: dark ? Colors.black : const Color(0xFFF7F7F7),
+          backgroundColor: const Color(0xFFF7F7F7),
           appBar: AppBar(
             title: const Text('Booking Details'),
           ),
@@ -314,14 +312,12 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                           _CoachHeaderCard(
                             booking: booking,
                             status: status,
-                            dark: dark,
                             theme: theme,
                             badgeColor: _badgeColor(status),
                             statusLabel: _statusLabel(status),
                           ),
                           const SizedBox(height: 12),
                           _InfoSection(
-                            dark: dark,
                             children: [
                               _InfoRow(
                                 icon: Iconsax.calendar_1,
@@ -355,7 +351,6 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                           ),
                           const SizedBox(height: 12),
                           _InfoSection(
-                            dark: dark,
                             children: [
                               _InfoRow(
                                 icon: Iconsax.money,
@@ -378,7 +373,6 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                           ),
                           const SizedBox(height: 12),
                           _InfoSection(
-                            dark: dark,
                             children: [
                               _InfoRow(
                                 icon: Iconsax.tick_circle,
@@ -572,7 +566,6 @@ class _CoachHeaderCard extends StatelessWidget {
   const _CoachHeaderCard({
     required this.booking,
     required this.status,
-    required this.dark,
     required this.theme,
     required this.badgeColor,
     required this.statusLabel,
@@ -580,7 +573,6 @@ class _CoachHeaderCard extends StatelessWidget {
 
   final BookingHistoryModel booking;
   final String status;
-  final bool dark;
   final ThemeData theme;
   final Color badgeColor;
   final String statusLabel;
@@ -591,10 +583,10 @@ class _CoachHeaderCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF1E1E1E) : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: dark ? Colors.grey.shade800 : Colors.grey.shade200,
+          color: Colors.grey.shade200,
         ),
       ),
       child: Column(
@@ -673,10 +665,9 @@ class _CoachHeaderCard extends StatelessWidget {
 }
 
 class _InfoSection extends StatelessWidget {
-  final bool dark;
   final List<Widget> children;
 
-  const _InfoSection({required this.dark, required this.children});
+  const _InfoSection({required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -684,10 +675,10 @@ class _InfoSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF1E1E1E) : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: dark ? Colors.grey.shade800 : Colors.grey.shade200,
+          color: Colors.grey.shade200,
         ),
       ),
       child: Column(children: children),
@@ -762,14 +753,10 @@ class _ActionButtons extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1E1E1E)
-            : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey.shade800
-              : Colors.grey.shade200,
+          color: Colors.grey.shade200,
         ),
       ),
       child: Column(

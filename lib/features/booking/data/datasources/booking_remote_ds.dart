@@ -232,7 +232,10 @@ class BookingRemoteDs {
     return profile['qr_code'] as String?;
   }
 
-  Future<List<BookingHistoryModel>> getUserBookings() async {
+  Future<List<BookingHistoryModel>> getUserBookings({
+    int limit = 50,
+    int offset = 0,
+  }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
       throw Exception('You must be signed in to view booking history.');
@@ -242,7 +245,8 @@ class BookingRemoteDs {
         .from('user_booking_history')
         .select()
         .eq('user_id', userId)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
 
     return (response as List)
         .map(

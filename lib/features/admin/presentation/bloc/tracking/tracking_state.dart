@@ -24,16 +24,16 @@ class TrackingLoaded extends TrackingState {
   final List<CoachUserStats> coaches;
   final List<Branch> branches;
   final List<ActiveUser> users;
-  final List<ActiveUser> filteredUsers;
   final String? selectedCoachId;
   final String? selectedBranchId;
   final String? searchQuery;
   final bool isSearching;
   final bool isFiltering;
   final bool isRefreshing;
-  final int visibleSubscriberCount;
   final bool hasMoreSubscribers;
   final bool isLoadingMore;
+  final int? totalCount;
+  final String? loadMoreError;
 
   static const int subscriberPageSize = 50;
 
@@ -41,21 +41,30 @@ class TrackingLoaded extends TrackingState {
     required this.coaches,
     this.branches = const [],
     required this.users,
-    required this.filteredUsers,
     this.selectedCoachId,
     this.selectedBranchId,
     this.searchQuery,
     this.isSearching = false,
     this.isFiltering = false,
     this.isRefreshing = false,
-    this.visibleSubscriberCount = subscriberPageSize,
     this.hasMoreSubscribers = false,
     this.isLoadingMore = false,
+    this.totalCount,
+    this.loadMoreError,
   });
 
-  List<ActiveUser> get visibleUsers => filteredUsers.length <= visibleSubscriberCount
-      ? filteredUsers
-      : filteredUsers.sublist(0, visibleSubscriberCount);
+  /// Alias kept for existing UI bindings.
+  List<ActiveUser> get filteredUsers => users;
+
+  List<ActiveUser> get visibleUsers => users;
+
+  int get visibleSubscriberCount => users.length;
+
+  String get membersCountLabel {
+    if (totalCount != null) return '$totalCount';
+    if (hasMoreSubscribers) return '${users.length}+';
+    return '${users.length}';
+  }
 
   List<CoachUserStats> get displayCoaches {
     if (selectedBranchId == null) return coaches;
@@ -101,7 +110,6 @@ class TrackingLoaded extends TrackingState {
     List<CoachUserStats>? coaches,
     List<Branch>? branches,
     List<ActiveUser>? users,
-    List<ActiveUser>? filteredUsers,
     String? selectedCoachId,
     bool clearCoachFilter = false,
     String? selectedBranchId,
@@ -111,23 +119,17 @@ class TrackingLoaded extends TrackingState {
     bool? isSearching,
     bool? isFiltering,
     bool? isRefreshing,
-    int? visibleSubscriberCount,
     bool? hasMoreSubscribers,
     bool? isLoadingMore,
-    bool resetPagination = false,
+    int? totalCount,
+    bool clearTotalCount = false,
+    String? loadMoreError,
+    bool clearLoadMoreError = false,
   }) {
-    final nextFiltered = filteredUsers ?? this.filteredUsers;
-    final nextVisible = resetPagination
-        ? subscriberPageSize
-        : visibleSubscriberCount ?? this.visibleSubscriberCount;
-    final nextHasMore = hasMoreSubscribers ??
-        (nextFiltered.length > nextVisible);
-
     return TrackingLoaded(
       coaches: coaches ?? this.coaches,
       branches: branches ?? this.branches,
       users: users ?? this.users,
-      filteredUsers: nextFiltered,
       selectedCoachId:
           clearCoachFilter ? null : selectedCoachId ?? this.selectedCoachId,
       selectedBranchId:
@@ -136,9 +138,11 @@ class TrackingLoaded extends TrackingState {
       isSearching: isSearching ?? this.isSearching,
       isFiltering: isFiltering ?? this.isFiltering,
       isRefreshing: isRefreshing ?? this.isRefreshing,
-      visibleSubscriberCount: nextVisible,
-      hasMoreSubscribers: nextHasMore,
+      hasMoreSubscribers: hasMoreSubscribers ?? this.hasMoreSubscribers,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      totalCount: clearTotalCount ? null : totalCount ?? this.totalCount,
+      loadMoreError:
+          clearLoadMoreError ? null : loadMoreError ?? this.loadMoreError,
     );
   }
 
@@ -147,16 +151,16 @@ class TrackingLoaded extends TrackingState {
         coaches,
         branches,
         users,
-        filteredUsers,
         selectedCoachId,
         selectedBranchId,
         searchQuery,
         isSearching,
         isFiltering,
         isRefreshing,
-        visibleSubscriberCount,
         hasMoreSubscribers,
         isLoadingMore,
+        totalCount,
+        loadMoreError,
       ];
 }
 
@@ -165,13 +169,14 @@ class UserDetailLoading extends TrackingLoaded {
     required super.coaches,
     super.branches,
     required super.users,
-    required super.filteredUsers,
     super.selectedCoachId,
     super.selectedBranchId,
     super.searchQuery,
     super.isSearching,
     super.isFiltering,
     super.isRefreshing,
+    super.hasMoreSubscribers,
+    super.totalCount,
   });
 }
 
@@ -188,7 +193,6 @@ class UserDetailLoaded extends TrackingLoaded {
     required super.coaches,
     super.branches,
     required super.users,
-    required super.filteredUsers,
     required this.activeBookings,
     required this.expiredBookings,
     this.weeklyAttendance = const [],
@@ -200,6 +204,8 @@ class UserDetailLoaded extends TrackingLoaded {
     super.isSearching,
     super.isFiltering,
     super.isRefreshing,
+    super.hasMoreSubscribers,
+    super.totalCount,
   });
 
   UserDetailLoaded copyWithDetail({
@@ -212,8 +218,8 @@ class UserDetailLoaded extends TrackingLoaded {
     return UserDetailLoaded(
       userId: userId,
       coaches: coaches,
+      branches: branches,
       users: users,
-      filteredUsers: filteredUsers,
       activeBookings: activeBookings ?? this.activeBookings,
       expiredBookings: expiredBookings ?? this.expiredBookings,
       weeklyAttendance: weeklyAttendance ?? this.weeklyAttendance,
@@ -224,6 +230,8 @@ class UserDetailLoaded extends TrackingLoaded {
       searchQuery: searchQuery,
       isSearching: isSearching,
       isFiltering: isFiltering,
+      hasMoreSubscribers: hasMoreSubscribers,
+      totalCount: totalCount,
     );
   }
 

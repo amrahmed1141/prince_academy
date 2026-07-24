@@ -24,6 +24,7 @@ class SessionsBloc extends Bloc<SessionsEvent, SessionsState> {
     on<SelectCoach>(_onSelectCoach);
     on<SwitchTab>(_onSwitchTab);
     on<SelectDate>(_onSelectDate);
+    on<SearchSessions>(_onSearchSessions);
   }
 
   static DateTime dateOnly(DateTime date) =>
@@ -131,14 +132,17 @@ class SessionsBloc extends Bloc<SessionsEvent, SessionsState> {
     final selectedDate = currentState is SessionsLoaded
         ? currentState.selectedDate
         : dateOnly(DateTime.now());
+    final searchQuery =
+        currentState is SessionsLoaded ? currentState.searchQuery : '';
 
     final coachId = selectedCoach?.coachId;
     final sessions = coachId == null
         ? _allSessions
         : _allSessions.where((s) => s.coachId == coachId).toList();
-    final bookings = coachId == null
-        ? _allBookings
-        : _allBookings.where((b) => b.coachId == coachId).toList();
+    final bookings = _filterBookings(
+      coachId: coachId,
+      searchQuery: searchQuery,
+    );
 
     emit(
       _buildLoadedState(
@@ -150,6 +154,7 @@ class SessionsBloc extends Bloc<SessionsEvent, SessionsState> {
         showFilter: _allCoaches.length > 1,
         selectedDate: selectedDate,
         isLoading: isLoading,
+        searchQuery: searchQuery,
       ),
     );
   }
@@ -165,9 +170,10 @@ class SessionsBloc extends Bloc<SessionsEvent, SessionsState> {
         ? _allSessions
         : _allSessions.where((s) => s.coachId == event.coachId).toList();
 
-    final bookings = event.coachId == null
-        ? _allBookings
-        : _allBookings.where((b) => b.coachId == event.coachId).toList();
+    final bookings = _filterBookings(
+      coachId: event.coachId,
+      searchQuery: currentState.searchQuery,
+    );
 
     CoachSummary? selectedCoach;
     if (event.coachId != null) {
@@ -189,8 +195,58 @@ class SessionsBloc extends Bloc<SessionsEvent, SessionsState> {
         showFilter: currentState.showCoachFilter,
         selectedDate: currentState.selectedDate,
         isLoading: currentState.isLoading,
+        searchQuery: currentState.searchQuery,
       ),
     );
+  }
+
+  void _onSearchSessions(
+    SearchSessions event,
+    Emitter<SessionsState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! SessionsLoaded) return;
+
+    final query = event.query.trim().toLowerCase();
+    final coachId = currentState.selectedCoach?.coachId;
+    final sessions = coachId == null
+        ? _allSessions
+        : _allSessions.where((s) => s.coachId == coachId).toList();
+    final bookings = _filterBookings(coachId: coachId, searchQuery: query);
+
+    emit(
+      _buildLoadedState(
+        coaches: _allCoaches,
+        bookings: bookings,
+        sessions: sessions,
+        selectedCoach: currentState.selectedCoach,
+        activeTab: currentState.activeTab,
+        showFilter: currentState.showCoachFilter,
+        selectedDate: currentState.selectedDate,
+        isLoading: currentState.isLoading,
+        searchQuery: query,
+      ),
+    );
+  }
+
+  List<BookingHistoryModel> _filterBookings({
+    required String? coachId,
+    required String searchQuery,
+  }) {
+    var bookings = coachId == null
+        ? List<BookingHistoryModel>.from(_allBookings)
+        : _allBookings.where((b) => b.coachId == coachId).toList();
+
+    if (searchQuery.isEmpty) return bookings;
+
+    return bookings.where((booking) {
+      return booking.coachName.toLowerCase().contains(searchQuery) ||
+          (booking.coachSpecialty?.toLowerCase().contains(searchQuery) ??
+              false) ||
+          (booking.branchName?.toLowerCase().contains(searchQuery) ?? false) ||
+          booking.effectiveDisplayStatus.toLowerCase().contains(searchQuery) ||
+          (booking.selectedTime?.toLowerCase().contains(searchQuery) ?? false);
+    }).toList();
   }
 
   void _onSelectDate(
@@ -228,6 +284,7 @@ class SessionsBloc extends Bloc<SessionsEvent, SessionsState> {
     required bool showFilter,
     required DateTime selectedDate,
     bool isLoading = false,
+    String searchQuery = '',
   }) {
     final upcoming = sessions.where((s) => s.isUpcoming || s.isToday).toList()
       ..sort((a, b) => a.sessionDate.compareTo(b.sessionDate));
@@ -274,6 +331,7 @@ class SessionsBloc extends Bloc<SessionsEvent, SessionsState> {
       showCoachFilter: showFilter,
       isLoading: isLoading,
       weeklyProgress: weeklyProgress,
+      searchQuery: searchQuery,
     );
   }
 

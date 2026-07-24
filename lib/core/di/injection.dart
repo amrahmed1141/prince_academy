@@ -4,11 +4,13 @@ import 'package:prince_academy/core/cache/local_cache_store.dart';
 import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart';
 import 'package:prince_academy/features/auth/data/repositories/auth_repo_impl.dart';
 import 'package:prince_academy/features/admin/data/datasources/admin_session_preferences.dart';
+import 'package:prince_academy/features/admin/data/repositories/admin_dashboard_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/admin_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_bloc.dart';
+import 'package:prince_academy/features/admin/presentation/bloc/admin_dashboard_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/coach/coach_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/finance_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/session_detail_bloc.dart';
@@ -19,6 +21,7 @@ import 'package:prince_academy/features/booking/data/repositories/booking_reposi
 import 'package:prince_academy/features/booking/presentation/bloc/booking_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_detail_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_bloc.dart';
+import 'package:prince_academy/core/services/admin_tab_controller.dart';
 import 'package:prince_academy/core/services/main_tab_controller.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
 import '../../features/auth/data/datasources/auth_remote_ds.dart';
@@ -45,8 +48,14 @@ Future<void> setupDI() async {
   sl.registerLazySingleton<CoachRepository>(() => CoachRepository(sl()));
   sl.registerLazySingleton<AdminRepository>(() => AdminRepository(sl()));
   sl.registerLazySingleton<FinanceRepository>(() => FinanceRepository(sl()));
+  sl.registerLazySingleton<AdminDashboardRepository>(
+    () => AdminDashboardRepository(sl()),
+  );
   sl.registerFactory<AdminBloc>(() => AdminBloc(repository: sl()));
   sl.registerFactory<FinanceCubit>(() => FinanceCubit(repository: sl()));
+  sl.registerFactory<AdminDashboardCubit>(
+    () => AdminDashboardCubit(repository: sl()),
+  );
   sl.registerFactory<CoachBloc>(() => CoachBloc(repository: sl()));
   sl.registerLazySingleton<HomeCoachRepository>(
     () => HomeCoachRepository(sl(), cache: sl()),
@@ -58,6 +67,7 @@ Future<void> setupDI() async {
   );
   sl.registerLazySingleton<UserQrService>(() => UserQrService(sl()));
   sl.registerLazySingleton<MainTabController>(() => MainTabController());
+  sl.registerLazySingleton<AdminTabController>(() => AdminTabController());
 
   sl.registerLazySingleton<AuthRemoteDs>(
     () => AuthRemoteDs(sl(), cache: sl()),

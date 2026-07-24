@@ -30,9 +30,11 @@ class BookingRepository {
   Future<List<BookingHistoryModel>>? _bookingsInFlight;
 
   static const Duration _bookingsCacheTtl = Duration(minutes: 2);
+  static const int defaultBookingsPageSize = 50;
 
   Stream<List<BookingHistoryModel>> get bookingsStream {
-    _bookingsController ??= StreamController<List<BookingHistoryModel>>.broadcast();
+    _bookingsController ??=
+        StreamController<List<BookingHistoryModel>>.broadcast();
     _ensureBookingsRealtime();
     return _bookingsController!.stream;
   }
@@ -85,29 +87,40 @@ class BookingRepository {
     return _remoteDs.getActiveSessionsForCoach(coachId);
   }
 
-  Future<List<BookingHistoryModel>> getUserBookings({bool force = false}) {
+  Future<List<BookingHistoryModel>> getUserBookings({
+    bool force = false,
+    int limit = defaultBookingsPageSize,
+    int offset = 0,
+  }) {
     _hydrateFromDisk();
     _ensureBookingsRealtime();
 
     final cached = cachedBookings;
     if (!force &&
+        offset == 0 &&
         cached != null &&
         _bookingsCachedAt != null &&
         DateTime.now().difference(_bookingsCachedAt!) < _bookingsCacheTtl) {
       return Future.value(cached);
     }
-    if (!force && _bookingsInFlight != null) return _bookingsInFlight!;
+    if (!force && offset == 0 && _bookingsInFlight != null) {
+      return _bookingsInFlight!;
+    }
 
-    final future = _wrap(_remoteDs.getUserBookings()).then((bookings) {
-      _setBookingsCache(bookings);
-      unawaited(_persistBookings(bookings));
-      _emitBookings(bookings);
+    final future = _wrap(
+      _remoteDs.getUserBookings(limit: limit, offset: offset),
+    ).then((bookings) {
+      if (offset == 0) {
+        _setBookingsCache(bookings);
+        unawaited(_persistBookings(bookings));
+        _emitBookings(bookings);
+      }
       return bookings;
     }).whenComplete(() {
-      _bookingsInFlight = null;
+      if (offset == 0) _bookingsInFlight = null;
     });
 
-    _bookingsInFlight = future;
+    if (offset == 0) _bookingsInFlight = future;
     return future;
   }
 

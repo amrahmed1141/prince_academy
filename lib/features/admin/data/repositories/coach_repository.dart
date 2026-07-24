@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/base/stream_repository.dart';
@@ -6,6 +7,7 @@ import 'package:prince_academy/core/helpers/image_resize_helper.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
+import 'package:prince_academy/features/admin/data/models/paged_result.dart';
 import 'package:prince_academy/features/admin/data/models/day_attendance_model.dart';
 import 'package:prince_academy/features/admin/data/models/session_conflict_info.dart';
 import 'package:prince_academy/features/admin/data/models/session_detail_model.dart';
@@ -30,12 +32,35 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
       'user_id, full_name, phone, qr_code, total_bookings, active_bookings, expired_bookings, latest_subscription_end';
 
   static const int defaultPageSize = 50;
+  static const Duration _scanProfileCacheTtl = Duration(minutes: 5);
 
   final TtlCache<List<ActiveUser>> _activeUsersCache = TtlCache();
+  final Map<String, List<AdminScanProfile>> _scanProfileCache = {};
+  final Map<String, DateTime> _scanProfileCachedAt = {};
+  final Map<String, StreamController<List<AdminScanProfile>>>
+      _scanProfileControllers = {};
+  final Map<String, RealtimeChannel> _scanProfileChannels = {};
+  final Map<String, Timer> _scanProfileDebounce = {};
 
   void invalidateCaches() {
     invalidateStreamCache();
     _activeUsersCache.invalidate();
+  }
+
+  void invalidateUserScanProfileCache(String userId) {
+    _scanProfileCache.remove(userId);
+    _scanProfileCachedAt.remove(userId);
+  }
+
+  List<AdminScanProfile>? getCachedUserScanProfiles(String userId) {
+    final cachedAt = _scanProfileCachedAt[userId];
+    final cached = _scanProfileCache[userId];
+    if (cached == null || cachedAt == null) return null;
+    if (DateTime.now().difference(cachedAt) > _scanProfileCacheTtl) {
+      invalidateUserScanProfileCache(userId);
+      return null;
+    }
+    return List<AdminScanProfile>.from(cached);
   }
 
   @override
@@ -465,31 +490,133 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     }
   }
 
+  /// Server-paginated members list. Prefer this over unbounded fetches.
+  Future<PagedResult<ActiveUser>> getMembers({
+    int limit = defaultPageSize,
+    int offset = 0,
+    String? search,
+    String? coachId,
+    String? branchId,
+    bool? pendingOnly,
+  }) async {
+    await _requireAdmin();
+
+    final safeLimit = limit.clamp(1, 100);
+    final trimmedSearch = search?.trim();
+    final searchParam =
+        (trimmedSearch == null || trimmedSearch.isEmpty) ? null : trimmedSearch;
+
+    try {
+      final response = await _supabase.rpc(
+        'get_active_users_page',
+        params: {
+          'p_limit': safeLimit,
+          'p_offset': offset,
+          'p_search': searchParam,
+          'p_coach_id': coachId,
+          'p_branch_id': branchId,
+          'p_pending_only': pendingOnly,
+        },
+      );
+
+      final rows = (response as List?) ?? const [];
+      final users = rows
+          .map(
+            (json) => ActiveUser.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+
+      final totalCount = rows.isEmpty
+          ? 0
+          : ((rows.first as Map)['total_count'] as num?)?.toInt();
+
+      if (offset == 0 &&
+          searchParam == null &&
+          coachId == null &&
+          branchId == null &&
+          pendingOnly != true) {
+        _activeUsersCache.set(users);
+      }
+
+      return PagedResult(
+        items: users,
+        hasMore: users.length >= safeLimit,
+        totalCount: totalCount,
+      );
+    } on PostgrestException catch (e) {
+      // Fallback when RPC is not deployed yet.
+      if (_isMissingRpc(e)) {
+        return _getMembersFallback(
+          limit: safeLimit,
+          offset: offset,
+          search: searchParam,
+          coachId: coachId,
+          branchId: branchId,
+          pendingOnly: pendingOnly,
+        );
+      }
+      throw Exception(_mapPostgrestError(e, 'load members'));
+    }
+  }
+
   Future<List<ActiveUser>> getActiveUsersWithQr({
     bool force = false,
     int? limit,
     int offset = 0,
   }) async {
-    await _requireAdmin();
-
     if (!force && offset == 0 && (limit == null || limit >= defaultPageSize)) {
       final cached = _activeUsersCache.value;
       if (cached != null) return cached;
     }
 
+    final page = await getMembers(
+      limit: limit ?? defaultPageSize,
+      offset: offset,
+    );
+    return page.items;
+  }
+
+  Future<List<ActiveUser>> searchActiveUsers(
+    String query, {
+    int limit = defaultPageSize,
+    int offset = 0,
+  }) async {
+    final page = await getMembers(
+      limit: limit,
+      offset: offset,
+      search: query,
+    );
+    return page.items;
+  }
+
+  Future<PagedResult<ActiveUser>> _getMembersFallback({
+    required int limit,
+    required int offset,
+    String? search,
+    String? coachId,
+    String? branchId,
+    bool? pendingOnly,
+  }) async {
     try {
-      var query = _supabase
-          .from('active_users_with_qr')
-          .select(_activeUserColumns)
-          .order('full_name');
-
-      if (limit != null) {
-        query = query.range(offset, offset + limit - 1);
+      final List<dynamic> rawRows;
+      if (search != null && search.isNotEmpty) {
+        final escaped = search.replaceAll(RegExp(r'[%_,]'), '');
+        rawRows = await _supabase
+            .from('active_users_with_qr')
+            .select(_activeUserColumns)
+            .or('full_name.ilike.%$escaped%,phone.ilike.%$escaped%')
+            .order('full_name')
+            .range(offset, offset + limit - 1) as List;
+      } else {
+        rawRows = await _supabase
+            .from('active_users_with_qr')
+            .select(_activeUserColumns)
+            .order('full_name')
+            .range(offset, offset + limit - 1) as List;
       }
-
-      final response = await query;
-
-      final users = (response as List)
+      var users = rawRows
           .map(
             (json) => ActiveUser.fromJson(
               Map<String, dynamic>.from(json as Map),
@@ -497,40 +624,49 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
           )
           .toList();
 
-      if (!force && offset == 0 && (limit == null || limit >= defaultPageSize)) {
-        _activeUsersCache.set(users);
+      // Coach/branch/pending filters without RPC: narrow after fetch of this page.
+      // Prefer deploying get_active_users_page for correct cross-page filters.
+      if (coachId != null) {
+        final ids = await getUserIdsForCoach(coachId);
+        users = users.where((u) => ids.contains(u.userId)).toList();
+      }
+      if (branchId != null) {
+        final ids = await getUserIdsForBranch(branchId);
+        users = users.where((u) => ids.contains(u.userId)).toList();
       }
 
-      return users;
+      final pendingIds = await getUserIdsWithPendingPayments();
+      users = users
+          .map(
+            (u) => u.copyWith(hasPendingPayment: pendingIds.contains(u.userId)),
+          )
+          .toList();
+
+      if (pendingOnly == true) {
+        users = users.where((u) => u.hasPendingPayment).toList();
+      }
+
+      users.sort((a, b) {
+        if (a.hasPendingPayment && !b.hasPendingPayment) return -1;
+        if (!a.hasPendingPayment && b.hasPendingPayment) return 1;
+        return a.fullName.compareTo(b.fullName);
+      });
+
+      return PagedResult(
+        items: users,
+        hasMore: rawRows.length >= limit,
+      );
     } on PostgrestException catch (e) {
-      throw Exception(_mapPostgrestError(e, 'load active users'));
+      throw Exception(_mapPostgrestError(e, 'load members'));
     }
   }
 
-  Future<List<ActiveUser>> searchActiveUsers(String query) async {
-    await _requireAdmin();
-
-    final trimmed = query.trim();
-    if (trimmed.isEmpty) return getActiveUsersWithQr();
-
-    final escaped = trimmed.replaceAll(RegExp(r'[%_,]'), '');
-
-    try {
-      final response = await _supabase
-          .from('active_users_with_qr')
-          .select(_activeUserColumns)
-          .or('full_name.ilike.%$escaped%,phone.ilike.%$escaped%');
-
-      return (response as List)
-          .map(
-            (json) => ActiveUser.fromJson(
-              Map<String, dynamic>.from(json as Map),
-            ),
-          )
-          .toList();
-    } on PostgrestException catch (e) {
-      throw Exception(_mapPostgrestError(e, 'search active users'));
-    }
+  bool _isMissingRpc(PostgrestException e) {
+    final message = e.message.toLowerCase();
+    return e.code == 'PGRST202' ||
+        e.code == '42883' ||
+        message.contains('get_active_users_page') ||
+        message.contains('could not find the function');
   }
 
   Future<Set<String>> getUserIdsForCoach(String coachId) async {
@@ -700,7 +836,63 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     }
   }
 
-  Future<List<AdminScanProfile>> getUserScanProfiles(String userId) async {
+  Future<List<AdminScanProfile>> getUserScanProfiles(
+    String userId, {
+    bool force = false,
+  }) async {
+    if (!force) {
+      final cached = getCachedUserScanProfiles(userId);
+      if (cached != null) return cached;
+    }
+
+    return _refreshUserScanProfiles(userId);
+  }
+
+  /// Emits cached data immediately (if any), then live refreshes on
+  /// bookings / attendance / payments changes for this member.
+  Stream<List<AdminScanProfile>> watchUserScanProfiles(String userId) {
+    final controller = _scanProfileControllers.putIfAbsent(
+      userId,
+      () => StreamController<List<AdminScanProfile>>.broadcast(),
+    );
+
+    final cached = getCachedUserScanProfiles(userId);
+    if (cached != null) {
+      scheduleMicrotask(() {
+        if (!controller.isClosed) controller.add(cached);
+      });
+      // Soft background refresh — UI already has cache, no loading spinner.
+      unawaited(_safeRefreshUserScanProfiles(userId));
+    } else {
+      unawaited(_safeRefreshUserScanProfiles(userId));
+    }
+
+    _ensureUserScanRealtime(userId);
+
+    return controller.stream;
+  }
+
+  Future<void> _safeRefreshUserScanProfiles(String userId) async {
+    final controller = _scanProfileControllers[userId];
+    try {
+      await _refreshUserScanProfiles(userId);
+    } catch (e, st) {
+      if (controller != null && !controller.isClosed) {
+        controller.addError(e, st);
+      }
+    }
+  }
+
+  void stopWatchingUserScanProfiles(String userId) {
+    _scanProfileDebounce.remove(userId)?.cancel();
+    _scanProfileChannels.remove(userId)?.unsubscribe();
+    final controller = _scanProfileControllers.remove(userId);
+    if (controller != null && !controller.isClosed) {
+      controller.close();
+    }
+  }
+
+  Future<List<AdminScanProfile>> _refreshUserScanProfiles(String userId) async {
     await _requireAdmin();
 
     try {
@@ -709,16 +901,75 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
           .select()
           .eq('user_id', userId);
 
-      return (response as List)
+      final profiles = (response as List)
           .map(
             (e) => AdminScanProfile.fromJson(
               Map<String, dynamic>.from(e as Map),
             ),
           )
           .toList();
+
+      _scanProfileCache[userId] = profiles;
+      _scanProfileCachedAt[userId] = DateTime.now();
+
+      final controller = _scanProfileControllers[userId];
+      if (controller != null && !controller.isClosed) {
+        controller.add(List<AdminScanProfile>.from(profiles));
+      }
+
+      return profiles;
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'load member bookings'));
     }
+  }
+
+  void _ensureUserScanRealtime(String userId) {
+    if (_scanProfileChannels.containsKey(userId)) return;
+
+    final channel = _supabase
+        .channel('admin-user-scan-$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'bookings',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (_) => _scheduleUserScanRefresh(userId),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'attendance',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (_) => _scheduleUserScanRefresh(userId),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'payments',
+          callback: (_) => _scheduleUserScanRefresh(userId),
+        )
+        .subscribe();
+
+    _scanProfileChannels[userId] = channel;
+  }
+
+  void _scheduleUserScanRefresh(String userId) {
+    _scanProfileDebounce[userId]?.cancel();
+    _scanProfileDebounce[userId] = Timer(
+      const Duration(milliseconds: 500),
+      () {
+        invalidateUserScanProfileCache(userId);
+        unawaited(_refreshUserScanProfiles(userId));
+      },
+    );
   }
 
   Future<List<AdminScanProfile>> getUserByQrCode(String qrCode) async {
@@ -801,6 +1052,7 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
         'scanned_by': adminId,
       });
       invalidateCaches();
+      unawaited(_refreshUserScanProfiles(userId));
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'mark attendance'));
     }

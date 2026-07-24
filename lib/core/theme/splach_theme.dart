@@ -7,9 +7,4 @@ class ESplachTheme {
     Icons.shopping_cart,
     color: Colors.black,
   );
-
- static Icon darkSplachIcons = Icon(
-    Icons.shopping_cart,
-    color: Colors.white,
-  );
 }

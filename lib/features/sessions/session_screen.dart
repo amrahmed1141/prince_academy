@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
-import 'package:prince_academy/core/helpers/helper_function.dart';
+import 'package:prince_academy/core/search/search_cubit.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
+import 'package:prince_academy/core/widgets/app_search_bar.dart';
 
 class SessionScreen extends StatefulWidget {
   const SessionScreen({super.key});
@@ -15,15 +17,14 @@ class _SessionScreenState extends State<SessionScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
-  // ---- Demo data (replace later with BLoC/Supabase) ----
-  final _summary = const _BookingSummary(
+  static const _summary = _BookingSummary(
     total: 12,
     completed: 5,
     remaining: 7,
     nextSessionLabel: 'Wed, 6:00 PM',
   );
 
-  late final List<_SessionItem> upcoming = [
+  static const _upcoming = [
     _SessionItem(
       coachName: 'Coach Ahmed',
       dateLabel: 'Wed, Feb 26',
@@ -40,7 +41,7 @@ class _SessionScreenState extends State<SessionScreen>
     ),
   ];
 
-  late final List<_SessionItem> history = [
+  static const _history = [
     _SessionItem(
       coachName: 'Coach Ahmed',
       dateLabel: 'Mon, Feb 17',
@@ -63,7 +64,15 @@ class _SessionScreenState extends State<SessionScreen>
       location: 'Prince Academy - Main Gym',
     ),
   ];
-  // ------------------------------------------------------
+
+  static bool _matches(_SessionItem item, String query) {
+    return item.coachName.toLowerCase().contains(query) ||
+        item.dateLabel.toLowerCase().contains(query) ||
+        item.timeLabel.toLowerCase().contains(query) ||
+        item.location.toLowerCase().contains(query) ||
+        item.status.name.toLowerCase().contains(query) ||
+        _StatusChip.from(item.status).label.toLowerCase().contains(query);
+  }
 
   @override
   void initState() {
@@ -79,80 +88,176 @@ class _SessionScreenState extends State<SessionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final dark = EHelperFunction.isDarkMode(context);
+    return _SessionScreenScope(
+      upcoming: _upcoming,
+      history: _history,
+      summary: _summary,
+      tabController: _tabController,
+      matcher: _matches,
+    );
+  }
+}
 
+/// Holds both upcoming + history [SearchCubit]s (same item type, two lists).
+class _SessionScreenScope extends StatefulWidget {
+  const _SessionScreenScope({
+    required this.upcoming,
+    required this.history,
+    required this.summary,
+    required this.tabController,
+    required this.matcher,
+  });
+
+  final List<_SessionItem> upcoming;
+  final List<_SessionItem> history;
+  final _BookingSummary summary;
+  final TabController tabController;
+  final SearchMatcher<_SessionItem> matcher;
+
+  @override
+  State<_SessionScreenScope> createState() => _SessionScreenScopeState();
+}
+
+class _SessionScreenScopeState extends State<_SessionScreenScope> {
+  late final SearchCubit<_SessionItem> _upcomingCubit;
+  late final SearchCubit<_SessionItem> _historyCubit;
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _upcomingCubit = SearchCubit<_SessionItem>(
+      matcher: widget.matcher,
+      initialItems: widget.upcoming,
+    );
+    _historyCubit = SearchCubit<_SessionItem>(
+      matcher: widget.matcher,
+      initialItems: widget.history,
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _upcomingCubit.close();
+    _historyCubit.close();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _upcomingCubit.search(value);
+    _historyCubit.search(value);
+  }
+
+  void _onSearchClear() {
+    _upcomingCubit.clear();
+    _historyCubit.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      decoration: dark ? null : AppGradients.screenDecoration(),
-      color: dark ? Colors.black : null,
+      decoration: AppGradients.screenDecoration(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text('My Sessions'),
-        actions: [
-          IconButton(
-            onPressed: () {
-              // Later: open filters or refresh
-            },
-            icon: const Icon(Iconsax.filter),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _SummaryHeader(summary: _summary),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: dark ? Colors.grey.shade900 : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicator: BoxDecoration(
-                  color: EColorConstants.primaryColor.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(12),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text('My Sessions'),
+          actions: [
+            IconButton(
+              onPressed: () {
+                // Later: open filters or refresh
+              },
+              icon: const Icon(Iconsax.filter),
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            _SummaryHeader(summary: widget.summary),
+            const SizedBox(height: 8),
+            AppSearchBar(
+              controller: _searchController,
+              hintText: 'Search by coach, location, or date',
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              onChanged: _onSearchChanged,
+              onClear: _onSearchClear,
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
-                labelColor: EColorConstants.primaryColor,
-                unselectedLabelColor: Colors.grey.shade600,
-                dividerColor: Colors.transparent,
-                tabs: const [
-                  Tab(text: 'Upcoming'),
-                  Tab(text: 'History'),
+                child: TabBar(
+                  controller: widget.tabController,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: EColorConstants.primaryColor.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  labelColor: EColorConstants.primaryColor,
+                  unselectedLabelColor: Colors.grey.shade600,
+                  dividerColor: Colors.transparent,
+                  tabs: const [
+                    Tab(text: 'Upcoming'),
+                    Tab(text: 'History'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: TabBarView(
+                controller: widget.tabController,
+                children: [
+                  BlocProvider.value(
+                    value: _upcomingCubit,
+                    child: BlocBuilder<SearchCubit<_SessionItem>,
+                        SearchState<_SessionItem>>(
+                      builder: (context, state) {
+                        return _SessionList(
+                          items: state.filteredItems,
+                          emptyTitle: state.hasQuery
+                              ? 'No matching sessions'
+                              : 'No upcoming sessions',
+                          emptySubtitle: state.hasQuery
+                              ? 'Try a different coach, location, or date.'
+                              : 'Book a coach and your upcoming sessions will show here.',
+                          emptyIcon: Iconsax.calendar_add,
+                        );
+                      },
+                    ),
+                  ),
+                  BlocProvider.value(
+                    value: _historyCubit,
+                    child: BlocBuilder<SearchCubit<_SessionItem>,
+                        SearchState<_SessionItem>>(
+                      builder: (context, state) {
+                        return _SessionList(
+                          items: state.filteredItems,
+                          emptyTitle: state.hasQuery
+                              ? 'No matching sessions'
+                              : 'No history yet',
+                          emptySubtitle: state.hasQuery
+                              ? 'Try a different coach, location, or date.'
+                              : 'After you attend sessions, your history will appear here.',
+                          emptyIcon: Iconsax.document_text,
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _SessionList(
-                  items: upcoming,
-                  emptyTitle: 'No upcoming sessions',
-                  emptySubtitle:
-                      'Book a coach and your upcoming sessions will show here.',
-                  emptyIcon: Iconsax.calendar_add,
-                ),
-                _SessionList(
-                  items: history,
-                  emptyTitle: 'No history yet',
-                  emptySubtitle:
-                      'After you attend sessions, your history will appear here.',
-                  emptyIcon: Iconsax.document_text,
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -186,8 +291,11 @@ class _SummaryHeader extends StatelessWidget {
                     color: EColorConstants.primaryColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Iconsax.activity,
-                      color: EColorConstants.primaryColor, size: 18),
+                  child: const Icon(
+                    Iconsax.activity,
+                    color: EColorConstants.primaryColor,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -339,7 +447,6 @@ class _SessionCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // left icon
           Container(
             width: 42,
             height: 42,
@@ -350,7 +457,6 @@ class _SessionCard extends StatelessWidget {
             child: Icon(chip.icon, color: chip.fg, size: 20),
           ),
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

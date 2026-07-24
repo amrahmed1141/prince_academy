@@ -8,6 +8,7 @@ import 'package:prince_academy/features/auth/presentation/pages/authentication/a
 import 'package:prince_academy/app/bottom_navigation/navigation_bottom.dart';
 import 'package:prince_academy/app/splash/splash_screen.dart';
 import 'package:prince_academy/core/services/firebase_messaging_service.dart';
+import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_home.dart';
 import 'package:prince_academy/features/notifications/data/repositories/notification_repository.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_bloc.dart';
@@ -36,12 +37,14 @@ class PrinceAcademyApp extends StatelessWidget {
         scaffoldMessengerKey: rootScaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
         title: 'Prince Academy',
+        theme: EAppTheme.lightTheme,
+        themeMode: ThemeMode.light,
         home: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
             if (state is AuthInitial) {
               return const SplashScreen();
             } else if (state is AuthAuthed) {
-              return _AuthenticatedShell(
+              return AuthenticatedShell(
                 isAdmin: state.user.role == 'admin',
               );
             } else {
@@ -56,16 +59,19 @@ class PrinceAcademyApp extends StatelessWidget {
 }
 
 /// Provides [NotificationBloc], binds FCM callbacks, and hosts member/admin UI.
-class _AuthenticatedShell extends StatefulWidget {
-  const _AuthenticatedShell({required this.isAdmin});
+///
+/// Always enter admin/member UI through this shell — never push
+/// [AdminHomeScreen] / [NavigationBottom] bare, or [NotificationBloc] is missing.
+class AuthenticatedShell extends StatefulWidget {
+  const AuthenticatedShell({super.key, required this.isAdmin});
 
   final bool isAdmin;
 
   @override
-  State<_AuthenticatedShell> createState() => _AuthenticatedShellState();
+  State<AuthenticatedShell> createState() => _AuthenticatedShellState();
 }
 
-class _AuthenticatedShellState extends State<_AuthenticatedShell> {
+class _AuthenticatedShellState extends State<AuthenticatedShell> {
   late final NotificationBloc _notificationBloc;
 
   @override

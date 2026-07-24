@@ -14,32 +14,17 @@ class EAppTheme {
 
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
-    scaffoldBackgroundColor:EColorConstants.lightColor,
-    primaryColor:EColorConstants.primaryColor,
-    brightness:Brightness.light,
+    scaffoldBackgroundColor: EColorConstants.lightColor,
+    primaryColor: EColorConstants.primaryColor,
+    brightness: Brightness.light,
     fontFamily: 'Poppins',
     textTheme: ETextTheme.lightTextTheme,
-    elevatedButtonTheme:EEelevatedButtonTheme.lightElevatedTheme,
+    elevatedButtonTheme: EEelevatedButtonTheme.lightElevatedTheme,
     appBarTheme: EAppBarTheme.lightAppBarTheme,
     checkboxTheme: ECheckBoxTheme.lightCheckBoxTheme,
     bottomSheetTheme: EBottomSheetTheme.lightBottomSheetTheme,
     chipTheme: EChipTheme.lightChipTheme,
     outlinedButtonTheme: EOutLinedButtonTheme.lightElevatedTheme,
-    inputDecorationTheme: ETextFieldTheme.lightInputDecorationTheme
-  );
-  static ThemeData darkTheme = ThemeData(
-    useMaterial3: true,
-    scaffoldBackgroundColor:EColorConstants.darkColor,
-    primaryColor:EColorConstants.primaryColor,
-    brightness:Brightness.dark,
-    fontFamily: 'Poppins',
-    textTheme: ETextTheme.darkTextTheme,
-    elevatedButtonTheme: EEelevatedButtonTheme.darkElevatedtheme,
-    appBarTheme: EAppBarTheme.darkAppBarTheme,
-    checkboxTheme: ECheckBoxTheme.darkCheckBoxTheme,
-    bottomSheetTheme: EBottomSheetTheme.darkBottomSheetTheme,
-    chipTheme: EChipTheme.darkChipTheme,
-    outlinedButtonTheme: EOutLinedButtonTheme.darkElevatedtheme,
-    inputDecorationTheme: ETextFieldTheme.darkInputDecorationTheme
+    inputDecorationTheme: ETextFieldTheme.lightInputDecorationTheme,
   );
 }

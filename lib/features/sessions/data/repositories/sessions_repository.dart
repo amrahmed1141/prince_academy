@@ -272,8 +272,17 @@ class SessionsRepository {
 
     if (response == null) return [];
 
+    final cutoff = DateTime.now()
+        .toLocal()
+        .subtract(const Duration(days: 183)); // ~6 months
+    final cutoffDate = DateTime(cutoff.year, cutoff.month, cutoff.day);
+
     return (response as List)
         .map((json) => Session.fromJson(json as Map<String, dynamic>))
+        .where((session) =>
+            !session.sessionDate.isBefore(cutoffDate) ||
+            session.isUpcoming ||
+            session.isToday)
         .toList();
   }
 
@@ -285,7 +294,8 @@ class SessionsRepository {
         .from('user_booking_history')
         .select()
         .eq('user_id', userId)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .limit(50);
 
     return (response as List)
         .map(
