@@ -1,0 +1,37 @@
+﻿---
+description: Admin dashboard and privileged operations patterns
+globs: lib/features/admin/**/*.dart
+alwaysApply: false
+---
+
+# Admin Operations
+
+## Purpose
+
+Keep admin/privileged flows safe (RLS/RPC-backed) and the large admin repos maintainable.
+
+## When Applied
+
+Editing anything under `lib/features/admin/**`.
+
+## Requirements
+
+- Privileged actions (payment verify/reject, attendance, coach/session management) run through `SECURITY DEFINER` RPCs with server-side authorization — never client-only role checks.
+- Keep admin god-repositories (`CoachRepository`, `AdminRepository`, `FinanceRepository`, etc.) incremental; extract only when asked (see [`core/01-change-discipline.mdc`](../core/01-change-discipline.mdc)).
+- Live admin lists extend `StreamRepository<T>` and follow cache-first (see [`data/caching-sync.mdc`](../data/caching-sync.mdc)).
+- Admin UI still enters via `AuthenticatedShell` with `role == 'admin'`.
+- Context: load [`architecture.md`](../../../ai/context/architecture.md) plus the domain pack (payments / attendance / subscriptions / …). [`admin-dashboard.md`](../../../ai/context/admin-dashboard.md) is retired as a major pack.
+
+## Examples
+
+- Verify a payment → call the verify RPC; refresh via existing sync/stream, not a manual re-query bus.
+
+## Anti-patterns
+
+- Gating a privileged mutation only on a client `isAdmin` flag.
+- A large speculative refactor of an admin repository mid-feature.
+
+## Common Mistakes
+
+- Legacy `Supabase.instance` usage in admin scan/tracking/QR being copied into new code.
+- Forgetting to invalidate dashboard caches after an admin mutation.

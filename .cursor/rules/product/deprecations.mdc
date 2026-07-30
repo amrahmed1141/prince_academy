@@ -1,0 +1,36 @@
+﻿---
+description: Legacy surfaces that must not be edited or deleted without a request
+globs: lib/view/**,docs/deprecation-list.md
+alwaysApply: false
+---
+
+# Deprecations
+
+## Purpose
+
+Prevent accidental changes to known-legacy code awaiting a planned migration.
+
+## When Applied
+
+Touching legacy code under `lib/view/**`, the deprecation list, or when asked to "clean up"/refactor.
+
+## Requirements
+
+- Treat `lib/view/`, the unused `provider` dependency, `navigation_bloc.dart`, and other listed items as **frozen** — leave them alone unless explicitly asked.
+- Legacy `Supabase.instance` usage in admin scan/tracking/QR is tolerated but must **not** be extended into new code.
+- Record any new deprecation intent in [`docs/deprecation-list.md`](../../../docs/deprecation-list.md); don't delete in the same pass.
+- Migrations off legacy are separate, explicitly-scoped tasks.
+
+## Examples
+
+- Building a new screen → put it in `lib/features/`, not `lib/view/`.
+
+## Anti-patterns
+
+- Deleting or "modernizing" a legacy screen while shipping an unrelated feature.
+- Copying a legacy pattern into a new module.
+
+## Common Mistakes
+
+- Removing the unused `provider` dependency as a "cleanup".
+- Assuming a legacy file is dead and deleting it without confirmation.

@@ -11,6 +11,7 @@ abstract class StreamRepository<T> {
   DateTime? _cachedAt;
   Timer? _refreshTimer;
   bool _isFetching = false;
+  bool _pendingRefresh = false;
 
   StreamController<T> get _streamController {
     _controller ??= StreamController<T>.broadcast();
@@ -34,11 +35,22 @@ abstract class StreamRepository<T> {
   }
 
   Future<T> refresh() async {
-    if (_isFetching && _cachedValue != null) {
-      return _cachedValue as T;
+    if (_isFetching) {
+      // A concurrent realtime/mutation tick arrived while a fetch is in flight —
+      // queue one follow-up so the latest change is not dropped.
+      _pendingRefresh = true;
+      if (_cachedValue != null) return _cachedValue as T;
+      // First load with no cache: wait for the in-flight fetch to finish.
+      while (_isFetching) {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+      }
+      if (_cachedValue != null && !_pendingRefresh) {
+        return _cachedValue as T;
+      }
     }
 
     _isFetching = true;
+    _pendingRefresh = false;
     try {
       final data = await fetchFromApi();
       _cachedValue = data;
@@ -55,6 +67,10 @@ abstract class StreamRepository<T> {
       rethrow;
     } finally {
       _isFetching = false;
+      if (_pendingRefresh) {
+        _pendingRefresh = false;
+        unawaited(refresh());
+      }
     }
   }
 

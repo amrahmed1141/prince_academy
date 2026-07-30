@@ -1,0 +1,36 @@
+﻿---
+description: Cross-feature academy domain invariants (members, coaches, sessions, bookings, payments)
+globs: lib/features/booking/**/*.dart,lib/features/sessions/**/*.dart,lib/features/home/**/*.dart,lib/features/profile/**/*.dart,lib/features/maps/**/*.dart
+alwaysApply: false
+---
+
+# Academy Domain
+
+## Purpose
+
+Keep member-facing academy concepts consistent across features instead of redefining them per screen.
+
+## When Applied
+
+Working on member flows: booking, sessions, home, profile, maps.
+
+## Requirements
+
+- Reuse the shared vocabulary: member (profile), coach, session, booking, payment, subscription — model names and DB columns must match `supabase/*.sql`.
+- Booking/payment/attendance flows go through RPCs (see [`data/supabase-sql.mdc`](../data/supabase-sql.mdc)).
+- Read paths use cache-first (see [`data/caching-sync.mdc`](../data/caching-sync.mdc)); `booking`/`sessions` are the gold standards.
+- Domain context lives in [`ai/context/`](../../../ai/context/) (booking, subscriptions, payments, attendance).
+
+## Examples
+
+- New "member sees session" screen → reuse `SessionModel` + `SessionsRepository`, don't remodel a session.
+
+## Anti-patterns
+
+- Parallel/renamed models for an existing concept (e.g. a second "session" shape).
+- Encoding booking/payment business rules in a widget.
+
+## Common Mistakes
+
+- Skimming domain rules and duplicating pricing/subscription logic already in `lib/core/helpers/`.
+- Diverging field names from the Postgres schema.

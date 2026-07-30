@@ -5,6 +5,7 @@ import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/members/members_list_cubit.dart';
@@ -107,8 +108,14 @@ class _AllMembersViewState extends State<_AllMembersView> {
 
   Widget _buildBody(BuildContext context, MembersListState state) {
     if (state.isLoading && state.members.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: EColorConstants.primaryColor),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        children: const [
+          CoachListShimmer(itemCount: 8),
+        ],
       );
     }
 

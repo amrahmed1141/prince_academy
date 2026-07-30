@@ -1,0 +1,42 @@
+﻿---
+description: Error mapping and observability across layers
+globs: lib/**/*.dart
+alwaysApply: false
+---
+
+# Errors & Observability
+
+## Purpose
+
+Turn backend failures into safe, consistent user-facing messages — no silent swallowing.
+
+## When Applied
+
+Writing repository calls, BLoC error handling, or UI error surfaces.
+
+## Requirements
+
+- Map `PostgrestException` (and Supabase auth/storage errors) to a user-facing `Exception`/`String` in the data layer, like existing repos.
+- BLoCs emit an explicit error state; UI shows it via `custom_snackbar` or an error widget.
+- Never `catch` and discard; at minimum log and rethrow a typed/user-safe message.
+- Do not leak raw Postgres/RLS messages to end users.
+
+## Examples
+
+```dart
+try {
+  await _client.rpc('verify_payment', params: {...});
+} on PostgrestException catch (e) {
+  throw Exception(_friendly(e)); // mapped, user-safe
+}
+```
+
+## Anti-patterns
+
+- `catch (_) {}` empty blocks that hide failures.
+- Surfacing `PostgrestException.message` (may reveal schema/RLS) directly in UI.
+
+## Common Mistakes
+
+- Handling errors in the widget instead of the BLoC state.
+- Losing the original cause when rethrowing.

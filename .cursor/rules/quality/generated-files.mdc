@@ -1,0 +1,33 @@
+﻿---
+description: Treat generated documentation as derived, not source
+globs: docs/generated/**
+alwaysApply: false
+---
+
+# Generated Files
+
+## Purpose
+
+Prevent hand-editing of derived artifacts that a generator will overwrite.
+
+## When Applied
+
+Anything under `docs/generated/**` (and similar generated output).
+
+## Requirements
+
+- Treat `docs/generated/**` as build output — change the generator/source, then regenerate.
+- Do not hand-edit generated files as if they were the source of truth.
+- If a generated file is wrong, fix the upstream input and note it in [`documentation.mdc`](documentation.mdc).
+
+## Examples
+
+- Wrong entry in a generated index → fix the source doc/config, regenerate.
+
+## Anti-patterns
+
+- Editing a generated file directly to "fix" output.
+
+## Common Mistakes
+
+- Committing a hand-edit that the next generation run silently reverts.

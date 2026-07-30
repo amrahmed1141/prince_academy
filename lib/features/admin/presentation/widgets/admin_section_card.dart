@@ -19,12 +19,11 @@ class AdminSectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: EColorConstants.authCardWhite,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: EColorConstants.authFieldBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
         ],
       ),

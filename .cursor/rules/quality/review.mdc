@@ -1,0 +1,41 @@
+﻿---
+description: Diff review checklist against the platform contract
+alwaysApply: false
+---
+
+# Review
+
+## Purpose
+
+A fast, consistent checklist to verify a diff honors the contract before merge.
+
+## When Applied
+
+Request during code review or pre-merge (Reviewer, Orchestrator, Release).
+
+## Requirements
+
+Check the diff for:
+
+- **Stack**: no Provider/Riverpod/GetX/injectable/Freezed/Dio/new router.
+- **Boundaries**: remote I/O only in repos/datasources; multi-step work via RPC.
+- **DI**: new types registered in `lib/core/di/injection.dart` with correct lifetime.
+- **Shell**: authenticated UI enters via `AuthenticatedShell`.
+- **Cache**: cache-first preserved; invalidation via existing sync helpers.
+- **Security**: no `service_role`/secrets; RLS not weakened.
+- **Scope**: no drive-by refactors or legacy deletions.
+- **Naming/models**: conventions per [`../flutter/naming-imports.mdc`](../flutter/naming-imports.mdc) and [`../flutter/models-mapping.mdc`](../flutter/models-mapping.mdc).
+- Gate against [`../core/02-definition-of-done.mdc`](../core/02-definition-of-done.mdc).
+
+## Examples
+
+- Flag a widget calling `Supabase.instance` and request a repository method.
+
+## Anti-patterns
+
+- Approving a DB-touching PR with no RLS/RPC note.
+
+## Common Mistakes
+
+- Reviewing only the latest commit instead of the full diff.
+- Missing an unregistered new BLoC/repository.

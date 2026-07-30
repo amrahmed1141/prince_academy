@@ -29,6 +29,9 @@ abstract final class SessionDraftMapper {
       timeSlot: session.timeSlots.isNotEmpty
           ? session.timeSlots.first
           : SessionDraft.defaultTimeSlot,
+      durationMinutes: session.durationMinutes > 0
+          ? session.durationMinutes
+          : SessionDraft.defaultDurationMinutes,
       pricePerSession: session.pricePerSession,
       sessionsPerWeek: sessionsPerWeek,
       sessions: normalizedSlots,

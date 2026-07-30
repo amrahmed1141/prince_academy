@@ -7,6 +7,8 @@ create table if not exists public.coach_sessions (
   sessions_per_week int not null check (sessions_per_week between 1 and 7),
   session_type text not null,
   session_date date,
+  duration_minutes integer not null default 60
+    check (duration_minutes > 0 and duration_minutes <= 480),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

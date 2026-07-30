@@ -1,0 +1,44 @@
+﻿---
+description: Test placement, scope, and style
+globs: test/**/*.dart,integration_test/**/*.dart
+alwaysApply: false
+---
+
+# Testing
+
+## Purpose
+
+Cover behavior (repos, BLoCs) with the existing test stack — no new frameworks.
+
+## When Applied
+
+Adding or editing tests under `test/` or `integration_test/`.
+
+## Requirements
+
+- Mirror the `lib/` path in `test/` (e.g. `test/features/booking/...`).
+- Use `flutter_test` + `bloc_test`; mock the repository, not Supabase globals.
+- Prioritize: repository mapping/error handling, BLoC/Cubit state transitions, cache-first behavior.
+- Keep tests deterministic — no live network/Supabase calls.
+- See [`docs/testing-guide.md`](../../../docs/testing-guide.md).
+
+## Examples
+
+```dart
+blocTest<BookingBloc, BookingState>(
+  'emits [loading, loaded] on start',
+  build: () => BookingBloc(mockRepo),
+  act: (b) => b.add(BookingStarted()),
+  expect: () => [BookingLoading(), isA<BookingLoaded>()],
+);
+```
+
+## Anti-patterns
+
+- Introducing a new mocking/test framework outside the project's set.
+- Tests that hit real Supabase or depend on wall-clock timing.
+
+## Common Mistakes
+
+- Asserting UI instead of the BLoC state contract.
+- Forgetting to test the `PostgrestException` → user-safe mapping.

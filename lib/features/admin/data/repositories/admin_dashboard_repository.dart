@@ -1,114 +1,277 @@
+import 'dart:async';
+
+import 'package:prince_academy/core/base/stream_repository.dart';
 import 'package:prince_academy/features/admin/data/models/admin_dashboard_model.dart';
+import 'package:prince_academy/features/admin/data/models/low_attendance_member_model.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class AdminDashboardRepository {
-  AdminDashboardRepository(this._supabase);
+class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
+  AdminDashboardRepository(this._supabase)
+      : super(cacheTtl: const Duration(seconds: 45));
 
   final SupabaseClient _supabase;
 
   static const _previewLimit = 5;
 
-  Future<AdminDashboardData> loadDashboard() async {
+  RealtimeChannel? _bookingsChannel;
+  RealtimeChannel? _paymentsChannel;
+  RealtimeChannel? _coachSessionsChannel;
+  RealtimeChannel? _attendanceChannel;
+  Timer? _realtimeDebounce;
+
+  static const _lowAttendanceLookbackDays = 14;
+
+  void ensureRealtimeSubscription() {
+    if (_bookingsChannel == null) {
+      _bookingsChannel = _supabase
+          .channel('admin-dashboard-bookings')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'bookings',
+            callback: (_) => _scheduleRealtimeRefresh(),
+          )
+          .subscribe();
+    }
+
+    if (_paymentsChannel == null) {
+      _paymentsChannel = _supabase
+          .channel('admin-dashboard-payments')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'payments',
+            callback: (_) => _scheduleRealtimeRefresh(),
+          )
+          .subscribe();
+    }
+
+    if (_coachSessionsChannel == null) {
+      _coachSessionsChannel = _supabase
+          .channel('admin-dashboard-coach-sessions')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'coach_sessions',
+            callback: (_) => _scheduleRealtimeRefresh(),
+          )
+          .subscribe();
+    }
+
+    if (_attendanceChannel == null) {
+      _attendanceChannel = _supabase
+          .channel('admin-dashboard-attendance')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'attendance',
+            callback: (_) => _scheduleRealtimeRefresh(),
+          )
+          .subscribe();
+    }
+  }
+
+  void _scheduleRealtimeRefresh() {
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(const Duration(milliseconds: 600), () {
+      unawaited(refresh());
+    });
+  }
+
+  Future<AdminDashboardData> getDashboard({bool force = false}) async {
+    if (!force && hasValidCache && cachedValue != null) {
+      return cachedValue!;
+    }
+    return refresh();
+  }
+
+  /// Today's coach sessions. Shares the dashboard TTL cache so a second open
+  /// (or opening after the dashboard warmed the cache) skips the network.
+  Future<List<DashboardTodaySession>> getTodaySessions({
+    bool force = false,
+  }) async {
+    final data = await getDashboard(force: force);
+    return List<DashboardTodaySession>.from(data.todaySessionsPreview);
+  }
+
+  @override
+  Future<AdminDashboardData> fetchFromApi() async {
+    // Opportunistic cleanup of unconfirmed cash bookings past the 3-day window.
+    // Primary schedule is pg_cron; this covers gaps when cron is unavailable.
+    await _expireUnconfirmedCashBookings();
+
     final results = await Future.wait([
       _fetchPendingPayments(),
+      _fetchLowAttendanceMembers(),
       _fetchTodayRevenue(),
       _fetchActiveMembersCount(),
       _fetchTodaySessions(),
     ]);
 
     final pending = results[0] as List<PendingPaymentModel>;
-    final todayRevenue = results[1] as double;
-    final activeMembersCount = results[2] as int;
-    final todaySessions = results[3] as List<DashboardTodaySession>;
+    final lowAttendance = results[1] as List<LowAttendanceMemberModel>;
+    final todayRevenue = results[2] as double;
+    final activeMembersCount = results[3] as int;
+    final todaySessions = results[4] as List<DashboardTodaySession>;
 
     return AdminDashboardData(
       pendingPaymentsCount: pending.length,
       pendingPaymentsPreview: pending.take(_previewLimit).toList(),
+      lowAttendancePreview: lowAttendance.take(_previewLimit).toList(),
       todayRevenue: todayRevenue,
       activeMembersCount: activeMembersCount,
       todaySessionsCount: todaySessions.length,
-      todaySessionsPreview: todaySessions.take(_previewLimit).toList(),
+      todaySessionsPreview: todaySessions,
     );
+  }
+
+  Future<void> _expireUnconfirmedCashBookings() async {
+    try {
+      await _supabase.rpc('auto_delete_expired_cash_bookings');
+    } catch (_) {
+      // Best-effort — cron / next refresh will retry.
+    }
+  }
+
+  /// Legacy alias used by older call sites.
+  Future<AdminDashboardData> loadDashboard({bool force = false}) =>
+      getDashboard(force: force);
+
+  Future<List<DashboardTodaySession>> _fetchTodaySessions() async {
+    try {
+      final response = await _supabase.from('today_coach_sessions').select(
+            'session_id, coach_id, coach_name, coach_photo, '
+            'branch_id, branch_name, session_type, session_time, '
+            'duration_minutes, booked_count, attended_count',
+          );
+
+      final sessions = (response as List)
+          .map(
+            (json) => DashboardTodaySession.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+
+      sessions.sort((a, b) {
+        final aTime = a.sessionTime ?? '';
+        final bTime = b.sessionTime ?? '';
+        final byTime = aTime.compareTo(bTime);
+        if (byTime != 0) return byTime;
+        return a.coachName.compareTo(b.coachName);
+      });
+
+      return sessions;
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load today sessions'));
+    }
+  }
+
+  Future<List<LowAttendanceMemberModel>> _fetchLowAttendanceMembers() async {
+    try {
+      final response = await _supabase.rpc(
+        'get_dashboard_low_attendance_members',
+        params: {
+          'p_days': _lowAttendanceLookbackDays,
+          'p_limit': _previewLimit,
+        },
+      );
+
+      if (response == null) return [];
+
+      return (response as List)
+          .map(
+            (json) => LowAttendanceMemberModel.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load low-attendance members'));
+    }
   }
 
   Future<List<PendingPaymentModel>> _fetchPendingPayments() async {
-    final response = await _supabase
-        .from('pending_payments')
-        .select()
-        .order('created_at', ascending: false);
+    try {
+      final response = await _supabase
+          .from('pending_payments')
+          .select()
+          .order('created_at', ascending: false);
 
-    return (response as List)
-        .map(
-          (json) => PendingPaymentModel.fromJson(
-            Map<String, dynamic>.from(json as Map),
-          ),
-        )
-        .toList();
+      return (response as List)
+          .map(
+            (json) => PendingPaymentModel.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load pending payments'));
+    }
   }
 
   Future<double> _fetchTodayRevenue() async {
-    final today = _toIsoDate(DateTime.now());
-    final response = await _supabase
-        .from('finance_daily_revenue')
-        .select()
-        .eq('payment_date', today)
-        .maybeSingle();
-
-    if (response == null) {
-      // Fallback: match by common alternate column names for today's row.
-      final all = await _supabase
+    try {
+      final today = _toIsoDate(DateTime.now());
+      final response = await _supabase
           .from('finance_daily_revenue')
           .select()
-          .order('payment_date', ascending: false)
-          .limit(7);
+          .eq('payment_date', today)
+          .maybeSingle();
 
-      final rows = List<Map<String, dynamic>>.from((all as List).cast<Map>());
-      for (final row in rows) {
-        final date = _asDate(
-          row['payment_date'] ?? row['day'] ?? row['date'] ?? row['created_at'],
-        );
-        if (date == null) continue;
-        if (_isSameDay(date, DateTime.now())) {
-          return _pickDouble(
-            row,
-            ['daily_revenue', 'amount', 'revenue', 'total_revenue'],
+      if (response == null) {
+        final all = await _supabase
+            .from('finance_daily_revenue')
+            .select()
+            .order('payment_date', ascending: false)
+            .limit(7);
+
+        final rows = List<Map<String, dynamic>>.from((all as List).cast<Map>());
+        for (final row in rows) {
+          final date = _asDate(
+            row['payment_date'] ??
+                row['day'] ??
+                row['date'] ??
+                row['created_at'],
           );
+          if (date == null) continue;
+          if (_isSameDay(date, DateTime.now())) {
+            return _pickDouble(
+              row,
+              ['daily_revenue', 'amount', 'revenue', 'total_revenue'],
+            );
+          }
         }
+        return 0;
       }
-      return 0;
-    }
 
-    final row = Map<String, dynamic>.from(response);
-    return _pickDouble(
-      row,
-      ['daily_revenue', 'amount', 'revenue', 'total_revenue'],
-    );
+      final row = Map<String, dynamic>.from(response);
+      return _pickDouble(
+        row,
+        ['daily_revenue', 'amount', 'revenue', 'total_revenue'],
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load today revenue'));
+    }
   }
 
   Future<int> _fetchActiveMembersCount() async {
-    final response = await _supabase.from('active_users_with_qr').select('user_id');
-    return (response as List).length;
+    try {
+      final response =
+          await _supabase.from('active_users_with_qr').select('user_id');
+      return (response as List).length;
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load active members count'));
+    }
   }
 
-  Future<List<DashboardTodaySession>> _fetchTodaySessions() async {
-    final response = await _supabase.from('today_bookings').select();
-
-    final sessions = (response as List)
-        .map(
-          (json) => DashboardTodaySession.fromJson(
-            Map<String, dynamic>.from(json as Map),
-          ),
-        )
-        .toList();
-
-    sessions.sort((a, b) {
-      final aTime = a.selectedTime ?? '';
-      final bTime = b.selectedTime ?? '';
-      return aTime.compareTo(bTime);
-    });
-
-    return sessions;
+  static String _mapPostgrestError(PostgrestException e, String action) {
+    final message = e.message.trim();
+    if (message.isEmpty) {
+      return 'Could not $action. Please try again.';
+    }
+    return 'Could not $action. $message';
   }
 
   static String _toIsoDate(DateTime date) {
@@ -141,5 +304,19 @@ class AdminDashboardRepository {
       }
     }
     return 0;
+  }
+
+  @override
+  void dispose() {
+    _realtimeDebounce?.cancel();
+    _bookingsChannel?.unsubscribe();
+    _paymentsChannel?.unsubscribe();
+    _coachSessionsChannel?.unsubscribe();
+    _attendanceChannel?.unsubscribe();
+    _bookingsChannel = null;
+    _paymentsChannel = null;
+    _coachSessionsChannel = null;
+    _attendanceChannel = null;
+    super.dispose();
   }
 }

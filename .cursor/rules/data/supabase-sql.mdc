@@ -1,0 +1,39 @@
+﻿---
+description: SQL scripts, RLS, and SECURITY DEFINER rules under supabase/
+globs: supabase/**/*.sql
+alwaysApply: false
+---
+
+# Supabase SQL
+
+## Purpose
+
+`supabase/*.sql` is the schema source of truth; keep authorization enforced in the database.
+
+## When Applied
+
+Editing any `supabase/**/*.sql` script.
+
+## Requirements
+
+- `supabase/` holds ad-hoc setup/fix scripts (not a formal `migrations` pipeline) — add a clearly named script per change.
+- Document affected tables/views/RPCs and their app-side callers.
+- Preserve/extend **RLS** using `auth.uid()` and `is_admin()` patterns.
+- Prefer **`SECURITY DEFINER` RPCs** for privileged multi-step work (booking, payment verify/reject, attendance).
+- Never authorize from user-editable signup metadata — triggers + RLS enforce role.
+- Storage policies must match bucket intent (`profile-avatars`, `coach-photos`, `payment-screenshots`).
+- Reference: [`docs/supabase-schema-and-rpc.md`](../../../docs/supabase-schema-and-rpc.md).
+
+## Examples
+
+- New multi-row write → `SECURITY DEFINER` function + row-owner `RLS` check inside.
+
+## Anti-patterns
+
+- Disabling or loosening RLS "to make the client simpler."
+- Client-side multi-step writes that a single RPC should own.
+
+## Common Mistakes
+
+- Forgetting to note RLS / `SECURITY DEFINER` impact in the PR/summary.
+- Broadening a public bucket without intent.

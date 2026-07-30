@@ -205,9 +205,17 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
       ),
     );
 
-    if (verified == true) {
-      await _reload(force: true);
-    }
+    if (verified != true || !mounted) return;
+
+    // Optimistic move out of PENDING so the card doesn't linger on stale cache.
+    setState(() {
+      final idx = _bookings.indexWhere((b) => b.bookingId == booking.bookingId);
+      if (idx != -1) {
+        _bookings[idx] = _bookings[idx].asPaymentVerified();
+      }
+    });
+
+    await _reload(force: true);
   }
 
   Future<void> _openSessionDetail(AdminScanProfile booking) async {

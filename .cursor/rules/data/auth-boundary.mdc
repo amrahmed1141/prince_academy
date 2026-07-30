@@ -1,0 +1,38 @@
+---
+description: Auth domain contract, role gate, and session lifecycle
+globs: lib/features/auth/**/*.dart,lib/app/**/*.dart
+alwaysApply: false
+---
+
+# Auth Boundary
+
+## Purpose
+
+Keep authentication behind a stable domain contract and guarantee a clean role gate + session lifecycle.
+
+## When Applied
+
+Editing the auth feature or app bootstrap/role routing.
+
+## Requirements
+
+- Keep the `AuthRepo` interface; implement via `AuthRepoImpl` + `AuthRemoteDs`. No direct `supabase.auth` in UI.
+- Runtime flow: `AuthStarted` → session via `AuthRepo` → optional Hive-cached profile (early `AuthAuthed`) → load `profiles` row (missing → sign out → `AuthNoSession`) → UI: Splash | `AuthPage` | `AuthenticatedShell(isAdmin: role == 'admin')`.
+- Admin login must enforce `role == 'admin'` or sign out.
+- Sign-out clears the FCM token, disposes notification realtime, signs out of Supabase, and clears the user Hive cache.
+- Enter member/admin UI only through `AuthenticatedShell`.
+- See [`docs/auth-and-roles.md`](../../../docs/auth-and-roles.md).
+
+## Examples
+
+- New auth action → add to `AuthRepo` + `AuthRepoImpl`, dispatch through `AuthBloc`.
+
+## Anti-patterns
+
+- Calling `Supabase.instance.auth` from a page.
+- Treating a client `role` value as sufficient authorization (RLS is the real gate).
+
+## Common Mistakes
+
+- Sign-out that leaves the FCM token or realtime subscription alive.
+- Routing admins in without the `role == 'admin'` check.

@@ -1,16 +1,30 @@
-# prince_academy
+# Prince Academy
 
-A new Flutter project.
+Flutter academy / coaching app: **BLoC/Cubit + GetIt + Supabase** (+ Hive, Firebase Messaging).
 
-## Getting Started
+## Quick start
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+```
 
-A few resources to get you started if this is your first Flutter project:
+See `docs/environment-setup.md` for environment details.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Layout
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| Path | Role |
+|------|------|
+| `lib/app/` | Bootstrap, shells, navigation |
+| `lib/core/` | DI, cache, theme, shared services |
+| `lib/features/` | Feature modules |
+| `supabase/` | SQL scripts |
+| `ai/` | AI platform (prompts, context, workflows, memory) |
+| `examples/` | Canonical copyable patterns |
+| `docs/` | Human documentation |
+| `.cursor/` | Cursor adapters (rules, agents, skills) |
+
+## Agents
+
+- Contract: [`AGENTS.md`](AGENTS.md)
+- AI index: [`README_AI.md`](README_AI.md)

@@ -1,0 +1,43 @@
+﻿---
+description: Hand-written model serialization and JSON/DB mapping
+globs: lib/**/models/**/*.dart,lib/**/data/**/*.dart
+alwaysApply: false
+---
+
+# Models & Mapping
+
+## Purpose
+
+Keep models hand-written and aligned with Postgres columns — no codegen coupling.
+
+## When Applied
+
+Adding or editing model classes and their (de)serialization.
+
+## Requirements
+
+- Hand-written `fromJson`/`fromMap` and `toJson`/`toMap`/`toInsertJson`.
+- JSON/DB keys are `snake_case` matching the Postgres column exactly (`supabase/*.sql` is truth).
+- Include `copyWith` when the feature already uses it.
+- Mirror the nearest sibling model's style in the same feature.
+- Guard nullable/absent columns defensively (schema-compat fallbacks exist — extend carefully).
+
+## Examples
+
+```dart
+factory SessionModel.fromMap(Map<String, dynamic> map) => SessionModel(
+      id: map['id'] as String,
+      coachId: map['coach_id'] as String,
+      startsAt: DateTime.parse(map['starts_at'] as String),
+    );
+```
+
+## Anti-patterns
+
+- Introducing Freezed or `json_serializable` without an explicit project decision.
+- `toInsertJson` sending columns the RLS/insert policy rejects.
+
+## Common Mistakes
+
+- Camel-casing a key that must stay `snake_case` for Postgres.
+- Assuming a column is always present when a compat fallback returns fewer columns.

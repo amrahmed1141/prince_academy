@@ -1,8 +1,11 @@
 import 'dart:async';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/base/stream_repository.dart';
+import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
+import 'package:prince_academy/features/admin/data/repositories/admin_dashboard_repository.dart';
+import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminRepository extends StreamRepository<List<PendingPaymentModel>> {
   AdminRepository(this._supabase) : super(cacheTtl: const Duration(seconds: 30));
@@ -53,46 +56,83 @@ class AdminRepository extends StreamRepository<List<PendingPaymentModel>> {
     return refresh();
   }
 
-  // ADDED: direct verify_payment RPC — no local SQL file checks
   Future<void> verifyPayment(String bookingId, {String? notes}) async {
     final adminId = _supabase.auth.currentUser?.id;
     if (adminId == null) {
       throw Exception('Admin session expired. Please sign in again.');
     }
 
-    await _supabase.rpc(
-      'verify_payment',
-      params: {
-        'p_booking_id': bookingId,
-        'p_admin_id': adminId,
-        'p_notes': notes,
-      },
-    );
+    final userId = await _lookupBookingUserId(bookingId);
+
+    try {
+      await _supabase.rpc(
+        'verify_payment',
+        params: {
+          'p_booking_id': bookingId,
+          'p_admin_id': adminId,
+          'p_notes': notes,
+        },
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'verify payment'));
+    }
 
     await _recordConfirmedPayment(bookingId);
-
-    invalidateStreamCache();
-    await refresh();
+    await _invalidateAfterPaymentMutation(userId);
   }
 
-  // ADDED: direct reject_payment RPC
   Future<void> rejectPayment(String bookingId, String reason) async {
     final adminId = _supabase.auth.currentUser?.id;
     if (adminId == null) {
       throw Exception('Admin session expired. Please sign in again.');
     }
 
-    await _supabase.rpc(
-      'reject_payment',
-      params: {
-        'p_booking_id': bookingId,
-        'p_admin_id': adminId,
-        'p_reason': reason,
-      },
-    );
+    final userId = await _lookupBookingUserId(bookingId);
 
+    try {
+      await _supabase.rpc(
+        'reject_payment',
+        params: {
+          'p_booking_id': bookingId,
+          'p_admin_id': adminId,
+          'p_reason': reason,
+        },
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'reject payment'));
+    }
+
+    await _invalidateAfterPaymentMutation(userId);
+  }
+
+  Future<String?> _lookupBookingUserId(String bookingId) async {
+    final booking = await _supabase
+        .from('bookings')
+        .select('user_id')
+        .eq('id', bookingId)
+        .maybeSingle();
+    if (booking == null) return null;
+    return Map<String, dynamic>.from(booking as Map)['user_id'] as String?;
+  }
+
+  Future<void> _invalidateAfterPaymentMutation(String? userId) async {
     invalidateStreamCache();
     await refresh();
+
+    if (sl.isRegistered<CoachRepository>()) {
+      final coachRepo = sl<CoachRepository>();
+      coachRepo.invalidateCaches();
+      if (userId != null && userId.isNotEmpty) {
+        coachRepo.invalidateUserScanProfileCache(userId);
+        unawaited(coachRepo.getUserScanProfiles(userId, force: true));
+      }
+    }
+
+    if (sl.isRegistered<AdminDashboardRepository>()) {
+      final dashboardRepo = sl<AdminDashboardRepository>();
+      dashboardRepo.invalidateStreamCache();
+      unawaited(dashboardRepo.refresh());
+    }
   }
 
   Future<void> _recordConfirmedPayment(String bookingId) async {
@@ -123,5 +163,13 @@ class AdminRepository extends StreamRepository<List<PendingPaymentModel>> {
       'status': 'confirmed',
       'payment_date': DateTime.now().toIso8601String().split('T').first,
     });
+  }
+
+  String _mapPostgrestError(PostgrestException error, String action) {
+    final message = error.message.trim();
+    if (message.isNotEmpty) {
+      return 'Failed to $action: $message';
+    }
+    return 'Failed to $action. Please try again.';
   }
 }

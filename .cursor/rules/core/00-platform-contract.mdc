@@ -1,0 +1,44 @@
+﻿---
+description: Prince Academy platform contract — stack, non-negotiables, and gold standards
+alwaysApply: true
+---
+
+# Platform Contract
+
+Flutter feature-first · BLoC/Cubit · GetIt · Supabase · Hive · Firebase Messaging.
+Full contract in [`AGENTS.md`](../../../AGENTS.md); architecture in [`docs/architecture-overview.md`](../../../docs/architecture-overview.md).
+
+## Purpose
+
+Keep every change on the approved stack and inside the approved boundaries so the SaaS template stays cloneable.
+
+## When Applied
+
+Always. This is the baseline every agent and edit inherits.
+
+## Requirements
+
+- Stack is fixed: BLoC/Cubit + GetIt + Supabase + Hive + FCM.
+- Remote I/O lives only in repositories/datasources — never widgets/pages.
+- Multi-step DB work uses Supabase **RPCs**.
+- Preserve cache-first / stale-while-revalidate for lists and dashboards.
+- Register repos/datasources as lazy singletons, BLoCs/Cubits as factories, in `lib/core/di/injection.dart`.
+- Authenticated member/admin UI enters only through `AuthenticatedShell`.
+- Hand-written `fromJson`/`fromMap` models; `supabase/*.sql` is schema source of truth.
+- Never place `service_role` or secrets in the Flutter client.
+- When unsure, copy the gold standards: `lib/features/auth` (boundaries), `lib/features/booking` + `lib/features/sessions` (cache + realtime).
+
+## Examples
+
+- New live admin list → extend `StreamRepository<T>`, register lazy singleton, expose via BLoC.
+- New table write that spans rows → add a `SECURITY DEFINER` RPC and call `.rpc(...)`.
+
+## Anti-patterns
+
+- Adding Provider, Riverpod, GetX, injectable codegen, Freezed, Dio, or a new router package.
+- Calling `Supabase.instance` from a widget "just this once".
+
+## Common Mistakes
+
+- Inventing a new top-level pattern instead of extending an existing feature.
+- Skipping DI registration and constructing repositories inline.

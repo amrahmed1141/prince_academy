@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/helpers/class_type_colors.dart';
+import 'package:prince_academy/core/helpers/session_live_status.dart';
 import 'package:prince_academy/features/admin/data/models/admin_dashboard_model.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 
-class DashboardTodayList extends StatelessWidget {
+class DashboardTodayList extends StatefulWidget {
   const DashboardTodayList({
     super.key,
     required this.sessions,
@@ -17,16 +22,57 @@ class DashboardTodayList extends StatelessWidget {
   final ValueChanged<DashboardTodaySession>? onSessionTap;
 
   @override
+  State<DashboardTodayList> createState() => _DashboardTodayListState();
+}
+
+class _DashboardTodayListState extends State<DashboardTodayList> {
+  static const _cardWidth = 280.0;
+  static const _cardHeight = 92.0;
+  static const _liveCardHeight = 118.0;
+  static const _gap = 12.0;
+
+  Timer? _ticker;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final visible = SessionLiveStatusHelper.currentAndUpcoming(
+      widget.sessions,
+      now: _now,
+    );
+    final hasLive = visible.any(
+      (session) => SessionLiveStatusHelper.resolve(session, now: _now).isLive,
+    );
+    final title = widget.sessions.isEmpty
+        ? 'Current session'
+        : hasLive
+            ? 'Current session'
+            : 'Upcoming session';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'Today at the academy',
-                style: TextStyle(
+                title,
+                style: const TextStyle(
                   color: EColorConstants.authTextDarkBrown,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -34,9 +80,9 @@ class DashboardTodayList extends StatelessWidget {
                 ),
               ),
             ),
-            if (sessions.isNotEmpty)
+            if (widget.sessions.isNotEmpty)
               TextButton(
-                onPressed: onSeeAll,
+                onPressed: widget.onSeeAll,
                 style: TextButton.styleFrom(
                   foregroundColor: EColorConstants.primaryColor,
                   padding: EdgeInsets.zero,
@@ -55,60 +101,50 @@ class DashboardTodayList extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        if (sessions.isEmpty)
-          AdminSectionCard(
-            borderRadius: 18,
-            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-            child: Column(
-              children: [
-                Icon(
-                  Iconsax.calendar_remove,
-                  size: 36,
-                  color: EColorConstants.authPlaceholderGray.withOpacity(0.8),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'No sessions today',
-                  style: TextStyle(
-                    color: EColorConstants.authTextDarkBrown,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Check-ins will show up here when members train.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: EColorConstants.authPlaceholderGray,
-                    fontSize: 13,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              ],
-            ),
+        if (widget.sessions.isEmpty)
+          const _EmptyCard(
+            title: 'No sessions today',
+            subtitle: 'Scheduled coach sessions for today will show up here.',
+          )
+        else if (visible.isEmpty)
+          const _EmptyCard(
+            title: 'All sessions finished',
+            subtitle: 'No current or upcoming sessions left for today.',
           )
         else
-          AdminSectionCard(
-            borderRadius: 18,
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-              children: [
-                for (var i = 0; i < sessions.length; i++) ...[
-                  if (i > 0)
-                    const Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: EColorConstants.authFieldBorder,
-                    ),
-                  _TodayRow(
-                    session: sessions[i],
-                    onTap: () => onSessionTap?.call(sessions[i]),
+          SizedBox(
+            height: hasLive ? _liveCardHeight : _cardHeight,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: visible.length,
+              cacheExtent: _cardWidth * 3,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              primary: false,
+              addAutomaticKeepAlives: false,
+              addRepaintBoundaries: true,
+              itemBuilder: (context, index) {
+                final session = visible[index];
+                final status =
+                    SessionLiveStatusHelper.resolve(session, now: _now);
+                return Padding(
+                  padding: EdgeInsets.only(
+                    right: index == visible.length - 1 ? 0 : _gap,
                   ),
-                ],
-              ],
+                  child: SizedBox(
+                    width: _cardWidth,
+                    child: _TodaySessionCard(
+                      key: ValueKey(session.sessionId),
+                      session: session,
+                      status: status,
+                      onTap: widget.onSessionTap == null
+                          ? null
+                          : () => widget.onSessionTap!(session),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
       ],
@@ -116,100 +152,255 @@ class DashboardTodayList extends StatelessWidget {
   }
 }
 
-class _TodayRow extends StatelessWidget {
-  const _TodayRow({
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminSectionCard(
+      borderRadius: 18,
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      child: Column(
+        children: [
+          Icon(
+            Iconsax.calendar_remove,
+            size: 36,
+            color: EColorConstants.authPlaceholderGray.withOpacity(0.8),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              color: EColorConstants.authTextDarkBrown,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: EColorConstants.authPlaceholderGray,
+              fontSize: 13,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodaySessionCard extends StatelessWidget {
+  const _TodaySessionCard({
+    super.key,
     required this.session,
+    required this.status,
     this.onTap,
   });
 
   final DashboardTodaySession session;
+  final SessionLiveStatus status;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final time = (session.selectedTime == null || session.selectedTime!.isEmpty)
+    final time = (session.sessionTime == null || session.sessionTime!.isEmpty)
         ? 'Time TBD'
-        : session.selectedTime!;
-    final statusColor = session.alreadyCheckedIn
-        ? const Color(0xFF2E7D32)
-        : EColorConstants.authLightPrimary;
-    final statusLabel = session.alreadyCheckedIn ? 'Checked in' : 'Expected';
+        : session.sessionTime!;
+    final type = (session.sessionType == null || session.sessionType!.isEmpty)
+        ? 'Session'
+        : session.sessionType!;
+    final branch =
+        (session.branchName == null || session.branchName!.isEmpty)
+            ? 'No branch'
+            : session.branchName!;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+    return AdminSectionCard(
+      borderRadius: 18,
+      padding: EdgeInsets.zero,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                CoachAvatar(
+                  coachName: session.coachName,
+                  photoUrl: session.coachPhoto,
+                  size: 40,
                 ),
-                child: Icon(
-                  session.alreadyCheckedIn
-                      ? Iconsax.tick_circle
-                      : Iconsax.clock,
-                  size: 18,
-                  color: statusColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      session.memberName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: EColorConstants.authTextDarkBrown,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Poppins',
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        session.coachName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: EColorConstants.authTextDarkBrown,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${session.coachName} · $time',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: EColorConstants.authPlaceholderGray,
-                        fontSize: 12,
-                        fontFamily: 'Poppins',
+                      const SizedBox(height: 2),
+                      Text(
+                        '$type · $time',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: ClassTypeColors.foreground(type),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
+                      const SizedBox(height: 2),
+                      Text(
+                        branch,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: EColorConstants.authPlaceholderGray,
+                          fontSize: 10,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                      if (status.isLive) ...[
+                        const SizedBox(height: 6),
+                        _AttendanceProgressBar(
+                          attended: session.attendedCount,
+                          booked: session.bookedCount,
+                          progress: session.attendanceProgress,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                _StatusChip(status: status),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _AttendanceProgressBar extends StatelessWidget {
+  const _AttendanceProgressBar({
+    required this.attended,
+    required this.booked,
+    required this.progress,
+  });
+
+  final int attended;
+  final int booked;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$attended from $booked members',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: EColorConstants.authTextDarkBrown,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Poppins',
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 5,
+            backgroundColor: const Color(0xFFE8E0D8),
+            color: EColorConstants.primaryColor,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
+
+  final SessionLiveStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _colorsFor(status.phase);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 88),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status.label,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: colors.foreground,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'Poppins',
+          height: 1.2,
+        ),
+      ),
+    );
+  }
+
+  static ({Color background, Color foreground}) _colorsFor(
+    SessionLivePhase phase,
+  ) {
+    switch (phase) {
+      case SessionLivePhase.startingNow:
+        return (
+          background: const Color(0xFFFFF3E0),
+          foreground: const Color(0xFFE65100),
+        );
+      case SessionLivePhase.inProgress:
+        return (
+          background: const Color(0xFFE8F5E9),
+          foreground: const Color(0xFF2E7D32),
+        );
+      case SessionLivePhase.upcoming:
+        return (
+          background: const Color(0xFFE3F2FD),
+          foreground: const Color(0xFF1565C0),
+        );
+      case SessionLivePhase.finished:
+        return (
+          background: EColorConstants.authFieldBorder,
+          foreground: EColorConstants.authPlaceholderGray,
+        );
+    }
   }
 }

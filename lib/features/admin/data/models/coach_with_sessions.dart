@@ -21,6 +21,10 @@ class CoachWithSessions {
 
   String get groupKey => '${coachId}_${branchId ?? 'none'}';
 
+  /// Duration from the first schedule in this group (minutes).
+  int get durationMinutes =>
+      schedules.isEmpty ? 60 : schedules.first.durationMinutes;
+
   static List<CoachWithSessions> group(List<CoachSessionModel> rows) {
     final grouped = <String, CoachWithSessions>{};
 

@@ -353,6 +353,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_updated int;
 BEGIN
   IF NOT public.is_admin() THEN
     RAISE EXCEPTION 'Only admins can verify payments';
@@ -362,9 +364,25 @@ BEGIN
   SET
     payment_status = 'verified',
     status = 'active',
+    verified_by = p_admin_id,
+    verified_at = now(),
+    notes = CASE
+      WHEN p_notes IS NULL OR btrim(p_notes) = '' THEN notes
+      ELSE coalesce(notes, '') || E'\n' || p_notes
+    END,
     updated_at = now()
   WHERE id = p_booking_id
-    AND payment_status IN ('pending_payment', 'awaiting_verification');
+    AND lower(coalesce(payment_status, '')) IN (
+      'pending',
+      'pending_payment',
+      'awaiting_verification'
+    )
+    AND lower(coalesce(status, '')) NOT IN ('cancelled', 'rejected', 'expired');
+
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+  IF v_updated = 0 THEN
+    RAISE EXCEPTION 'Booking not found or payment already processed';
+  END IF;
 END;
 $$;
 
@@ -402,8 +420,8 @@ FROM public.bookings b
 JOIN public.coaches c ON c.id = b.coach_id
 LEFT JOIN public.profiles pr ON pr.id = b.user_id
 LEFT JOIN public.branches br ON br.id = b.branch_id
-WHERE b.payment_status IN ('pending_payment', 'awaiting_verification')
-  AND lower(coalesce(b.status, '')) NOT IN ('cancelled', 'rejected');
+WHERE b.payment_status IN ('pending', 'pending_payment', 'awaiting_verification')
+  AND lower(coalesce(b.status, '')) NOT IN ('cancelled', 'rejected', 'expired', 'active');
 
 GRANT SELECT ON public.pending_payments TO authenticated;
 
@@ -420,6 +438,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_updated int;
 BEGIN
   IF NOT public.is_admin() THEN
     RAISE EXCEPTION 'Only admins can reject payments';
@@ -429,9 +449,23 @@ BEGIN
   SET
     payment_status = 'rejected',
     status = 'rejected',
+    notes = CASE
+      WHEN p_reason IS NULL OR btrim(p_reason) = '' THEN notes
+      ELSE coalesce(notes, '') || E'\nRejected: ' || p_reason
+    END,
     updated_at = now()
   WHERE id = p_booking_id
-    AND payment_status IN ('pending_payment', 'awaiting_verification');
+    AND lower(coalesce(payment_status, '')) IN (
+      'pending',
+      'pending_payment',
+      'awaiting_verification'
+    )
+    AND lower(coalesce(status, '')) NOT IN ('cancelled', 'rejected', 'expired');
+
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+  IF v_updated = 0 THEN
+    RAISE EXCEPTION 'Booking not found or payment already processed';
+  END IF;
 END;
 $$;
 

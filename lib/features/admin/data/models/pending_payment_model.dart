@@ -1,4 +1,6 @@
-class PendingPaymentModel {
+import 'package:equatable/equatable.dart';
+
+class PendingPaymentModel extends Equatable {
   final String bookingId;
   final String userId;
   final String userName;
@@ -34,6 +36,26 @@ class PendingPaymentModel {
     required this.createdAt,
     this.paymentDeadline,
   });
+
+  @override
+  List<Object?> get props => [
+        bookingId,
+        userId,
+        userName,
+        userPhone,
+        coachName,
+        coachPhoto,
+        coachSpecialty,
+        branchName,
+        selectedDays,
+        selectedTime,
+        totalPrice,
+        paymentMethod,
+        paymentReference,
+        paymentScreenshotUrl,
+        createdAt,
+        paymentDeadline,
+      ];
 
   factory PendingPaymentModel.fromJson(Map<String, dynamic> json) {
     return PendingPaymentModel(

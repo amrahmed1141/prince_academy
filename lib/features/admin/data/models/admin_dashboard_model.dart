@@ -1,10 +1,13 @@
 import 'package:equatable/equatable.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
+import 'package:prince_academy/features/admin/data/models/low_attendance_member_model.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 
 class AdminDashboardData extends Equatable {
   const AdminDashboardData({
     required this.pendingPaymentsCount,
     required this.pendingPaymentsPreview,
+    required this.lowAttendancePreview,
     required this.todayRevenue,
     required this.activeMembersCount,
     required this.todaySessionsCount,
@@ -13,6 +16,7 @@ class AdminDashboardData extends Equatable {
 
   final int pendingPaymentsCount;
   final List<PendingPaymentModel> pendingPaymentsPreview;
+  final List<LowAttendanceMemberModel> lowAttendancePreview;
   final double todayRevenue;
   final int activeMembersCount;
   final int todaySessionsCount;
@@ -22,6 +26,7 @@ class AdminDashboardData extends Equatable {
   List<Object?> get props => [
         pendingPaymentsCount,
         pendingPaymentsPreview,
+        lowAttendancePreview,
         todayRevenue,
         activeMembersCount,
         todaySessionsCount,
@@ -29,44 +34,77 @@ class AdminDashboardData extends Equatable {
       ];
 }
 
+/// One scheduled coach session for the current weekday (`today_coach_sessions`).
 class DashboardTodaySession extends Equatable {
   const DashboardTodaySession({
-    required this.bookingId,
-    required this.userId,
-    required this.memberName,
+    required this.sessionId,
+    required this.coachId,
     required this.coachName,
-    this.selectedTime,
-    this.alreadyCheckedIn = false,
+    this.coachPhoto,
+    this.sessionType,
+    this.sessionTime,
+    this.durationMinutes = 60,
+    this.branchId,
+    this.branchName,
+    this.attendedCount = 0,
+    this.bookedCount = 0,
   });
 
-  final String bookingId;
-  final String userId;
-  final String memberName;
+  final String sessionId;
+  final String coachId;
   final String coachName;
-  final String? selectedTime;
-  final bool alreadyCheckedIn;
+  final String? coachPhoto;
+  final String? sessionType;
+  final String? sessionTime;
+  final int durationMinutes;
+  final String? branchId;
+  final String? branchName;
+
+  /// Members checked in today for this session (`attendance.status = attended`).
+  final int attendedCount;
+
+  /// Active verified bookings scheduled for this session today.
+  final int bookedCount;
+
+  String get attendanceRatioLabel => '$attendedCount/$bookedCount';
+
+  double get attendanceProgress {
+    if (bookedCount <= 0) return 0;
+    return (attendedCount / bookedCount).clamp(0.0, 1.0);
+  }
 
   factory DashboardTodaySession.fromJson(Map<String, dynamic> json) {
+    final duration = (json['duration_minutes'] as num?)?.toInt() ?? 60;
+    final attended = (json['attended_count'] as num?)?.toInt() ?? 0;
+    final booked = (json['booked_count'] as num?)?.toInt() ?? 0;
     return DashboardTodaySession(
-      bookingId: json['booking_id'] as String? ?? '',
-      userId: json['user_id'] as String? ?? '',
-      memberName: json['full_name'] as String? ??
-          json['user_name'] as String? ??
-          json['member_name'] as String? ??
-          'Member',
+      sessionId: json['session_id'] as String? ?? '',
+      coachId: json['coach_id'] as String? ?? '',
       coachName: json['coach_name'] as String? ?? 'Coach',
-      selectedTime: json['selected_time'] as String?,
-      alreadyCheckedIn: json['already_checked_in'] as bool? ?? false,
+      coachPhoto: CoachPhotoHelper.normalize(json['coach_photo'] as String?),
+      sessionType: (json['session_type'] as String?)?.trim(),
+      sessionTime: (json['session_time'] as String?)?.trim() ??
+          (json['selected_time'] as String?)?.trim(),
+      durationMinutes: duration > 0 ? duration : 60,
+      branchId: json['branch_id'] as String?,
+      branchName: (json['branch_name'] as String?)?.trim(),
+      attendedCount: attended < 0 ? 0 : attended,
+      bookedCount: booked < 0 ? 0 : booked,
     );
   }
 
   @override
   List<Object?> get props => [
-        bookingId,
-        userId,
-        memberName,
+        sessionId,
+        coachId,
         coachName,
-        selectedTime,
-        alreadyCheckedIn,
+        coachPhoto,
+        sessionType,
+        sessionTime,
+        durationMinutes,
+        branchId,
+        branchName,
+        attendedCount,
+        bookedCount,
       ];
 }

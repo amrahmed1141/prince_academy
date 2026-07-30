@@ -141,9 +141,17 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
       ),
     );
 
-    if (verified == true) {
-      await _loadData();
-    }
+    if (verified != true || !mounted) return;
+
+    setState(() {
+      final idx =
+          _bookings.indexWhere((entry) => entry.bookingId == booking.bookingId);
+      if (idx != -1) {
+        _bookings[idx] = _bookings[idx].asPaymentVerified();
+      }
+    });
+
+    await _loadData();
   }
 
   Future<void> _markAttendance(AdminScanProfile booking) async {

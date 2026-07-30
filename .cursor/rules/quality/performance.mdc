@@ -1,0 +1,35 @@
+﻿---
+description: Performance checklist for cache, query cost, and rebuilds
+alwaysApply: false
+---
+
+# Performance
+
+## Purpose
+
+Guard latency and jank on hot paths without duplicating caching mechanics.
+
+## When Applied
+
+Request for perf work, or when changing lists/dashboards/streams/queries. Complements [`../data/caching-sync.mdc`](../data/caching-sync.mdc).
+
+## Requirements
+
+- Keep cache-first reads; avoid awaiting cache writes on the UI path (`unawaited(...)`).
+- Select only needed columns; avoid N+1 client round-trips — push joins/aggregation into RPCs/views.
+- Scope rebuilds: `buildWhen`/`Equatable`, `const` widgets, keys on long lists.
+- Use `shimmer_widgets` placeholders instead of blocking spinners on first paint.
+
+## Examples
+
+- Dashboard summary → one RPC/view call, not several sequential `.from(...)` reads.
+
+## Anti-patterns
+
+- Fetching a full table then filtering in Dart.
+- A `BlocBuilder` that rebuilds a whole page on every unrelated state change.
+
+## Common Mistakes
+
+- Missing `buildWhen`, causing wasteful rebuilds.
+- Synchronous cache writes adding latency to navigation.

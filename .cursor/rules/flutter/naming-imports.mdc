@@ -1,0 +1,45 @@
+﻿---
+description: File, type, and import naming conventions for Dart code
+globs: lib/**/*.dart
+alwaysApply: false
+---
+
+# Naming & Imports
+
+## Purpose
+
+Consistent, greppable names across the codebase.
+
+## When Applied
+
+Any `lib/**/*.dart` edit that adds or renames files, types, or imports.
+
+## Requirements
+
+| Kind | Convention |
+|------|------------|
+| Files / folders | `snake_case` |
+| Types | `PascalCase` |
+| Members | `camelCase`; private `_underscore` |
+| BLoC trio | `*_bloc.dart`, `*_event.dart`, `*_state.dart` |
+| Repositories | `*_repository.dart` (auth: `*_repo.dart` / `AuthRepo`) |
+| Models | `*_model.dart` |
+| Datasources | `*_remote_ds.dart` |
+| DB / JSON keys | `snake_case` matching Postgres |
+
+- Match the type to the filename (`FooCubit` → `foo_cubit.dart`).
+- Prefer consistency with the nearest sibling file in the same feature.
+
+## Examples
+
+- `sessions_repository.dart` exposes `SessionsRepository`.
+
+## Anti-patterns
+
+- New typos or odd casing (`catgeory_*`, `splach_*`, `Login_header.dart`).
+- A second `*_page.dart` beside an existing one with a legacy-duplicate name.
+
+## Common Mistakes
+
+- Putting a Cubit inside a `*_bloc.dart` file.
+- JSON keys in `camelCase` that no longer match the Postgres column.

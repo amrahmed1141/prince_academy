@@ -33,6 +33,7 @@ class _EditSessionPageState extends State<EditSessionPage> {
   final _formKey = GlobalKey<FormState>();
 
   late String _selectedTimeSlot;
+  late int _selectedDurationMinutes;
   late final TextEditingController _priceController;
   late int _sessionsPerWeek;
   late List<SessionSlot> _sessionSlots;
@@ -50,6 +51,12 @@ class _EditSessionPageState extends State<EditSessionPage> {
     _selectedTimeSlot = widget.session.timeSlots.isNotEmpty
         ? widget.session.timeSlots.first
         : SessionDraft.defaultTimeSlot;
+    _selectedDurationMinutes = widget.session.durationMinutes > 0
+        ? widget.session.durationMinutes
+        : SessionDraft.defaultDurationMinutes;
+    if (!SessionDraft.presetDurations.contains(_selectedDurationMinutes)) {
+      _selectedDurationMinutes = SessionDraft.defaultDurationMinutes;
+    }
     _priceController = TextEditingController(
       text: widget.session.pricePerSession.toStringAsFixed(0),
     );
@@ -158,6 +165,7 @@ class _EditSessionPageState extends State<EditSessionPage> {
       coachId: widget.session.coachId,
       branchId: _selectedBranchId,
       timeSlot: _selectedTimeSlot,
+      durationMinutes: _selectedDurationMinutes,
       pricePerSession: price,
       sessionsPerWeek: _sessionsPerWeek,
       sessions: List<SessionSlot>.from(_sessionSlots),
@@ -194,6 +202,7 @@ class _EditSessionPageState extends State<EditSessionPage> {
         sessionId: widget.session.id,
         branchId: _selectedBranchId,
         timeSlot: _selectedTimeSlot,
+        durationMinutes: _selectedDurationMinutes,
         pricePerSession: price,
         sessionsPerWeek: _sessionsPerWeek,
         days: days,
@@ -338,6 +347,21 @@ class _EditSessionPageState extends State<EditSessionPage> {
                         if (value != null) {
                           setState(() {
                             _selectedTimeSlot = value;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    AdminDropdownField<int>(
+                      label: 'Duration',
+                      value: _selectedDurationMinutes,
+                      items: SessionDraft.presetDurations,
+                      itemLabel: SessionDraft.durationLabel,
+                      prefixIcon: Iconsax.timer_1,
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _selectedDurationMinutes = value;
                           });
                         }
                       },

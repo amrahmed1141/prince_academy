@@ -52,6 +52,10 @@ abstract final class SessionSmartDefaults {
         timeSlot: draft.timeSlot.isEmpty || draft.timeSlot == SessionDraft.defaultTimeSlot
             ? lastDraft.timeSlot
             : draft.timeSlot,
+        durationMinutes:
+            draft.durationMinutes == SessionDraft.defaultDurationMinutes
+                ? lastDraft.durationMinutes
+                : draft.durationMinutes,
         pricePerSession: draft.pricePerSession > 0
             ? draft.pricePerSession
             : lastDraft.pricePerSession,
@@ -71,6 +75,11 @@ abstract final class SessionSmartDefaults {
       draft = draft.copyWith(
         branchId: draft.branchId ?? coachLatestSession.branchId,
         timeSlot: time.isNotEmpty ? time : draft.timeSlot,
+        durationMinutes:
+            draft.durationMinutes == SessionDraft.defaultDurationMinutes &&
+                    coachLatestSession.durationMinutes > 0
+                ? coachLatestSession.durationMinutes
+                : draft.durationMinutes,
         pricePerSession: draft.pricePerSession > 0
             ? draft.pricePerSession
             : coachLatestSession.pricePerSession,

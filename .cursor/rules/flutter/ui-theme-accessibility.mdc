@@ -1,0 +1,37 @@
+﻿---
+description: Theme tokens, styling consistency, and accessibility
+globs: lib/core/theme/**/*.dart,lib/**/presentation/**/*.dart
+alwaysApply: false
+---
+
+# UI, Theme & Accessibility
+
+## Purpose
+
+Consistent look-and-feel from shared theme tokens, with accessible defaults.
+
+## When Applied
+
+Building or styling widgets/pages, or editing theme files under `lib/core/theme/`.
+
+## Requirements
+
+- Use existing theme tokens: `lib/core/theme/`, `app_colors.dart`, `sizes.dart`, `app_gradients.dart`, custom `ThemeData` extensions.
+- Reuse shared widgets (`custom_snackbar`, `shimmer_widgets`, `app_search_bar`, `branded_pull_to_refresh`) before writing new ones.
+- Respect readable contrast and ≥48dp touch targets.
+- See [`docs/ui-theme-guide.md`](../../../docs/ui-theme-guide.md).
+
+## Examples
+
+- Loading state → reuse `shimmer_widgets`, not a custom spinner.
+- Error/success toast → `custom_snackbar`.
+
+## Anti-patterns
+
+- Hard-coded hex colors or magic paddings instead of `AppColors`/`Sizes`.
+- One-off `SnackBar`/loading widgets that duplicate shared ones.
+
+## Common Mistakes
+
+- Ignoring dark/appbar theme, so the widget looks off in one mode.
+- Tiny tap targets or low-contrast text.

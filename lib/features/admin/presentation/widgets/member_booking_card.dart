@@ -390,20 +390,20 @@ class MemberBookingCard extends StatelessWidget {
           ],
           if (showMarkAttendance) ...[
             const SizedBox(height: 14),
-            Row(
+            const Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.event_available_outlined,
                   size: 16,
-                  color: Color(0xFF2E7D32),
+                  color: EColorConstants.authPlaceholderGray,
                 ),
-                const SizedBox(width: 6),
-                const Expanded(
+                SizedBox(width: 6),
+                Expanded(
                   child: Text(
                     'Scheduled for TODAY',
                     style: TextStyle(
-                      color: Color(0xFF2E7D32),
-                      fontWeight: FontWeight.w700,
+                      color: EColorConstants.authTextDarkBrown,
+                      fontWeight: FontWeight.w600,
                       fontSize: 12,
                       fontFamily: 'Poppins',
                     ),
@@ -535,44 +535,7 @@ class MemberBookingCard extends StatelessWidget {
       ),
     );
 
-    if (showMarkAttendance) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Color(0xFFB7E27A),
-                  Color(0xFF8FD15B),
-                  Color(0xFF66BE47),
-                  Color(0xFF3E9F34),
-                ],
-                stops: [0.0, 0.35, 0.68, 1.0],
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(2),
-              child: cardWidget,
-            ),
-          ),
-        ),
-      );
-    }
-
+    // Elevation-only card chrome — no green gradient border on markable days.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: cardWidget,

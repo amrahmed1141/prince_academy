@@ -6,21 +6,63 @@ import 'package:prince_academy/features/admin/data/repositories/coach_repository
 import 'package:prince_academy/features/admin/presentation/bloc/members/members_list_state.dart';
 
 class MembersListCubit extends Cubit<MembersListState> {
-  MembersListCubit(this._repository, {List<ActiveUser> initialMembers = const []})
-      : super(
-          MembersListState(
-            members: initialMembers,
-            isLoading: initialMembers.isEmpty,
-            hasMore: initialMembers.length >= MembersListState.pageSize,
-          ),
-        );
+  MembersListCubit(
+    this._repository, {
+    List<ActiveUser> initialMembers = const [],
+  }) : super(_initialState(_repository, initialMembers));
 
   final CoachRepository _repository;
   int _requestId = 0;
   Timer? _searchDebounce;
 
+  static MembersListState _initialState(
+    CoachRepository repository,
+    List<ActiveUser> initialMembers,
+  ) {
+    if (initialMembers.isNotEmpty) {
+      return MembersListState(
+        members: initialMembers,
+        isLoading: false,
+        hasMore: initialMembers.length >= MembersListState.pageSize,
+      );
+    }
+
+    final cached = repository.cachedMembersFirstPage;
+    if (cached != null && cached.items.isNotEmpty) {
+      return MembersListState(
+        members: List<ActiveUser>.from(cached.items),
+        isLoading: false,
+        hasMore: cached.hasMore,
+        totalCount: cached.totalCount,
+      );
+    }
+
+    return const MembersListState(isLoading: true);
+  }
+
   Future<void> load({bool force = false}) async {
     final requestId = ++_requestId;
+    final search = state.searchQuery.trim();
+    final isDefaultQuery = search.isEmpty;
+
+    if (!force && isDefaultQuery) {
+      final cached = _repository.cachedMembersFirstPage;
+      if (cached != null) {
+        emit(
+          state.copyWith(
+            members: _dedupe(cached.items),
+            hasMore: cached.hasMore,
+            totalCount: cached.totalCount,
+            isLoading: false,
+            isRefreshing: false,
+            clearError: true,
+            clearLoadMoreError: true,
+          ),
+        );
+        return;
+      }
+    }
+
     final keepList = state.members.isNotEmpty;
     emit(
       state.copyWith(
@@ -35,7 +77,8 @@ class MembersListCubit extends Cubit<MembersListState> {
       final page = await _repository.getMembers(
         limit: MembersListState.pageSize,
         offset: 0,
-        search: state.searchQuery,
+        search: search,
+        force: force,
       );
       if (requestId != _requestId) return;
 
@@ -76,7 +119,7 @@ class MembersListCubit extends Cubit<MembersListState> {
     _searchDebounce?.cancel();
     if (state.searchQuery.isEmpty) return;
     emit(state.copyWith(searchQuery: ''));
-    load(force: true);
+    load(force: false);
   }
 
   Future<void> loadMore() async {
@@ -100,6 +143,7 @@ class MembersListCubit extends Cubit<MembersListState> {
         limit: MembersListState.pageSize,
         offset: state.members.length,
         search: state.searchQuery,
+        force: true,
       );
       if (requestId != _requestId) return;
 

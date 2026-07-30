@@ -1,0 +1,43 @@
+﻿---
+description: Keeping docs, context packs, and memory truthful
+globs: docs/**/*.md,ai/**/*.md,AGENTS.md,README_AI.md
+alwaysApply: false
+---
+
+# Documentation
+
+## Purpose
+
+Keep human docs and AI context/memory matching the real source — never invented.
+
+## When Applied
+
+Editing `docs/**`, `ai/**`, `AGENTS.md`, or `README_AI.md`.
+
+## Requirements
+
+- Document only real, verified conventions (source > SQL > memory > docs precedence).
+- Human docs live under [`docs/`](../../../docs/): `architecture/`, `database/`, `product/`, `security/`, `operations/`, `decisions/`, plus `generated/` for machine output only.
+- New pages use [`docs/_templates/doc-page.md`](../../../docs/_templates/doc-page.md); new ADRs use [`docs/_templates/adr.md`](../../../docs/_templates/adr.md).
+- Update the folder `README.md` index when adding or migrating a page.
+- When behavior changes, update the matching [`ai/context/`](../../../ai/context/) pack and, if a decision/lesson, [`ai/memory/`](../../../ai/memory/) or an ADR under [`docs/decisions/`](../../../docs/decisions/).
+- Prefer linking to the canonical file over re-explaining it (avoid duplication).
+- Respect [`../core/01-change-discipline.mdc`](../core/01-change-discipline.mdc): docs-only tasks don't touch `lib/`.
+- `ai/` templates stay empty until filled from real conventions.
+
+## Examples
+
+- New RPC shipped → note it in `ai/context/` and `docs/database/` (or root `supabase-schema-and-rpc.md` until migrated), link from the feature doc.
+- New stack constraint → file an ADR under `docs/decisions/` and reference it from `AGENTS.md` if it becomes non-negotiable.
+
+## Anti-patterns
+
+- Inventing conventions to fill a template.
+- Copy-pasting content that already lives in another doc.
+- Hand-editing `docs/generated/**`.
+
+## Common Mistakes
+
+- Updating code but leaving `ai/memory/` and context packs stale.
+- Editing generated docs by hand (see [`generated-files.mdc`](generated-files.mdc)).
+- Putting product behaviour in `architecture/` or RLS threat-model prose only in `database/`.

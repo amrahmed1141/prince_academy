@@ -1,0 +1,50 @@
+﻿---
+description: Feature-first folder layout for Prince Academy modules
+globs: lib/features/**/*.dart
+alwaysApply: false
+---
+
+# Feature Layout
+
+## Purpose
+
+Keep every feature module self-contained and predictable so navigation and reviews are fast.
+
+## When Applied
+
+Editing anything under `lib/features/**`.
+
+## Requirements
+
+New work lives under `lib/features/<feature>/`:
+
+```
+features/<name>/
+  data/
+    models/          # *_model.dart
+    datasources/     # *_remote_ds.dart
+    repositories/    # *_repository.dart (auth: *_repo.dart)
+  domain/            # optional — required for auth-style contracts
+  presentation/
+    bloc/            # or cubit files
+    pages/
+    widgets/
+```
+
+- Extend an existing feature before creating a new top-level one.
+- Cross-feature shared code goes in `lib/core/`, not another feature.
+- Gold standard: `lib/features/auth` (full data/domain/presentation split).
+
+## Examples
+
+- New booking widget → `lib/features/booking/presentation/widgets/`.
+
+## Anti-patterns
+
+- Placing remote calls, models, or pages outside their layer folder.
+- Reaching into another feature's `data/` directly instead of via `lib/core/`.
+
+## Common Mistakes
+
+- Adding a new feature folder for what is really a variant of `booking`/`sessions`.
+- Growing `lib/view/` legacy screens instead of `lib/features/`.

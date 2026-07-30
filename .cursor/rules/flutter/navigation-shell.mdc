@@ -1,0 +1,38 @@
+﻿---
+description: Imperative navigation and AuthenticatedShell membership rules
+globs: lib/app/**/*.dart,lib/features/**/presentation/**/*.dart
+alwaysApply: false
+---
+
+# Navigation & Shells
+
+## Purpose
+
+Keep one navigation model and guarantee authenticated UI is always wired for notifications/FCM.
+
+## When Applied
+
+Editing routing, post-login destinations, or member/admin shells.
+
+## Requirements
+
+- Imperative `Navigator` + `MaterialPageRoute` only — no go_router/auto_route.
+- Enter authenticated member/admin UI **only** through `AuthenticatedShell` (`role == 'admin'` → admin, else member bottom nav).
+- Keep `NotificationBloc` + FCM wired via the shell.
+- See [`docs/auth-and-roles.md`](../../../docs/auth-and-roles.md) for the role split.
+
+## Examples
+
+```dart
+Navigator.push(context, MaterialPageRoute(builder: (_) => const BookingDetailsPage()));
+```
+
+## Anti-patterns
+
+- Routing straight to `AdminHomeScreen`/member home post-login, skipping the shell.
+- Introducing a router package or removing `navigation_bloc.dart` unprompted.
+
+## Common Mistakes
+
+- A new post-login path that bypasses notification/FCM setup.
+- Mixing declarative routing into the imperative stack.

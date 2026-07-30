@@ -1,0 +1,37 @@
+﻿---
+description: Hive, TTL, StreamRepository, and MemberDataSync caching rules
+globs: lib/core/cache/**/*.dart,lib/core/base/**/*.dart,lib/**/data/**/*.dart,lib/features/home/**/*.dart,lib/features/booking/**/*.dart,lib/features/sessions/**/*.dart
+alwaysApply: false
+---
+
+# Caching & Sync
+
+## Purpose
+
+Preserve the cache-first / stale-while-revalidate experience on lists and dashboards.
+
+## When Applied
+
+Touching cache infra or any list/dashboard/home data path.
+
+## Requirements
+
+- Building blocks: Hive (`LocalCacheStore`) snapshots, in-memory TTL cache, `StreamRepository<T>` (stream + TTL + dedupe + auto-refresh), `MemberDataSync` / prefetch services.
+- Emit cached data first, then refresh.
+- After mutations affecting member home/booking/sessions, invalidate via existing sync helpers — do not build a parallel cache bus.
+- Prefer `unawaited(...)` for non-blocking cache writes (match existing style).
+- See [`docs/caching-and-sync.md`](../../../docs/caching-and-sync.md).
+
+## Examples
+
+- New live admin list → extend `StreamRepository<T>` and reuse its TTL/dedupe.
+
+## Anti-patterns
+
+- Removing TTL/stream caching while "simplifying" a repository (unless asked).
+- A second, ad-hoc cache/invalidation mechanism alongside `MemberDataSync`.
+
+## Common Mistakes
+
+- Awaiting cache writes on the UI path and adding latency.
+- Mutating data without invalidating the affected cache keys.

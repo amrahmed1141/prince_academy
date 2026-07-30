@@ -1,0 +1,38 @@
+﻿---
+description: Shared definition of done — the ship checklist for features and fixes
+alwaysApply: false
+---
+
+# Definition of Done
+
+## Purpose
+
+One shared checklist so features, reviews, and releases agree on "done" without bloating always-on context.
+
+## When Applied
+
+Request when a change is feature-complete, under review, or being released (Orchestrator, Reviewer, QA, Release, Documentation). Not glob-scoped.
+
+## Requirements
+
+A change is done when:
+
+- Boundaries hold: remote I/O in data layer, UI via `AuthenticatedShell`, DI registered in `lib/core/di/injection.dart`.
+- DB impact is stated: RLS and `SECURITY DEFINER` surface called out; `supabase/*.sql` updated if schema changed.
+- Cache behavior preserved: cache-first emit + revalidate, invalidation via existing sync helpers.
+- Tests cover new repo/BLoC behavior (see [`quality/testing.mdc`](../quality/testing.mdc)).
+- Docs/memory updated when behavior changed (see [`quality/documentation.mdc`](../quality/documentation.mdc)).
+- Scope respected (see [`01-change-discipline.mdc`](01-change-discipline.mdc)).
+
+## Examples
+
+- PR summary lists: files touched, RLS/RPC impact, cache keys invalidated, tests added.
+
+## Anti-patterns
+
+- Merging without stating RLS/RPC implications for a DB-touching change.
+
+## Common Mistakes
+
+- "Works on my device" with no test and no cache-invalidation check.
+- Behavior changed but `ai/memory/` and `docs/` left stale.

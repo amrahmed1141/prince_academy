@@ -1,0 +1,40 @@
+﻿---
+description: Supabase data access via repositories/datasources only
+globs: lib/**/data/**/*.dart,lib/**/presentation/**/*.dart,lib/core/**/*.dart
+alwaysApply: false
+---
+
+# Repository Boundary
+
+## Purpose
+
+Keep all remote I/O behind repositories so UI stays testable and the Supabase surface stays contained.
+
+## When Applied
+
+Editing data layers, or presentation code that fetches/mutates remote data.
+
+## Requirements
+
+- Remote API = Supabase Flutter SDK only (no Dio/`http`). Surfaces used inside the data layer: `.from(...)`, `.rpc(...)`, `supabase.auth`, `.storage.from(...)`, realtime channels.
+- Flow: Page → BLoC/Cubit → Repository → (optional `*RemoteDs`) → Supabase.
+- Multi-table/transactional work uses Postgres **RPCs**, not client-side multi-step writes.
+- Map `PostgrestException` to user-safe errors (see [`../flutter/error-observability.mdc`](../flutter/error-observability.mdc)).
+- Gold standards: `lib/features/auth` (interface + impl + `*RemoteDs`); `booking`/`sessions` for stream repos.
+
+## Examples
+
+```dart
+final rows = await _client.from('sessions').select();     // read
+await _client.rpc('create_booking', params: {...});        // multi-step
+```
+
+## Anti-patterns
+
+- `Supabase.instance` in a widget/page (legacy admin scan/tracking/QR exceptions exist — add no new ones).
+- Two sequential client writes that should be one RPC.
+
+## Common Mistakes
+
+- Business logic in the datasource instead of the repository.
+- Skipping the repo and querying Supabase from a Cubit.

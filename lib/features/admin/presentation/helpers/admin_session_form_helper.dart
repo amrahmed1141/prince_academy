@@ -10,6 +10,7 @@ class AdminSessionFormSnapshot {
     this.coachId,
     this.branchId,
     required this.timeSlot,
+    required this.durationMinutes,
     required this.priceText,
     required this.sessionsPerWeek,
     required this.slots,
@@ -18,6 +19,7 @@ class AdminSessionFormSnapshot {
   final String? coachId;
   final String? branchId;
   final String timeSlot;
+  final int durationMinutes;
   final String priceText;
   final int sessionsPerWeek;
   final List<SessionSlot> slots;
@@ -27,6 +29,7 @@ class AdminSessionFormSnapshot {
       coachId: draft.coachId,
       branchId: draft.branchId,
       timeSlot: draft.timeSlot,
+      durationMinutes: draft.durationMinutes,
       priceText: draft.pricePerSession > 0
           ? draft.pricePerSession.toStringAsFixed(
               draft.pricePerSession == draft.pricePerSession.roundToDouble()
@@ -44,6 +47,7 @@ class AdminSessionFormSnapshot {
       coachId: coachId,
       branchId: branchId,
       timeSlot: timeSlot,
+      durationMinutes: durationMinutes,
       pricePerSession: double.tryParse(priceText.trim()) ?? 0,
       sessionsPerWeek: sessionsPerWeek,
       sessions: List<SessionSlot>.from(slots),
@@ -60,6 +64,7 @@ abstract final class AdminSessionFormHelper {
     String? selectedCoachId,
     String? selectedBranchId,
     String? timeSlot,
+    int? durationMinutes,
     String? priceText,
     int? sessionsPerWeek,
     List<SessionSlot>? slots,
@@ -68,6 +73,7 @@ abstract final class AdminSessionFormHelper {
       coachId: selectedCoachId ?? (coaches.isNotEmpty ? coaches.first.id : null),
       branchId: selectedBranchId ?? (branches.length == 1 ? branches.first.id : null),
       timeSlot: timeSlot ?? SessionDraft.defaultTimeSlot,
+      durationMinutes: durationMinutes ?? SessionDraft.defaultDurationMinutes,
       pricePerSession: double.tryParse(priceText?.trim() ?? '') ?? 0,
       sessionsPerWeek: sessionsPerWeek ?? 1,
       sessions: slots ?? [SessionSlot.initial()],

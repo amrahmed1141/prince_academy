@@ -35,6 +35,7 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
   static const Duration _scanProfileCacheTtl = Duration(minutes: 5);
 
   final TtlCache<List<ActiveUser>> _activeUsersCache = TtlCache();
+  final TtlCache<PagedResult<ActiveUser>> _membersPageCache = TtlCache();
   final Map<String, List<AdminScanProfile>> _scanProfileCache = {};
   final Map<String, DateTime> _scanProfileCachedAt = {};
   final Map<String, StreamController<List<AdminScanProfile>>>
@@ -45,7 +46,11 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
   void invalidateCaches() {
     invalidateStreamCache();
     _activeUsersCache.invalidate();
+    _membersPageCache.invalidate();
   }
+
+  PagedResult<ActiveUser>? get cachedMembersFirstPage =>
+      _membersPageCache.value;
 
   void invalidateUserScanProfileCache(String userId) {
     _scanProfileCache.remove(userId);
@@ -266,6 +271,9 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     if (draft.timeSlot.isEmpty) {
       throw Exception('Time slot is required.');
     }
+    if (draft.durationMinutes <= 0) {
+      throw Exception('Duration must be greater than 0 minutes.');
+    }
     if (draft.pricePerSession <= 0) {
       throw Exception('Enter a valid price per session.');
     }
@@ -296,6 +304,7 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
         'session_date': _formatDateForDb(_getNextWeekdayDate(firstDay)),
         'days': draft.sessions.map((s) => s.day).toList(),
         'time_slots': [draft.timeSlot],
+        'duration_minutes': draft.durationMinutes,
         'price_per_session': draft.pricePerSession,
         'is_active': true,
       };
@@ -401,6 +410,7 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     required String sessionId,
     String? branchId,
     String? timeSlot,
+    int? durationMinutes,
     double? pricePerSession,
     int? sessionsPerWeek,
     List<String>? days,
@@ -411,6 +421,7 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
       await _supabase.from('coach_sessions').update({
         if (branchId != null) 'branch_id': branchId,
         if (timeSlot != null) 'time_slots': [timeSlot],
+        if (durationMinutes != null) 'duration_minutes': durationMinutes,
         if (pricePerSession != null) 'price_per_session': pricePerSession,
         if (sessionsPerWeek != null) 'sessions_per_week': sessionsPerWeek,
         if (days != null) 'days': days,
@@ -491,6 +502,7 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
   }
 
   /// Server-paginated members list. Prefer this over unbounded fetches.
+  /// Default first page (no filters) is TTL-cached so a second open skips network.
   Future<PagedResult<ActiveUser>> getMembers({
     int limit = defaultPageSize,
     int offset = 0,
@@ -498,6 +510,7 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     String? coachId,
     String? branchId,
     bool? pendingOnly,
+    bool force = false,
   }) async {
     await _requireAdmin();
 
@@ -505,6 +518,16 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     final trimmedSearch = search?.trim();
     final searchParam =
         (trimmedSearch == null || trimmedSearch.isEmpty) ? null : trimmedSearch;
+    final isDefaultFirstPage = offset == 0 &&
+        searchParam == null &&
+        coachId == null &&
+        branchId == null &&
+        pendingOnly != true;
+
+    if (!force && isDefaultFirstPage) {
+      final cached = _membersPageCache.value;
+      if (cached != null) return cached;
+    }
 
     try {
       final response = await _supabase.rpc(
@@ -532,19 +555,18 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
           ? 0
           : ((rows.first as Map)['total_count'] as num?)?.toInt();
 
-      if (offset == 0 &&
-          searchParam == null &&
-          coachId == null &&
-          branchId == null &&
-          pendingOnly != true) {
-        _activeUsersCache.set(users);
-      }
-
-      return PagedResult(
+      final page = PagedResult(
         items: users,
         hasMore: users.length >= safeLimit,
         totalCount: totalCount,
       );
+
+      if (isDefaultFirstPage) {
+        _membersPageCache.set(page);
+        _activeUsersCache.set(users);
+      }
+
+      return page;
     } on PostgrestException catch (e) {
       // Fallback when RPC is not deployed yet.
       if (_isMissingRpc(e)) {
@@ -652,10 +674,22 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
         return a.fullName.compareTo(b.fullName);
       });
 
-      return PagedResult(
+      final page = PagedResult(
         items: users,
         hasMore: rawRows.length >= limit,
       );
+
+      final isDefaultFirstPage = offset == 0 &&
+          (search == null || search.isEmpty) &&
+          coachId == null &&
+          branchId == null &&
+          pendingOnly != true;
+      if (isDefaultFirstPage) {
+        _membersPageCache.set(page);
+        _activeUsersCache.set(users);
+      }
+
+      return page;
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'load members'));
     }

@@ -1,0 +1,39 @@
+﻿---
+description: GetIt DI registration and usage
+globs: lib/core/di/**/*.dart,lib/features/**/*.dart,lib/app/**/*.dart
+alwaysApply: false
+---
+
+# Dependency Injection
+
+## Purpose
+
+One composition root, predictable lifetimes, no codegen surprises.
+
+## When Applied
+
+Adding or wiring services, repositories, datasources, BLoCs, or Cubits.
+
+## Requirements
+
+- Library: GetIt (`final sl = GetIt.I`). Composition root: `lib/core/di/injection.dart` → `setupDI()`.
+- Lifetimes: `SupabaseClient`, repositories, datasources, cache, tab controllers, `UserQrService` = **lazy singleton**; BLoCs/Cubits = **factory**; `AdminSessionPreferences` = eager singleton (async create).
+- Manual registration only — no `injectable`/codegen.
+- Prefer constructor injection into BLoCs/Cubits; wire `BlocProvider` at the page boundary with `sl<MyBloc>()`.
+
+## Examples
+
+```dart
+sl.registerLazySingleton<CoachRepository>(() => CoachRepository(sl()));
+sl.registerFactory<BookingBloc>(() => BookingBloc(sl()));
+```
+
+## Anti-patterns
+
+- Constructing a repository directly inside a widget or page.
+- Registering a BLoC/Cubit as a singleton (stale state across screens).
+
+## Common Mistakes
+
+- Forgetting to register a new type, then hitting a runtime `GetIt` error.
+- Adding `injectable` annotations expecting codegen to run.

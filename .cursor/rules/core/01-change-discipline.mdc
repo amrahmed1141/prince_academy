@@ -1,0 +1,37 @@
+﻿---
+description: No drive-by refactors — additive, scoped change discipline
+alwaysApply: true
+---
+
+# Change Discipline
+
+## Purpose
+
+Protect legacy surfaces and keep diffs reviewable by implementing only what was asked.
+
+## When Applied
+
+Always, on every edit and PR.
+
+## Requirements
+
+- Implement only the requested change; no opportunistic cleanups.
+- Prefer **additive consistency** (new code follows conventions) over broad renames.
+- Keep admin god-repositories (`CoachRepository`, `AdminRepository`, etc.) incremental — extract only when asked.
+- Docs/rules-only tasks must not touch Flutter source under `lib/`.
+- Call out, don't silently perform, any change that grows in scope.
+
+## Examples
+
+- Asked to add a field → touch the one model + repo + widget path, nothing else.
+- Spot an unrelated typo → leave it, or note it separately.
+
+## Anti-patterns
+
+- Deleting `lib/view/`, the unused `provider` dependency, or `navigation_bloc` without an explicit request.
+- Reformatting or renaming files unrelated to the task.
+
+## Common Mistakes
+
+- "While I was here I also refactored X" — this breaks review and blame.
+- Fixing typos in unrelated files while delivering a feature.

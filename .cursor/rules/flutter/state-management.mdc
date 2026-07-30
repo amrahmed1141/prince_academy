@@ -1,0 +1,38 @@
+﻿---
+description: BLoC/Cubit state management conventions
+globs: lib/features/**/presentation/**/*.dart,lib/app/**/*.dart
+alwaysApply: false
+---
+
+# State Management
+
+## Purpose
+
+Keep presentation state on one predictable stack (`bloc` + `flutter_bloc` + `equatable`).
+
+## When Applied
+
+Editing presentation code under `lib/features/**/presentation/**` or `lib/app/**`.
+
+## Requirements
+
+- **BLoC** for event-driven flows (auth, booking, sessions, notifications, admin).
+- **Cubit** for simple UI state (`FinanceCubit`, `AdminDashboardCubit`, `MembersListCubit`, search cubits).
+- `Equatable` on all events and states.
+- `ChangeNotifier` only for the existing tab/QR services (`MainTabController`, `AdminTabController`, `UserQrService`) via `ListenableBuilder`.
+- `StatefulWidget`/`setState` only for forms and ephemeral local UI.
+- Call repositories from BLoC/Cubit — never Supabase from a widget.
+
+## Examples
+
+- List screen with search → Cubit + `SearchQueryCubit`, emit states with `Equatable`.
+
+## Anti-patterns
+
+- Importing/using the unused `provider` package, or adding Riverpod/GetX/MobX/Redux.
+- Business logic or network calls inside a widget's `build`.
+
+## Common Mistakes
+
+- A Cubit declared inside a `*_bloc.dart` file (match type to filename).
+- Mutable state without `Equatable`, causing missed or excess rebuilds.

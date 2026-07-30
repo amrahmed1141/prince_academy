@@ -1,0 +1,37 @@
+﻿---
+description: Firebase Cloud Messaging and notification realtime wiring
+globs: lib/features/notifications/**/*.dart,lib/app/**/*.dart,lib/features/auth/**/*.dart
+alwaysApply: false
+---
+
+# FCM & Notifications
+
+## Purpose
+
+Keep push + in-app notifications reliably wired to session lifecycle.
+
+## When Applied
+
+Editing notifications, app bootstrap, or auth sign-out.
+
+## Requirements
+
+- `NotificationBloc` + FCM are wired through `AuthenticatedShell` — authenticated UI must enter via the shell.
+- FCM token is stored on `profiles.fcm_token`; refresh on login, **clear on sign-out**.
+- Notification realtime subscriptions are disposed on sign-out (see [`data/auth-boundary.mdc`](../data/auth-boundary.mdc)).
+- Notification data access stays in the notifications repository (see [`data/repository-boundary.mdc`](../data/repository-boundary.mdc)).
+- Context: [`ai/context/notifications.md`](../../../ai/context/notifications.md).
+
+## Examples
+
+- Sign-out path → clear `profiles.fcm_token`, dispose realtime, then Supabase sign-out.
+
+## Anti-patterns
+
+- Registering FCM outside the shell, so some entry paths miss it.
+- Leaving a stale token on a device after logout.
+
+## Common Mistakes
+
+- Handling FCM token writes in a widget instead of the repository.
+- Realtime subscription leaks across account switches.

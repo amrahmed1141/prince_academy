@@ -90,6 +90,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
   List<Branch> _branches = [];
   bool _isLoadingBranches = false;
   String _selectedTimeSlot = SessionDraft.defaultTimeSlot;
+  int _selectedDurationMinutes = SessionDraft.defaultDurationMinutes;
   final _priceController = TextEditingController();
   int _sessionsPerWeek = 1;
   List<SessionSlot> _sessionSlots = [SessionSlot.initial()];
@@ -145,6 +146,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
       selectedCoachId: _selectedSessionCoachId,
       selectedBranchId: _selectedBranchId,
       timeSlot: _selectedTimeSlot,
+      durationMinutes: _selectedDurationMinutes,
       priceText: _priceController.text,
       sessionsPerWeek: _sessionsPerWeek,
       slots: _sessionSlots,
@@ -161,6 +163,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
       _selectedSessionCoachId = snapshot.coachId;
       _selectedBranchId = snapshot.branchId;
       _selectedTimeSlot = snapshot.timeSlot;
+      _selectedDurationMinutes = snapshot.durationMinutes;
       _sessionsPerWeek = snapshot.sessionsPerWeek;
       _sessionSlots = normalizedSlots;
       _priceController.text = snapshot.priceText;
@@ -181,6 +184,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
         coachId: _selectedSessionCoachId,
         branchId: _selectedBranchId,
         timeSlot: _selectedTimeSlot,
+        durationMinutes: _selectedDurationMinutes,
         priceText: _priceController.text,
         sessionsPerWeek: _sessionsPerWeek,
         slots: _sessionSlots,
@@ -349,6 +353,7 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
       coachId: _selectedSessionCoachId,
       branchId: _selectedBranchId,
       timeSlot: _selectedTimeSlot,
+      durationMinutes: _selectedDurationMinutes,
       priceText: _priceController.text,
       sessionsPerWeek: _sessionsPerWeek,
       slots: _sessionSlots,
@@ -1399,6 +1404,26 @@ class _AdminAddInfoPageState extends State<AdminAddInfoPage> {
                       ),
                     ),
                   ],
+                  const SizedBox(height: 16),
+                  AdminDropdownField<int>(
+                    label: 'Duration',
+                    value: SessionDraft.presetDurations
+                            .contains(_selectedDurationMinutes)
+                        ? _selectedDurationMinutes
+                        : SessionDraft.defaultDurationMinutes,
+                    items: SessionDraft.presetDurations,
+                    itemLabel: SessionDraft.durationLabel,
+                    prefixIcon: Iconsax.timer_1,
+                    enabled: hasCoaches,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _sessionFormTouched = true;
+                          _selectedDurationMinutes = value;
+                        });
+                      }
+                    },
+                  ),
                   const SizedBox(height: 16),
                   AdminAutocompleteField(
                     label: 'Price Per Session (EGP)',

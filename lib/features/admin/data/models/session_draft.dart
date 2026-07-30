@@ -46,6 +46,7 @@ class SessionDraft {
   final String? coachId;
   final String? branchId;
   final String timeSlot;
+  final int durationMinutes;
   final double pricePerSession;
   final int sessionsPerWeek;
   final List<SessionSlot> sessions;
@@ -54,12 +55,14 @@ class SessionDraft {
     this.coachId,
     this.branchId,
     required this.timeSlot,
+    this.durationMinutes = defaultDurationMinutes,
     required this.pricePerSession,
     required this.sessionsPerWeek,
     required this.sessions,
   });
 
   static const defaultTimeSlot = '8:00 AM';
+  static const defaultDurationMinutes = 60;
 
   static const presetTimeSlots = [
     '7:00 AM',
@@ -71,6 +74,11 @@ class SessionDraft {
     '7:00 PM',
     '8:00 PM',
   ];
+
+  /// Common session lengths shown in the admin Create Session form.
+  static const presetDurations = [45, 60, 75, 90, 120];
+
+  static String durationLabel(int minutes) => '$minutes min';
 
   static const weekDays = [
     'Monday',
@@ -98,6 +106,7 @@ class SessionDraft {
       coachId: coachId,
       branchId: branchId,
       timeSlot: defaultTimeSlot,
+      durationMinutes: defaultDurationMinutes,
       pricePerSession: 0,
       sessionsPerWeek: 1,
       sessions: [SessionSlot.initial()],
@@ -120,6 +129,8 @@ class SessionDraft {
       coachId: json['coach_id'] as String?,
       branchId: json['branch_id'] as String?,
       timeSlot: json['time_slot'] as String? ?? defaultTimeSlot,
+      durationMinutes:
+          (json['duration_minutes'] as num?)?.toInt() ?? defaultDurationMinutes,
       pricePerSession: (json['price_per_session'] as num?)?.toDouble() ?? 0,
       sessionsPerWeek: json['sessions_per_week'] as int? ?? 1,
       sessions: parsedSessions,
@@ -131,6 +142,7 @@ class SessionDraft {
       if (coachId != null) 'coach_id': coachId,
       if (branchId != null) 'branch_id': branchId,
       'time_slot': timeSlot,
+      'duration_minutes': durationMinutes,
       'price_per_session': pricePerSession,
       'sessions_per_week': sessionsPerWeek,
       'sessions': sessions.map((s) => s.toJson()).toList(),
@@ -145,6 +157,7 @@ class SessionDraft {
     String? coachId,
     String? branchId,
     String? timeSlot,
+    int? durationMinutes,
     double? pricePerSession,
     int? sessionsPerWeek,
     List<SessionSlot>? sessions,
@@ -153,6 +166,7 @@ class SessionDraft {
       coachId: coachId ?? this.coachId,
       branchId: branchId ?? this.branchId,
       timeSlot: timeSlot ?? this.timeSlot,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
       pricePerSession: pricePerSession ?? this.pricePerSession,
       sessionsPerWeek: sessionsPerWeek ?? this.sessionsPerWeek,
       sessions: sessions ?? this.sessions,

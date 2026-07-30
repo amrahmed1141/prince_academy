@@ -76,10 +76,13 @@ class DashboardHeader extends StatelessWidget {
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: EColorConstants.authFieldBorder,
-                        width: 2,
-                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: const CircleAvatar(
                       radius: 22,
@@ -104,7 +107,6 @@ class DashboardHeader extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: const Color(0xFFE65100),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white, width: 1.5),
                         ),
                         child: Text(
                           pendingCount > 99 ? '99+' : '$pendingCount',

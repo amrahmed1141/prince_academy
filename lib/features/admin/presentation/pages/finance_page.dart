@@ -13,19 +13,27 @@ final NumberFormat _egpCurrencyNoDecimal =
     NumberFormat.currency(locale: 'en', symbol: 'EGP ', decimalDigits: 0);
 
 class FinancePage extends StatelessWidget {
-  const FinancePage({super.key});
+  const FinancePage({
+    super.key,
+    this.showBackButton = false,
+  });
+
+  /// When opened via [Navigator.push] (e.g. from Dashboard KPI).
+  final bool showBackButton;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<FinanceCubit>()..load(),
-      child: const _FinanceView(),
+      child: _FinanceView(showBackButton: showBackButton),
     );
   }
 }
 
 class _FinanceView extends StatefulWidget {
-  const _FinanceView();
+  const _FinanceView({this.showBackButton = false});
+
+  final bool showBackButton;
 
   @override
   State<_FinanceView> createState() => _FinanceViewState();
@@ -80,6 +88,14 @@ class _FinanceViewState extends State<_FinanceView> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
+        automaticallyImplyLeading: widget.showBackButton,
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                color: AppColors.textPrimary,
+                onPressed: () => Navigator.of(context).maybePop(),
+              )
+            : null,
         title: const Text(
           'Finance',
           style: TextStyle(

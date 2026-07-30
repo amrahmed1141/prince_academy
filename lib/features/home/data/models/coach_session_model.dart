@@ -7,6 +7,7 @@ class CoachSessionModel {
   final String sessionType;
   final List<String> days;
   final List<String> timeSlots;
+  final int durationMinutes;
   final double pricePerSession;
   final DateTime? sessionDate;
   final bool isActive;
@@ -25,6 +26,7 @@ class CoachSessionModel {
     required this.sessionType,
     this.days = const [],
     this.timeSlots = const [],
+    this.durationMinutes = 60,
     this.pricePerSession = 0,
     this.sessionDate,
     required this.isActive,
@@ -64,6 +66,7 @@ class CoachSessionModel {
       sessionType: json['session_type'] as String? ?? '',
       days: _parseStringList(json['days']),
       timeSlots: _parseStringList(json['time_slots']),
+      durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 60,
       pricePerSession: (json['price_per_session'] as num?)?.toDouble() ?? 0,
       sessionDate: _parseDate(json['session_date']),
       isActive: json['is_active'] as bool? ?? true,
@@ -105,6 +108,7 @@ class CoachSessionModel {
       'session_type': sessionType,
       'days': days,
       'time_slots': timeSlots,
+      'duration_minutes': durationMinutes,
       'price_per_session': pricePerSession,
       'session_date': _formatDateForDb(sessionDate),
       'is_active': isActive,
@@ -118,6 +122,7 @@ class CoachSessionModel {
     String? sessionType,
     List<String>? days,
     List<String>? timeSlots,
+    int? durationMinutes,
     double? pricePerSession,
     DateTime? sessionDate,
     bool? isActive,
@@ -136,6 +141,7 @@ class CoachSessionModel {
       sessionType: sessionType ?? this.sessionType,
       days: days ?? this.days,
       timeSlots: timeSlots ?? this.timeSlots,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
       pricePerSession: pricePerSession ?? this.pricePerSession,
       sessionDate: sessionDate ?? this.sessionDate,
       isActive: isActive ?? this.isActive,
@@ -187,6 +193,7 @@ class CoachSessionModel {
       'session_type': sessionType,
       'days': days,
       'time_slots': timeSlots,
+      'duration_minutes': durationMinutes,
       'price_per_session': pricePerSession,
       'session_date': _formatDateForDb(sessionDate),
       'is_active': isActive,
