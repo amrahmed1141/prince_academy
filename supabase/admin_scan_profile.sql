@@ -109,6 +109,14 @@ SELECT
     FROM unnest(b.selected_days) AS d(raw_day)
     WHERE lower(trim(d.raw_day)) = lower(trim(to_char(CURRENT_DATE, 'Day')))
        OR lower(left(trim(d.raw_day), 3)) = lower(left(trim(to_char(CURRENT_DATE, 'Day')), 3))
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.booking_freeze_dates fd
+    JOIN public.booking_freezes bf ON bf.id = fd.freeze_id
+    WHERE fd.booking_id = b.id
+      AND fd.session_date = CURRENT_DATE
+      AND bf.status = 'approved'
   ) AS is_scheduled_today
 FROM public.bookings b
 JOIN public.profiles pr ON pr.id = b.user_id

@@ -149,6 +149,7 @@ class MemberBookingCardData {
 class MemberBookingCard extends StatelessWidget {
   final MemberBookingCardData data;
   final VoidCallback onViewSessions;
+  final VoidCallback? onFreeze;
   final VoidCallback? onMarkAttendance;
   final VoidCallback? onPaymentTap;
   final bool isMarkingAttendance;
@@ -158,6 +159,7 @@ class MemberBookingCard extends StatelessWidget {
     super.key,
     required this.data,
     required this.onViewSessions,
+    this.onFreeze,
     this.onMarkAttendance,
     this.onPaymentTap,
     this.isMarkingAttendance = false,
@@ -505,27 +507,47 @@ class MemberBookingCard extends StatelessWidget {
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: onViewSessions,
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'View Sessions',
-                      style: TextStyle(
-                        color: EColorConstants.primaryColor,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Poppins',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onFreeze != null &&
+                      status == MemberBookingDisplayStatus.active) ...[
+                    TextButton(
+                      onPressed: onFreeze,
+                      child: const Text(
+                        'Freeze',
+                        style: TextStyle(
+                          color: EColorConstants.authDeepPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
                     ),
-                    SizedBox(width: 4),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 14,
-                      color: EColorConstants.primaryColor,
-                    ),
+                    const SizedBox(width: 4),
                   ],
-                ),
+                  TextButton(
+                    onPressed: onViewSessions,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'View Sessions',
+                          style: TextStyle(
+                            color: EColorConstants.primaryColor,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 14,
+                          color: EColorConstants.primaryColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

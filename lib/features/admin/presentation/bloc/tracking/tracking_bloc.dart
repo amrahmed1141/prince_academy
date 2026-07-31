@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:prince_academy/core/helpers/realtime_channel_helper.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/models/branch_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
@@ -372,7 +373,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     if (_trackingRealtimeChannel != null) return;
 
     final supabase = Supabase.instance.client;
-    _trackingRealtimeChannel = supabase
+    final channel = supabase
         .channel('tracking-live-updates')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -391,17 +392,26 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
           schema: 'public',
           table: 'payments',
           callback: (_) => _scheduleRealtimeRefresh(),
-        )
-        .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.channelError ||
-              status == RealtimeSubscribeStatus.timedOut) {
-            _trackingRealtimeChannel?.unsubscribe();
-            _trackingRealtimeChannel = null;
-            Future<void>.delayed(const Duration(seconds: 2), () {
-              if (!isClosed) _ensureRealtimeSubscription();
-            });
-          }
-        });
+        );
+
+    final subscribed = RealtimeChannelHelper.subscribeSafely(
+      channel,
+      onStatus: (status, _) {
+        if (status == RealtimeSubscribeStatus.channelError ||
+            status == RealtimeSubscribeStatus.timedOut) {
+          final dead = _trackingRealtimeChannel;
+          _trackingRealtimeChannel = null;
+          unawaited(
+            RealtimeChannelHelper.removeSafely(supabase, dead).then((_) {
+              Future<void>.delayed(const Duration(seconds: 2), () {
+                if (!isClosed) _ensureRealtimeSubscription();
+              });
+            }),
+          );
+        }
+      },
+    );
+    _trackingRealtimeChannel = subscribed;
   }
 
   void _startPolling() {
@@ -429,11 +439,15 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   }
 
   @override
-  Future<void> close() {
+  Future<void> close() async {
     _realtimeDebounce?.cancel();
     _pollTimer?.cancel();
-    _trackingRealtimeChannel?.unsubscribe();
+    final channel = _trackingRealtimeChannel;
     _trackingRealtimeChannel = null;
+    await RealtimeChannelHelper.removeSafely(
+      Supabase.instance.client,
+      channel,
+    );
     return super.close();
   }
 }

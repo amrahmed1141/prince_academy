@@ -13,6 +13,8 @@ import 'package:prince_academy/features/admin/presentation/widgets/admin_coach_b
 import 'package:prince_academy/features/admin/presentation/widgets/admin_member_booking_list_helpers.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_member_profile_header.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/member_booking_card.dart';
+import 'package:prince_academy/features/booking/data/models/booking_freeze_model.dart';
+import 'package:prince_academy/features/booking/presentation/pages/user_freeze_page.dart';
 
 class ScannedUserProfilePage extends StatefulWidget {
   final String qrCode;
@@ -252,6 +254,20 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
     }
   }
 
+  Future<void> _openFreeze(AdminScanProfile booking) async {
+    final applied = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => UserFreezePage(
+          bookingId: booking.bookingId,
+          actor: FreezeActor.admin,
+        ),
+      ),
+    );
+    if (applied == true) {
+      await _loadData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -308,6 +324,9 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
                                         _openPaymentVerification(booking),
                                     onViewSessions: () =>
                                         _openSessionDetail(booking),
+                                    onFreeze: booking.isActive
+                                        ? () => _openFreeze(booking)
+                                        : null,
                                   );
                                 },
                                 childCount: _pendingPaymentBookings.length,
@@ -342,6 +361,9 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
                                             : null,
                                     onViewSessions: () =>
                                         _openSessionDetail(booking),
+                                    onFreeze: booking.isActive
+                                        ? () => _openFreeze(booking)
+                                        : null,
                                   );
                                 },
                                 childCount: _verticalBookings.length,

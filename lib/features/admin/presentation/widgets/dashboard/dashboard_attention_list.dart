@@ -245,63 +245,78 @@ class _LowAttendanceCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: _DashboardAttentionListState._headerHeight,
-                child: GestureDetector(
+              Material(
+                type: MaterialType.transparency,
+                child: InkWell(
                   onTap: onOpenTracking,
-                  behavior: HitTestBehavior.opaque,
-                  child: Row(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CoachAvatar(
-                        coachName: member.fullName,
-                        photoUrl: member.avatarUrl,
-                        size: 36,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          member.fullName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: EColorConstants.authTextDarkBrown,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'Poppins',
-                          ),
+                      SizedBox(
+                        height: _DashboardAttentionListState._headerHeight,
+                        child: Row(
+                          children: [
+                            CoachAvatar(
+                              coachName: member.fullName,
+                              photoUrl: member.avatarUrl,
+                              size: 36,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                member.fullName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: EColorConstants.authTextDarkBrown,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      const SizedBox(
+                        height: _DashboardAttentionListState._headerGap,
+                      ),
+                      if (visibleCoaches.isEmpty)
+                        const SizedBox(
+                          height:
+                              _DashboardAttentionListState._coachRowHeight,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'No coach progress available',
+                              style: TextStyle(
+                                color: EColorConstants.authPlaceholderGray,
+                                fontSize: 11,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        for (var i = 0; i < visibleCoaches.length; i++) ...[
+                          if (i > 0)
+                            const SizedBox(
+                              height:
+                                  _DashboardAttentionListState._coachRowGap,
+                            ),
+                          SizedBox(
+                            height:
+                                _DashboardAttentionListState._coachRowHeight,
+                            child: _CoachMissedContainer(
+                              coach: visibleCoaches[i],
+                            ),
+                          ),
+                        ],
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: _DashboardAttentionListState._headerGap),
-              if (visibleCoaches.isEmpty)
-                const SizedBox(
-                  height: _DashboardAttentionListState._coachRowHeight,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'No coach progress available',
-                      style: TextStyle(
-                        color: EColorConstants.authPlaceholderGray,
-                        fontSize: 11,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ),
-                )
-              else
-                for (var i = 0; i < visibleCoaches.length; i++) ...[
-                  if (i > 0)
-                    const SizedBox(
-                      height: _DashboardAttentionListState._coachRowGap,
-                    ),
-                  SizedBox(
-                    height: _DashboardAttentionListState._coachRowHeight,
-                    child: _CoachMissedContainer(coach: visibleCoaches[i]),
-                  ),
-                ],
               if (reserveFooter)
                 SizedBox(
                   height: _DashboardAttentionListState._footerHeight,
@@ -344,7 +359,8 @@ class _LowAttendanceCard extends StatelessWidget {
                                         child: const Text(
                                           'Show less',
                                           style: TextStyle(
-                                            color: EColorConstants.primaryColor,
+                                            color:
+                                                EColorConstants.primaryColor,
                                             fontSize: 10,
                                             fontWeight: FontWeight.w600,
                                             fontFamily: 'Poppins',

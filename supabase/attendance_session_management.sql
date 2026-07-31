@@ -66,11 +66,14 @@ DECLARE
   v_session_date date;
   v_day_name text;
   v_is_attended boolean;
+  v_is_frozen boolean;
   v_status text;
   v_can_re_attend boolean;
   v_can_unmark boolean;
   v_total_sessions integer;
+  v_frozen_count integer := 0;
   v_session_count integer := 0;
+  v_cap integer;
 BEGIN
   SELECT * INTO v_booking
   FROM public.bookings
@@ -84,7 +87,7 @@ BEGIN
   v_end_date := v_booking.subscription_end::date;
 
   -- Use the package session count (e.g. 12), NOT every matching weekday in the date range.
-  -- A calendar month from start→end can include one extra week (e.g. Sun 19/07 → 13 not 12).
+  -- Cap += approved frozen count so makeup weekdays appear after expiry extension.
   SELECT COALESCE(bp.total_sessions, 0)
   INTO v_total_sessions
   FROM public.booking_progress bp
@@ -107,11 +110,19 @@ BEGIN
     v_total_sessions := COALESCE(v_total_sessions, 0);
   END IF;
 
+  SELECT COUNT(*)::integer INTO v_frozen_count
+  FROM public.booking_freeze_dates fd
+  JOIN public.booking_freezes bf ON bf.id = fd.freeze_id
+  WHERE fd.booking_id = p_booking_id
+    AND bf.status = 'approved';
+
+  v_cap := v_total_sessions + COALESCE(v_frozen_count, 0);
+
   FOR v_session_date IN
     SELECT generate_series(v_start_date, v_end_date, '1 day'::interval)::date
     ORDER BY 1
   LOOP
-    EXIT WHEN v_total_sessions > 0 AND v_session_count >= v_total_sessions;
+    EXIT WHEN v_cap > 0 AND v_session_count >= v_cap;
 
     v_day_name := trim(to_char(v_session_date, 'Day'));
 
@@ -130,12 +141,23 @@ BEGIN
           AND lower(coalesce(a.status, '')) = 'attended'
       ) INTO v_is_attended;
 
+      SELECT EXISTS (
+        SELECT 1
+        FROM public.booking_freeze_dates fd
+        JOIN public.booking_freezes bf ON bf.id = fd.freeze_id
+        WHERE fd.booking_id = p_booking_id
+          AND fd.session_date = v_session_date
+          AND bf.status = 'approved'
+      ) INTO v_is_frozen;
+
       v_can_unmark := false;
       v_can_re_attend := false;
 
       IF v_is_attended THEN
         v_status := 'completed';
         v_can_unmark := true;
+      ELSIF v_is_frozen THEN
+        v_status := 'frozen';
       ELSIF v_session_date > v_current_date THEN
         v_status := 'upcoming';
       ELSIF v_session_date = v_current_date THEN

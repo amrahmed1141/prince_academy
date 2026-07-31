@@ -16,6 +16,8 @@ import 'package:prince_academy/features/sessions/domain/weekly_progress_summary.
 import 'package:prince_academy/features/sessions/presentation/widgets/booking_session_card.dart';
 import 'package:prince_academy/features/sessions/presentation/widgets/coach_chip_list.dart';
 import 'package:prince_academy/features/sessions/presentation/widgets/weekly_attendance_chart.dart';
+import 'package:prince_academy/features/booking/data/models/booking_freeze_model.dart';
+import 'package:prince_academy/features/booking/presentation/pages/user_freeze_page.dart';
 
 class SessionsPage extends StatelessWidget {
   const SessionsPage({
@@ -144,6 +146,23 @@ class _SessionsLoadedBody extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openFreeze(
+    BuildContext context,
+    BookingHistoryModel booking,
+  ) async {
+    final requested = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => UserFreezePage(
+          bookingId: booking.bookingId,
+          actor: FreezeActor.member,
+        ),
+      ),
+    );
+    if (requested == true && context.mounted) {
+      context.read<SessionsBloc>().add(const RefreshSessions());
+    }
   }
 
   @override
@@ -296,6 +315,9 @@ class _SessionsLoadedBody extends StatelessWidget {
                         todaySession: todaySession,
                         includeListPadding: false,
                         onTap: () => _openSessionDetail(context, booking),
+                        onFreeze: displayStatus == BookingDisplayStatus.active
+                            ? () => _openFreeze(context, booking)
+                            : null,
                       );
                       if (todaySessionRecord != null) {
                         return RepaintBoundary(

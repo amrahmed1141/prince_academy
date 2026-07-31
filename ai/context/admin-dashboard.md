@@ -19,6 +19,8 @@ Not a major context pack — admin spans many domains and over-fetches if loaded
 
 - `AdminHomeScreen` — `lib/features/admin/presentation/pages/admin_home.dart`
 - Dashboard: `AdminDashboardCubit`, `AdminDashboardRepository`
+- Top KPI: `DashboardKpiPager` (swipeable Today Attendance + Overview); schedules list: `AllSchedulesPage`; freeze inbox: `AllFreezePage` (Overview Freeze card = pending request count)
+- Today attendance ratio = Σ `attended_count` / Σ `booked_count` from `today_coach_sessions` (no extra RPC)
 - God repos (incremental only): `AdminRepository`, `CoachRepository`, `FinanceRepository`
 - Rule: `.cursor/rules/product/admin-operations.mdc`
 

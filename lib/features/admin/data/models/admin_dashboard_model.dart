@@ -12,6 +12,8 @@ class AdminDashboardData extends Equatable {
     required this.activeMembersCount,
     required this.todaySessionsCount,
     required this.todaySessionsPreview,
+    required this.coachesCount,
+    required this.freezePendingCount,
   });
 
   final int pendingPaymentsCount;
@@ -21,6 +23,25 @@ class AdminDashboardData extends Equatable {
   final int activeMembersCount;
   final int todaySessionsCount;
   final List<DashboardTodaySession> todaySessionsPreview;
+  final int coachesCount;
+  final int freezePendingCount;
+
+  /// Sum of attended members across all of today's sessions.
+  int get todayAttendedTotal => todaySessionsPreview.fold<int>(
+        0,
+        (sum, session) => sum + session.attendedCount,
+      );
+
+  /// Sum of booked capacity across all of today's sessions.
+  int get todayBookedCapacity => todaySessionsPreview.fold<int>(
+        0,
+        (sum, session) => sum + session.bookedCount,
+      );
+
+  double get todayAttendanceProgress {
+    if (todayBookedCapacity <= 0) return 0;
+    return (todayAttendedTotal / todayBookedCapacity).clamp(0.0, 1.0);
+  }
 
   @override
   List<Object?> get props => [
@@ -31,6 +52,8 @@ class AdminDashboardData extends Equatable {
         activeMembersCount,
         todaySessionsCount,
         todaySessionsPreview,
+        coachesCount,
+        freezePendingCount,
       ];
 }
 

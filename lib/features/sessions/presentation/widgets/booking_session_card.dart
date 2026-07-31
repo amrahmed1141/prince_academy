@@ -6,6 +6,7 @@ import 'package:prince_academy/features/sessions/presentation/widgets/session_ca
 class BookingSessionCard extends StatelessWidget {
   final BookingHistoryModel booking;
   final VoidCallback onTap;
+  final VoidCallback? onFreeze;
   final BookingDisplayStatus displayStatus;
   final TodaySessionInfo? todaySession;
   final bool includeListPadding;
@@ -15,6 +16,7 @@ class BookingSessionCard extends StatelessWidget {
     required this.booking,
     required this.onTap,
     required this.displayStatus,
+    this.onFreeze,
     this.todaySession,
     this.includeListPadding = true,
   });
@@ -25,6 +27,7 @@ class BookingSessionCard extends StatelessWidget {
       booking: booking,
       todaySession: todaySession,
       onTap: onTap,
+      onFreeze: onFreeze,
       includeListPadding: includeListPadding,
     );
   }

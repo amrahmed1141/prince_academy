@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prince_academy/core/cache/image_cache.dart';
+import 'package:prince_academy/core/helpers/realtime_channel_helper.dart';
 import 'package:prince_academy/core/services/firebase_messaging_service.dart';
 
 import 'app/app.dart';
@@ -18,6 +19,17 @@ bool get _supportsFirebasePush {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Supabase Realtime can throw StateError("Bad state: StreamSink is closed")
+  // from reconnect timers after hot restart / flaky sockets. Swallow only that.
+  final previousOnError = PlatformDispatcher.instance.onError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (RealtimeChannelHelper.isClosedSinkError(error)) {
+      debugPrint('Suppressed Realtime reconnect error: $error');
+      return true;
+    }
+    return previousOnError?.call(error, stack) ?? false;
+  };
 
   if (_supportsFirebasePush) {
     // Must be registered before Firebase.initializeApp / runApp.

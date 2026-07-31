@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/base/stream_repository.dart';
 import 'package:prince_academy/core/cache/ttl_cache.dart';
 import 'package:prince_academy/core/helpers/image_resize_helper.dart';
+import 'package:prince_academy/core/helpers/realtime_channel_helper.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
@@ -919,7 +920,8 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
 
   void stopWatchingUserScanProfiles(String userId) {
     _scanProfileDebounce.remove(userId)?.cancel();
-    _scanProfileChannels.remove(userId)?.unsubscribe();
+    final channel = _scanProfileChannels.remove(userId);
+    unawaited(RealtimeChannelHelper.removeSafely(_supabase, channel));
     final controller = _scanProfileControllers.remove(userId);
     if (controller != null && !controller.isClosed) {
       controller.close();
@@ -989,10 +991,25 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
           schema: 'public',
           table: 'payments',
           callback: (_) => _scheduleUserScanRefresh(userId),
-        )
-        .subscribe();
+        );
 
-    _scanProfileChannels[userId] = channel;
+    final subscribed = RealtimeChannelHelper.subscribeSafely(
+      channel,
+      onStatus: (status, _) {
+        if (status == RealtimeSubscribeStatus.channelError ||
+            status == RealtimeSubscribeStatus.timedOut) {
+          unawaited(_dropUserScanChannel(userId));
+        }
+      },
+    );
+    if (subscribed != null) {
+      _scanProfileChannels[userId] = subscribed;
+    }
+  }
+
+  Future<void> _dropUserScanChannel(String userId) async {
+    final channel = _scanProfileChannels.remove(userId);
+    await RealtimeChannelHelper.removeSafely(_supabase, channel);
   }
 
   void _scheduleUserScanRefresh(String userId) {

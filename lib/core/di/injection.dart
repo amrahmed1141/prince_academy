@@ -11,6 +11,7 @@ import 'package:prince_academy/features/admin/data/repositories/coach_repository
 import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_dashboard_cubit.dart';
+import 'package:prince_academy/features/admin/presentation/bloc/all_schedules/all_schedules_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/coach/coach_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/finance_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/session_detail_bloc.dart';
@@ -18,9 +19,12 @@ import 'package:prince_academy/features/admin/presentation/bloc/tracking/trackin
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/features/booking/data/datasources/booking_remote_ds.dart';
 import 'package:prince_academy/features/booking/data/repositories/booking_repository.dart';
+import 'package:prince_academy/features/booking/data/repositories/booking_freeze_repository.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_detail_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_bloc.dart';
+import 'package:prince_academy/features/booking/presentation/bloc/user_freeze/user_freeze_cubit.dart';
+import 'package:prince_academy/features/admin/presentation/bloc/all_freeze/all_freeze_cubit.dart';
 import 'package:prince_academy/core/services/admin_tab_controller.dart';
 import 'package:prince_academy/core/services/main_tab_controller.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
@@ -56,6 +60,9 @@ Future<void> setupDI() async {
   sl.registerFactory<AdminDashboardCubit>(
     () => AdminDashboardCubit(repository: sl()),
   );
+  sl.registerFactory<AllSchedulesCubit>(
+    () => AllSchedulesCubit(sl()),
+  );
   sl.registerFactory<CoachBloc>(() => CoachBloc(repository: sl()));
   sl.registerLazySingleton<HomeCoachRepository>(
     () => HomeCoachRepository(sl(), cache: sl()),
@@ -64,6 +71,9 @@ Future<void> setupDI() async {
   sl.registerLazySingleton<BookingRemoteDs>(() => BookingRemoteDs(sl()));
   sl.registerLazySingleton<BookingRepository>(
     () => BookingRepository(sl(), cache: sl()),
+  );
+  sl.registerLazySingleton<BookingFreezeRepository>(
+    () => BookingFreezeRepository(sl()),
   );
   sl.registerLazySingleton<UserQrService>(() => UserQrService(sl()));
   sl.registerLazySingleton<MainTabController>(() => MainTabController());
@@ -79,6 +89,12 @@ Future<void> setupDI() async {
   sl.registerFactory<BookingBloc>(() => BookingBloc(sl()));
   sl.registerFactory<BookingHistoryBloc>(() => BookingHistoryBloc(sl()));
   sl.registerFactory<BookingDetailBloc>(() => BookingDetailBloc(sl()));
+  sl.registerFactory<UserFreezeCubit>(
+    () => UserFreezeCubit(sl()),
+  );
+  sl.registerFactory<AllFreezeCubit>(
+    () => AllFreezeCubit(sl()),
+  );
   sl.registerFactory<TrackingBloc>(() => TrackingBloc(
         repository: sl(),
         branchRepository: sl(),

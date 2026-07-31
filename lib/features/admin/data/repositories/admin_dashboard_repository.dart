@@ -107,6 +107,8 @@ class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
       _fetchTodayRevenue(),
       _fetchActiveMembersCount(),
       _fetchTodaySessions(),
+      _fetchCoachesCount(),
+      _fetchFreezePendingCount(),
     ]);
 
     final pending = results[0] as List<PendingPaymentModel>;
@@ -114,6 +116,8 @@ class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
     final todayRevenue = results[2] as double;
     final activeMembersCount = results[3] as int;
     final todaySessions = results[4] as List<DashboardTodaySession>;
+    final coachesCount = results[5] as int;
+    final freezePendingCount = results[6] as int;
 
     return AdminDashboardData(
       pendingPaymentsCount: pending.length,
@@ -123,6 +127,8 @@ class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
       activeMembersCount: activeMembersCount,
       todaySessionsCount: todaySessions.length,
       todaySessionsPreview: todaySessions,
+      coachesCount: coachesCount,
+      freezePendingCount: freezePendingCount,
     );
   }
 
@@ -263,6 +269,30 @@ class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
       return (response as List).length;
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'load active members count'));
+    }
+  }
+
+  Future<int> _fetchCoachesCount() async {
+    try {
+      final response = await _supabase
+          .from('coaches')
+          .select('id')
+          .eq('is_active', true);
+      return (response as List).length;
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load coaches count'));
+    }
+  }
+
+  /// Best-effort — missing RPC / schema must not block the dashboard.
+  Future<int> _fetchFreezePendingCount() async {
+    try {
+      final response = await _supabase.rpc('get_freeze_dashboard_count');
+      if (response is int) return response;
+      if (response is num) return response.toInt();
+      return int.tryParse(response?.toString() ?? '') ?? 0;
+    } catch (_) {
+      return 0;
     }
   }
 

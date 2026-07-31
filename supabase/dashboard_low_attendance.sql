@@ -76,6 +76,14 @@ BEGIN
       ab.subscription_end IS NULL
       OR dr.session_date <= ab.subscription_end::date
     )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.booking_freeze_dates fd
+      JOIN public.booking_freezes bf ON bf.id = fd.freeze_id
+      WHERE fd.booking_id = ab.booking_id
+        AND fd.session_date = dr.session_date
+        AND bf.status = 'approved'
+    )
     GROUP BY ab.user_id
   ),
   attended AS (

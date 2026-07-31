@@ -30,6 +30,7 @@ Reservation lifecycle: create, cancel, reschedule, history, and booking cache/re
 
 - Remote I/O only in DS/repo — not pages.
 - Multi-step create/mutations via RPCs: `create_booking_with_schedule`, `cancel_booking`, `update_booking_days`, `reschedule_booking`.
+- Session freeze RPCs: `request_booking_freeze`, `apply_booking_freeze`, `review_booking_freeze` (+N days to `subscription_end`). SQL: `supabase/session_freeze.sql`.
 - Preserve cache-first history (`bookings_$userId` Hive + stream).
 - After mutations call `MemberDataSync` (bookings + sessions).
 - Reuse booking models — no parallel shapes.

@@ -164,6 +164,9 @@ class SessionDetailBloc extends Bloc<SessionDetailEvent, SessionDetailState> {
 
       if (session.isAttended || status == 'completed') {
         completed.add(session);
+      } else if (status == 'frozen') {
+        // Frozen slots are not missed and not markable — show under upcoming.
+        upcoming.add(session);
       } else if (status == 'missed') {
         missed.add(session);
       } else if (status == 'upcoming' || status == 'today') {

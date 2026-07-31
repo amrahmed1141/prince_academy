@@ -12,17 +12,20 @@ import 'package:prince_academy/features/admin/data/models/payment_verification_d
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_dashboard_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_profile.dart';
+import 'package:prince_academy/features/admin/presentation/pages/all_schedules_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/all_freeze_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/finance_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/payment_verification_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/pending_payments_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/qr_scanner_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/today_sessions_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/tracking/all_coaches_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/all_members_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/user_tracking_detail_page.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_smooth_scroll.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_attention_list.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_header.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_kpi_grid.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_kpi_pager.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_pending_payments_list.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_quick_actions.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_today_list.dart';
@@ -198,12 +201,20 @@ class _KpiSlice {
     required this.todayRevenue,
     required this.activeMembers,
     required this.todaySessions,
+    required this.todayAttended,
+    required this.todayBooked,
+    required this.coachesCount,
+    required this.freezePendingCount,
   });
 
   final int pendingCount;
   final double todayRevenue;
   final int activeMembers;
   final int todaySessions;
+  final int todayAttended;
+  final int todayBooked;
+  final int coachesCount;
+  final int freezePendingCount;
 
   @override
   bool operator ==(Object other) =>
@@ -212,11 +223,23 @@ class _KpiSlice {
           pendingCount == other.pendingCount &&
           todayRevenue == other.todayRevenue &&
           activeMembers == other.activeMembers &&
-          todaySessions == other.todaySessions;
+          todaySessions == other.todaySessions &&
+          todayAttended == other.todayAttended &&
+          todayBooked == other.todayBooked &&
+          coachesCount == other.coachesCount &&
+          freezePendingCount == other.freezePendingCount;
 
   @override
-  int get hashCode =>
-      Object.hash(pendingCount, todayRevenue, activeMembers, todaySessions);
+  int get hashCode => Object.hash(
+        pendingCount,
+        todayRevenue,
+        activeMembers,
+        todaySessions,
+        todayAttended,
+        todayBooked,
+        coachesCount,
+        freezePendingCount,
+      );
 }
 
 class _DashboardKpiSection extends StatelessWidget {
@@ -232,18 +255,29 @@ class _DashboardKpiSection extends StatelessWidget {
           todayRevenue: data?.todayRevenue ?? 0,
           activeMembers: data?.activeMembersCount ?? 0,
           todaySessions: data?.todaySessionsCount ?? 0,
+          todayAttended: data?.todayAttendedTotal ?? 0,
+          todayBooked: data?.todayBookedCapacity ?? 0,
+          coachesCount: data?.coachesCount ?? 0,
+          freezePendingCount: data?.freezePendingCount ?? 0,
         );
       },
       builder: (context, slice) {
-        return DashboardKpiGrid(
+        return DashboardKpiPager(
+          todayAttended: slice.todayAttended,
+          todayBooked: slice.todayBooked,
+          todaySessions: slice.todaySessions,
           pendingCount: slice.pendingCount,
           todayRevenue: slice.todayRevenue,
-          activeMembers: slice.activeMembers,
-          todaySessions: slice.todaySessions,
+          coachesCount: slice.coachesCount,
+          membersCount: slice.activeMembers,
+          freezePendingCount: slice.freezePendingCount,
           onPendingTap: () => _DashboardNav.openPendingPayments(context),
           onRevenueTap: () => _DashboardNav.openFinance(context),
+          onTodaySessionsTap: () => _DashboardNav.openTodaySessions(context),
+          onAllSchedulesTap: () => _DashboardNav.openAllSchedules(context),
+          onCoachesTap: () => _DashboardNav.openAllCoaches(context),
           onMembersTap: () => _DashboardNav.openAllMembers(context),
-          onTodayTap: () => _DashboardNav.openTodaySessions(context),
+          onFreezeTap: () => _DashboardNav.openAllFreeze(context),
         );
       },
     );
@@ -358,6 +392,24 @@ abstract final class _DashboardNav {
     );
   }
 
+  static void openAllSchedules(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AllSchedulesPage()),
+    );
+  }
+
+  static void openAllFreeze(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AllFreezePage()),
+    );
+  }
+
+  static void openAllCoaches(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AllCoachesPage()),
+    );
+  }
+
   static void openFinance(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -417,21 +469,19 @@ class _DashboardShimmer extends StatelessWidget {
               highlightColor: Colors.grey.shade100,
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: _box(height: 110)),
-                      const SizedBox(width: 12),
-                      Expanded(child: _box(height: 110)),
-                    ],
-                  ),
+                  _box(height: 150),
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(child: _box(height: 110)),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
+                      Expanded(child: _box(height: 110)),
+                      const SizedBox(width: 10),
                       Expanded(child: _box(height: 110)),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  Center(child: _box(height: 10, width: 40)),
                   const SizedBox(height: 24),
                   _box(height: 88),
                   const SizedBox(height: 24),
@@ -449,9 +499,9 @@ class _DashboardShimmer extends StatelessWidget {
     );
   }
 
-  static Widget _box({required double height}) {
+  static Widget _box({required double height, double? width}) {
     return Container(
-      width: double.infinity,
+      width: width ?? double.infinity,
       height: height,
       decoration: BoxDecoration(
         color: Colors.white,

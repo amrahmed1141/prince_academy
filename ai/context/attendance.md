@@ -34,7 +34,9 @@ Mark / re-attend / unmark attendance, QR scan flows, and member weekly progress.
 - Schema drift (e.g. `get_user_weekly_attendance` vs checked-in SQL) → fix SQL and Dart together.
 - Attendance owns state/corrections; Booking owns schedule creation.
 - Admin dashboard upcoming/live session cards read `attended_count` / `booked_count` from `today_coach_sessions` (derived from `attendance` + active verified `bookings` for today). No separate attendance-progress table. Dashboard realtime listens on `attendance`, `bookings`, `payments`, and `coach_sessions` (must be in `supabase_realtime` publication).
+- Admin Home KPI page 1 sums those per-session counts into **today total attendance** (`Σ attended / Σ booked`) for the arc progress widget — no new RPC.
 - Member mark-attendance cards use elevation-only chrome — no green gradient border on "markable today" cards.
+- Approved freezes (`booking_freeze_dates`) are excluded from Needs-attention expected days and from `is_scheduled_today` / Mark Attended. `get_booking_sessions` returns `status = frozen` for those dates.
 
 ## Common mistakes
 

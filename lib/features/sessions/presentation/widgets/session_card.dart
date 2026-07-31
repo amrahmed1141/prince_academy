@@ -12,6 +12,7 @@ class SessionCard extends StatelessWidget {
   final BookingHistoryModel booking;
   final TodaySessionInfo? todaySession;
   final VoidCallback? onTap;
+  final VoidCallback? onFreeze;
   final bool compact;
   final bool includeListPadding;
 
@@ -20,6 +21,7 @@ class SessionCard extends StatelessWidget {
     required this.booking,
     this.todaySession,
     this.onTap,
+    this.onFreeze,
     this.compact = false,
     this.includeListPadding = true,
   });
@@ -29,12 +31,14 @@ class SessionCard extends StatelessWidget {
     BookingHistoryModel? booking,
     TodaySessionInfo? todaySession,
     VoidCallback? onTap,
+    VoidCallback? onFreeze,
     bool compact = false,
   }) {
     return SessionCard(
       booking: booking ?? _bookingFromSession(session),
       todaySession: todaySession,
       onTap: onTap,
+      onFreeze: onFreeze,
       compact: compact,
     );
   }
@@ -220,11 +224,40 @@ class SessionCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       _SessionProgressBar(value: progress),
                     ],
-                    if (onTap != null) ...[
+                    if (onTap != null || onFreeze != null) ...[
                       SizedBox(height: compact ? 8 : 10),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: _ViewSessionLink(onTap: onTap!),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (onFreeze != null &&
+                                displayStatus ==
+                                    BookingDisplayStatus.active) ...[
+                              TextButton(
+                                onPressed: onFreeze,
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  'Request Freeze',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF5C3A1E),
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            if (onTap != null)
+                              _ViewSessionLink(onTap: onTap!),
+                          ],
+                        ),
                       ),
                     ],
                   ],
