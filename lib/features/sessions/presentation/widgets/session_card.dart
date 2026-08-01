@@ -173,27 +173,55 @@ class SessionCard extends StatelessWidget {
                                   fontFamily: 'Poppins',
                                 ),
                               ),
+                              if (booking.branchName != null &&
+                                  booking.branchName!.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Iconsax.location,
+                                      size: 13,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Expanded(
+                                      child: Text(
+                                        booking.branchName!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                          fontFamily: 'Poppins',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ],
                     ),
-                    if (booking.subscriptionStart != null) ...[
+                    if (booking.subscriptionStart != null ||
+                        booking.subscriptionEnd != null) ...[
                       const SizedBox(height: 10),
-                      _MetaRow(
-                        icon: Iconsax.calendar_1,
-                        text:
-                            'Start: ${SubscriptionFormatters.formatDate(booking.subscriptionStart)}',
-                      ),
-                    ],
-                    if (booking.subscriptionEnd != null) ...[
-                      const SizedBox(height: 4),
-                      _MetaRow(
-                        icon: isExpired ? Iconsax.warning_2 : Iconsax.timer_1,
-                        text: isExpired
-                            ? 'Expired: ${SubscriptionFormatters.formatDate(booking.subscriptionEnd)}'
-                            : 'Expires: ${SubscriptionFormatters.formatDate(booking.subscriptionEnd)} (${daysRemaining.clamp(0, 9999)} days)',
-                        color: isExpired
+                      _DateRangeTimeline(
+                        startText: booking.subscriptionStart != null
+                            ? SubscriptionFormatters.formatDate(
+                                booking.subscriptionStart,
+                              )
+                            : null,
+                        endText: booking.subscriptionEnd == null
+                            ? null
+                            : isExpired
+                                ? SubscriptionFormatters.formatDate(
+                                    booking.subscriptionEnd,
+                                  )
+                                : '${SubscriptionFormatters.formatDate(booking.subscriptionEnd)} (${daysRemaining.clamp(0, 9999)} days)',
+                        endColor: isExpired
                             ? const Color(0xFFD32F2F)
                             : const Color(0xFF2E7D32),
                       ),
@@ -353,25 +381,77 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-class _MetaRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final Color? color;
+class _DateRangeTimeline extends StatelessWidget {
+  final String? startText;
+  final String? endText;
+  final Color endColor;
 
-  const _MetaRow({
-    required this.icon,
-    required this.text,
-    this.color,
+  const _DateRangeTimeline({
+    this.startText,
+    this.endText,
+    required this.endColor,
   });
+
+  static const double _railWidth = 13;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final hasStart = startText != null && startText!.isNotEmpty;
+    final hasEnd = endText != null && endText!.isNotEmpty;
+    if (!hasStart && !hasEnd) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 13,
-          color: color ?? Colors.grey.shade500,
+        if (hasStart)
+          _timelineRow(
+            leading: Icon(
+              Iconsax.calendar_1,
+              size: 13,
+              color: Colors.grey.shade500,
+            ),
+            text: startText!,
+            color: AppColors.textPrimary,
+          ),
+        if (hasStart && hasEnd)
+          SizedBox(
+            width: _railWidth,
+            height: 8,
+            child: Center(
+              child: ColoredBox(
+                color: Colors.grey.shade300,
+                child: const SizedBox(width: 1.5, height: 8),
+              ),
+            ),
+          ),
+        if (hasEnd)
+          _timelineRow(
+            leading: Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: endColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            text: endText!,
+            color: endColor,
+          ),
+      ],
+    );
+  }
+
+  Widget _timelineRow({
+    required Widget leading,
+    required String text,
+    required Color color,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: _railWidth,
+          child: Center(child: leading),
         ),
         const SizedBox(width: 5),
         Expanded(
@@ -380,7 +460,7 @@ class _MetaRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: color ?? AppColors.textPrimary,
+              color: color,
               fontFamily: 'Poppins',
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
+import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/core/widgets/custom_snackbar.dart';
 import 'package:prince_academy/features/admin/data/models/session_detail_model.dart';
 import 'package:prince_academy/features/booking/data/models/booking_freeze_model.dart';
@@ -62,25 +63,35 @@ class _UserFreezeView extends StatelessWidget {
           );
         }
       },
-      child: Container(
-        decoration: AppGradients.homeScreenDecoration(),
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: const BackButton(color: EColorConstants.authTextDarkBrown),
-            title: const Text(
-              'Freeze Sessions',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: EColorConstants.authTextDarkBrown,
-                fontFamily: 'Poppins',
+      child: Theme(
+        data: EAppTheme.lightTheme.copyWith(
+          scaffoldBackgroundColor: Colors.transparent,
+        ),
+        child: Material(
+          color: const Color(0xFFFFF9F5),
+          child: Container(
+            decoration: AppGradients.homeScreenDecoration(),
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                leading: const BackButton(
+                  color: EColorConstants.authTextDarkBrown,
+                ),
+                title: const Text(
+                  'Freeze Sessions',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: EColorConstants.authTextDarkBrown,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
               ),
-            ),
-          ),
-          body: BlocBuilder<UserFreezeCubit, UserFreezeState>(
+              body: BlocBuilder<UserFreezeCubit, UserFreezeState>(
             buildWhen: (prev, next) =>
                 prev.isLoading != next.isLoading ||
                 prev.sessions != next.sessions,
@@ -126,7 +137,7 @@ class _UserFreezeView extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'Frozen sessions are skipped for attendance. Expiry extends by one day per session.',
+                          'Tap a circled day to freeze it. Red = missed, green = upcoming. Expiry extends by one day per session.',
                           style: TextStyle(
                             fontSize: 12,
                             color: EColorConstants.authPlaceholderGray,
@@ -192,6 +203,8 @@ class _UserFreezeView extends StatelessWidget {
                 ],
               );
             },
+          ),
+            ),
           ),
         ),
       ),

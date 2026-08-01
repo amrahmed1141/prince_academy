@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
+import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/core/widgets/branded_pull_to_refresh.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
@@ -32,30 +33,40 @@ class _AllSchedulesView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: AppGradients.homeScreenDecoration(),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: const BackButton(color: EColorConstants.authTextDarkBrown),
-          title: BlocSelector<AllSchedulesCubit, AllSchedulesState, int>(
-            selector: (state) => state.groups.length,
-            builder: (context, count) {
-              return Text(
-                'All Schedules${count > 0 ? ' ($count)' : ''}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: EColorConstants.authTextDarkBrown,
-                  fontFamily: 'Poppins',
-                ),
-              );
-            },
-          ),
-        ),
-        body: BrandedPullToRefresh(
+    return Theme(
+      data: EAppTheme.lightTheme.copyWith(
+        scaffoldBackgroundColor: Colors.transparent,
+      ),
+      child: Material(
+        color: const Color(0xFFFFF9F5),
+        child: Container(
+          decoration: AppGradients.homeScreenDecoration(),
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              leading: const BackButton(
+                color: EColorConstants.authTextDarkBrown,
+              ),
+              title: BlocSelector<AllSchedulesCubit, AllSchedulesState, int>(
+                selector: (state) => state.groups.length,
+                builder: (context, count) {
+                  return Text(
+                    'All Schedules${count > 0 ? ' ($count)' : ''}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: EColorConstants.authTextDarkBrown,
+                      fontFamily: 'Poppins',
+                    ),
+                  );
+                },
+              ),
+            ),
+            body: BrandedPullToRefresh(
           onRefresh: () => context.read<AllSchedulesCubit>().refresh(),
           child: BlocBuilder<AllSchedulesCubit, AllSchedulesState>(
             builder: (context, state) {
@@ -133,6 +144,8 @@ class _AllSchedulesView extends StatelessWidget {
                 },
               );
             },
+          ),
+            ),
           ),
         ),
       ),

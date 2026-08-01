@@ -30,13 +30,23 @@ class UserFreezeCubit extends Cubit<UserFreezeState> {
     );
 
     try {
-      final results = await Future.wait([
-        _repository.getFreezeContext(bookingId),
-        _repository.getBookingSessions(bookingId),
-      ]);
+      // Load independently so a missing freeze RPC does not blank the page.
+      BookingFreezeContext? context;
+      List<SessionDetail> sessions = const [];
+      Object? loadError;
 
-      final context = results[0] as BookingFreezeContext?;
-      final sessions = results[1] as List<SessionDetail>;
+      try {
+        context = await _repository.getFreezeContext(bookingId);
+      } catch (e) {
+        loadError = e;
+      }
+
+      try {
+        sessions = await _repository.getBookingSessions(bookingId);
+      } catch (e) {
+        loadError ??= e;
+      }
+
       final selectable = sessions
           .where((s) => !s.isAttended && s.status.toLowerCase() != 'frozen')
           .where((s) {
@@ -51,6 +61,10 @@ class UserFreezeCubit extends Cubit<UserFreezeState> {
           subscriptionEnd: context?.subscriptionEnd,
           sessions: selectable,
           selectedKeys: const {},
+          errorMessage: selectable.isEmpty && loadError != null
+              ? _message(loadError)
+              : null,
+          clearError: selectable.isNotEmpty || loadError == null,
         ),
       );
     } catch (error) {

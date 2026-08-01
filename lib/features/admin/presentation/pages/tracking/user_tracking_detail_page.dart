@@ -439,10 +439,20 @@ class _UserTrackingDetailPageState extends State<UserTrackingDetailPage> {
     );
   }
 
+  String get _resolvedPhone {
+    final passed = widget.phone?.trim();
+    if (passed != null && passed.isNotEmpty) return passed;
+
+    for (final booking in _bookings) {
+      final phone = booking.phone?.trim();
+      if (phone != null && phone.isNotEmpty) return phone;
+    }
+    return '';
+  }
+
   Widget _buildHeader() {
-    final displayPhone = widget.phone?.trim().isNotEmpty == true
-        ? widget.phone!
-        : 'No phone on file';
+    final phone = _resolvedPhone;
+    final displayPhone = phone.isNotEmpty ? phone : 'No phone on file';
 
     return AdminMemberProfileHeader(
       onBack: () => Navigator.of(context).pop(),

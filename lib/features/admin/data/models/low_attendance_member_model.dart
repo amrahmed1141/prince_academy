@@ -64,12 +64,14 @@ class LowAttendanceMemberModel extends Equatable {
   const LowAttendanceMemberModel({
     required this.userId,
     required this.fullName,
+    this.phone,
     this.avatarUrl,
     this.coaches = const [],
   });
 
   final String userId;
   final String fullName;
+  final String? phone;
   final String? avatarUrl;
   final List<LowAttendanceCoachProgress> coaches;
 
@@ -108,14 +110,16 @@ class LowAttendanceMemberModel extends Equatable {
       }
     }
 
+    final rawPhone = (json['phone'] as String?)?.trim();
     return LowAttendanceMemberModel(
       userId: json['user_id'] as String? ?? '',
       fullName: json['full_name'] as String? ?? 'Member',
+      phone: rawPhone == null || rawPhone.isEmpty ? null : rawPhone,
       avatarUrl: CoachPhotoHelper.normalize(json['avatar_url'] as String?),
       coaches: coaches,
     );
   }
 
   @override
-  List<Object?> get props => [userId, fullName, avatarUrl, coaches];
+  List<Object?> get props => [userId, fullName, phone, avatarUrl, coaches];
 }

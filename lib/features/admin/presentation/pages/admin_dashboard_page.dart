@@ -427,6 +427,7 @@ abstract final class _DashboardNav {
         builder: (_) => UserTrackingDetailPage(
           userId: member.userId,
           initialName: member.fullName,
+          phone: member.phone,
         ),
       ),
     );

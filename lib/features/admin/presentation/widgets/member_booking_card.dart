@@ -246,6 +246,31 @@ class MemberBookingCard extends StatelessWidget {
                         fontFamily: 'Poppins',
                       ),
                     ),
+                    if (data.branchName != null &&
+                        data.branchName!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Iconsax.location,
+                            size: 14,
+                            color: EColorConstants.authPlaceholderGray,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              data.branchName!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: EColorConstants.authTextDarkBrown,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -256,42 +281,6 @@ class MemberBookingCard extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 14),
             child: Divider(height: 1),
           ),
-          if (data.branchName != null && data.branchName!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  const Icon(
-                    Iconsax.location,
-                    size: 14,
-                    color: EColorConstants.authPlaceholderGray,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      data.branchName!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: EColorConstants.authTextDarkBrown,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (data.subscriptionStart != null && data.subscriptionEnd != null)
-            _InfoRow(
-              icon: Iconsax.calendar_1,
-              text:
-                  'Period: ${SessionScheduleHelper.formatPeriod(data.subscriptionStart!, data.subscriptionEnd!)}',
-            ),
-          if (data.totalPrice > 0)
-            _InfoRow(
-              icon: Iconsax.wallet_3,
-              text: 'Total: ${data.totalPrice.toStringAsFixed(0)} EGP',
-            ),
           if (isPendingPayment)
             _InfoRow(
               icon: Iconsax.timer_1,
@@ -307,24 +296,29 @@ class MemberBookingCard extends StatelessWidget {
                   'Payment: ${data.paymentMethod!.toLowerCase() == 'cash' ? 'Cash' : 'InstaPay'} · Verified',
               color: const Color(0xFF2E7D32),
             ),
-          if (!isExpired && data.subscriptionStart != null) ...[
-            _InfoRow(
-              icon: Iconsax.calendar_1,
-              text:
-                  'Start: ${SubscriptionFormatters.formatDate(data.subscriptionStart)}',
+          if (data.subscriptionStart != null ||
+              data.subscriptionEnd != null) ...[
+            SizedBox(
+              height: (isPendingPayment ||
+                      (data.paymentMethod != null &&
+                          data.paymentMethod!.trim().isNotEmpty))
+                  ? 8
+                  : 0,
             ),
-            const SizedBox(height: 4),
-          ],
-          if (data.subscriptionEnd != null)
-            _InfoRow(
-              icon: isExpired ? Iconsax.warning_2 : Iconsax.timer_1,
-              text: isExpired
-                  ? 'Expired: ${SubscriptionFormatters.formatDate(data.subscriptionEnd)}'
-                  : 'Expires: ${SubscriptionFormatters.formatDate(data.subscriptionEnd)} (${data.daysRemaining} days)',
-              color: isExpired
+            _DateRangeTimeline(
+              startText: data.subscriptionStart != null
+                  ? SubscriptionFormatters.formatDate(data.subscriptionStart)
+                  : null,
+              endText: data.subscriptionEnd == null
+                  ? null
+                  : isExpired
+                      ? SubscriptionFormatters.formatDate(data.subscriptionEnd)
+                      : '${SubscriptionFormatters.formatDate(data.subscriptionEnd)} (${data.daysRemaining} days)',
+              endColor: isExpired
                   ? const Color(0xFFD32F2F)
                   : const Color(0xFF2E7D32),
             ),
+          ],
           if (data.totalSessions > 0) ...[
             const SizedBox(height: 12),
             Row(
@@ -589,6 +583,95 @@ class _InfoRow extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: color ?? EColorConstants.authTextDarkBrown,
+              fontFamily: 'Poppins',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DateRangeTimeline extends StatelessWidget {
+  final String? startText;
+  final String? endText;
+  final Color endColor;
+
+  const _DateRangeTimeline({
+    this.startText,
+    this.endText,
+    required this.endColor,
+  });
+
+  static const double _railWidth = 14;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasStart = startText != null && startText!.isNotEmpty;
+    final hasEnd = endText != null && endText!.isNotEmpty;
+    if (!hasStart && !hasEnd) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasStart)
+          _timelineRow(
+            leading: const Icon(
+              Iconsax.calendar_1,
+              size: 14,
+              color: EColorConstants.authPlaceholderGray,
+            ),
+            text: startText!,
+            color: EColorConstants.authTextDarkBrown,
+          ),
+        if (hasStart && hasEnd)
+          const SizedBox(
+            width: _railWidth,
+            height: 10,
+            child: Center(
+              child: ColoredBox(
+                color: Color(0xFFD0D0D0),
+                child: SizedBox(width: 1.5, height: 10),
+              ),
+            ),
+          ),
+        if (hasEnd)
+          _timelineRow(
+            leading: Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: endColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            text: endText!,
+            color: endColor,
+          ),
+      ],
+    );
+  }
+
+  Widget _timelineRow({
+    required Widget leading,
+    required String text,
+    required Color color,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: _railWidth,
+          child: Center(child: leading),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
               fontFamily: 'Poppins',
             ),
           ),

@@ -20,6 +20,31 @@ class BookingFreezeRepository {
       return BookingFreezeContext.fromJson(
         Map<String, dynamic>.from(list.first as Map),
       );
+    } on PostgrestException catch (_) {
+      // Fallback when freeze RPCs are not deployed yet.
+      return _getFreezeContextFromBooking(bookingId);
+    } catch (_) {
+      return _getFreezeContextFromBooking(bookingId);
+    }
+  }
+
+  Future<BookingFreezeContext?> _getFreezeContextFromBooking(
+    String bookingId,
+  ) async {
+    try {
+      final row = await _client
+          .from('bookings')
+          .select('id, user_id, subscription_start, subscription_end, status')
+          .eq('id', bookingId)
+          .maybeSingle();
+      if (row == null) return null;
+      return BookingFreezeContext.fromJson({
+        'booking_id': row['id'],
+        'user_id': row['user_id'],
+        'subscription_start': row['subscription_start'],
+        'subscription_end': row['subscription_end'],
+        'status': row['status'],
+      });
     } on PostgrestException catch (e) {
       throw Exception(_friendly(e, 'load freeze context'));
     }
