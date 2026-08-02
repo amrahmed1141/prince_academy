@@ -51,11 +51,10 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
     final startOfWeek = _startOfWeek(now);
     final previousWeekStart = startOfWeek.subtract(const Duration(days: 7));
     final weekEnd = startOfWeek.add(const Duration(days: 6));
-
     final monthStart = DateTime(now.year, now.month, 1);
     final monthStartIso = _toIsoDate(monthStart);
 
-    final results = await Future.wait([
+    final results = await Future.wait<dynamic>([
       _supabase
           .from('finance_daily_revenue')
           .select()
@@ -67,15 +66,13 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
           .order('month_start', ascending: false)
           .limit(1)
           .maybeSingle(),
+      _supabase.from('top_earning_coaches').select().limit(10),
+      _fetchPaymentRows(),
       _supabase
-          .from('top_earning_coaches')
-          .select()
-          .limit(5),
-      _supabase
-          .from('payments')
+          .from('pending_payments')
           .select()
           .order('created_at', ascending: false)
-          .limit(12),
+          .limit(30),
     ]);
 
     final allDailyRows =
@@ -98,13 +95,15 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
         )
         .toList()
       ..sort((a, b) => a.day.compareTo(b.day));
+
     final monthlyRow = results[1] == null
         ? <String, dynamic>{}
         : Map<String, dynamic>.from(results[1] as Map);
     final coachRows =
         List<Map<String, dynamic>>.from((results[2] as List).cast<Map>());
-    final activityRows =
-        List<Map<String, dynamic>>.from((results[3] as List).cast<Map>());
+    final paymentRows = results[3] as List<Map<String, dynamic>>;
+    final pendingRows =
+        List<Map<String, dynamic>>.from((results[4] as List).cast<Map>());
 
     final currentWeekRows = allDailyRows.where((row) {
       final date = _asDate(
@@ -161,8 +160,9 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
     });
 
     final dailyRevenue = _latestDayRevenue(currentWeekRows, now);
-    final previousDayRevenue = _latestPreviousDayRevenue(currentWeekRows, now);
-    final weeklyRevenue = chartDays.fold<double>(0, (sum, day) => sum + day.amount);
+    final previousDayRevenue = _latestPreviousDayRevenue(allDailyRows, now);
+    final weeklyRevenue =
+        chartDays.fold<double>(0, (sum, day) => sum + day.amount);
     final previousWeeklyRevenue = previousWeekRows.fold<double>(
       0,
       (sum, row) =>
@@ -173,38 +173,58 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
           ),
     );
 
-    final monthlyTarget = _pickDouble(
+    final monthlyCurrent = _pickDouble(
       monthlyRow,
-      ['goal', 'monthly_goal', 'target', 'income_goal'],
-      fallback: 40000,
+      ['current_revenue', 'monthly_revenue', 'revenue', 'amount'],
+      fallback: _monthlyRevenueFromDailyRows(allDailyRows, monthStartIso),
     );
-    final monthlyCurrent = _pickDouble(monthlyRow, [
-      'current_revenue',
-      'monthly_revenue',
-      'revenue',
-      'amount',
-    ], fallback: _monthlyRevenueFromDailyRows(allDailyRows, monthStartIso));
+
+    final previousMonthStart = DateTime(now.year, now.month - 1, 1);
+    final previousMonthRevenue = _monthlyRevenueFromDailyRows(
+      allDailyRows,
+      _toIsoDate(previousMonthStart),
+    );
 
     final topCoaches = coachRows
-        .map((row) => TopEarningCoach(
-              id: _pickString(row, ['coach_id', 'id']),
-              name: _pickString(row, ['coach_name', 'name'], fallback: 'Coach'),
-              specialty: _pickString(
-                row,
-                ['coach_specialty', 'specialty'],
-                fallback: 'MMA Coach',
-              ),
-              avatarUrl: _pickNullableString(
-                row,
-                ['coach_photo', 'photo_url', 'avatar_url'],
-              ),
-              amount: _pickDouble(
-                row,
-                ['total_revenue', 'total_earned_this_month', 'revenue', 'amount'],
-              ),
-            ))
+        .map(
+          (row) => TopEarningCoach(
+            id: _pickString(row, ['coach_id', 'id']),
+            name: _pickString(row, ['coach_name', 'name'], fallback: 'Coach'),
+            specialty: _pickString(
+              row,
+              ['coach_specialty', 'specialty'],
+              fallback: 'MMA Coach',
+            ),
+            avatarUrl: _pickNullableString(
+              row,
+              ['coach_photo', 'photo_url', 'avatar_url'],
+            ),
+            amount: _pickDouble(
+              row,
+              ['total_revenue', 'total_earned_this_month', 'revenue', 'amount'],
+            ),
+          ),
+        )
         .toList()
       ..sort((a, b) => b.amount.compareTo(a.amount));
+
+    final pendingTransactions = pendingRows
+        .map(_transactionFromPendingRow)
+        .where((tx) => tx.amount > 0 || tx.bookingId.isNotEmpty)
+        .toList();
+
+    final confirmedTransactions = paymentRows
+        .map(_transactionFromPaymentRow)
+        .where((tx) => tx.status == FinancePaymentStatus.confirmed)
+        .toList();
+
+    final pendingBookingIds = pendingTransactions.map((t) => t.bookingId).toSet();
+    final merged = <FinanceTransaction>[
+      ...pendingTransactions,
+      ...confirmedTransactions.where(
+        (tx) => tx.bookingId.isEmpty || !pendingBookingIds.contains(tx.bookingId),
+      ),
+    ]..sort((a, b) => b.date.compareTo(a.date));
 
     return FinanceDashboardData(
       dailyRevenue: dailyRevenue,
@@ -217,21 +237,127 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
         current: weeklyRevenue,
         previous: previousWeeklyRevenue,
       ),
-      monthlyGoal: monthlyTarget <= 0 ? 40000 : monthlyTarget,
       monthlyRevenue: monthlyCurrent < 0 ? 0 : monthlyCurrent,
+      monthlyRevenueChange: _percentageChange(
+        current: monthlyCurrent < 0 ? 0 : monthlyCurrent,
+        previous: previousMonthRevenue,
+      ),
       chart: chartDays,
       dailyHistory: dailyHistory,
       topCoaches: topCoaches,
-      recentActivities: activityRows
-          .map((row) => RecentFinanceActivity(
-                id: _pickString(row, ['id', 'payment_id']),
-                title: _activityTitleFromRow(row),
-                date: _asDate(row['created_at']) ?? now,
-                amount: _activityAmountFromRow(row),
-                isIncome: _activityIsIncomeFromRow(row),
-              ))
-          .toList(),
+      transactions: merged,
+      pendingCount: pendingTransactions.length,
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchPaymentRows() async {
+    try {
+      final response = await _supabase
+          .from('payments')
+          .select(
+            'id, amount, payment_method, status, payment_date, created_at, '
+            'booking_id, user_id, profiles:user_id(full_name), '
+            'bookings:booking_id(subscription_start, subscription_end, coach_id, '
+            'coaches:coach_id(name, specialty))',
+          )
+          .order('created_at', ascending: false)
+          .limit(24);
+      return List<Map<String, dynamic>>.from((response as List).cast<Map>());
+    } catch (_) {
+      final response = await _supabase
+          .from('payments')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(24);
+      return List<Map<String, dynamic>>.from((response as List).cast<Map>());
+    }
+  }
+
+  FinanceTransaction _transactionFromPendingRow(Map<String, dynamic> row) {
+    final start = _asDate(row['subscription_start']);
+    final end = _asDate(row['subscription_end']);
+    return FinanceTransaction(
+      id: _pickString(row, ['booking_id', 'id']),
+      bookingId: _pickString(row, ['booking_id', 'id']),
+      memberName: _pickString(
+        row,
+        ['full_name', 'user_name'],
+        fallback: 'Member',
+      ),
+      paymentMethod: _pickString(row, ['payment_method'], fallback: 'cash'),
+      detail: _membershipLabel(start, end, row['coach_name'] as String?),
+      date: _asDate(row['created_at']) ?? DateTime.now(),
+      amount: _pickDouble(row, ['total_price', 'amount']),
+      status: FinancePaymentStatus.pending,
+    );
+  }
+
+  FinanceTransaction _transactionFromPaymentRow(Map<String, dynamic> row) {
+    final statusRaw =
+        _pickString(row, ['status', 'payment_status']).toLowerCase();
+    final status = switch (statusRaw) {
+      'pending' || 'pending_payment' || 'awaiting_verification' =>
+        FinancePaymentStatus.pending,
+      'rejected' || 'refunded' => FinancePaymentStatus.rejected,
+      _ => FinancePaymentStatus.confirmed,
+    };
+
+    final profile = row['profiles'];
+    String memberName = 'Member';
+    if (profile is Map) {
+      memberName = _pickString(
+        Map<String, dynamic>.from(profile),
+        ['full_name', 'name'],
+        fallback: 'Member',
+      );
+    } else {
+      memberName = _pickString(
+        row,
+        ['full_name', 'user_name', 'member_name'],
+        fallback: 'Member',
+      );
+    }
+
+    String? coachName;
+    DateTime? subStart;
+    DateTime? subEnd;
+    final booking = row['bookings'];
+    if (booking is Map) {
+      final bookingMap = Map<String, dynamic>.from(booking);
+      subStart = _asDate(bookingMap['subscription_start']);
+      subEnd = _asDate(bookingMap['subscription_end']);
+      final coach = bookingMap['coaches'];
+      if (coach is Map) {
+        coachName = _pickNullableString(
+          Map<String, dynamic>.from(coach),
+          ['name', 'coach_name'],
+        );
+      }
+    }
+
+    return FinanceTransaction(
+      id: _pickString(row, ['id', 'payment_id', 'booking_id']),
+      bookingId: _pickString(row, ['booking_id']),
+      memberName: memberName,
+      paymentMethod: _pickString(row, ['payment_method'], fallback: 'cash'),
+      detail: _membershipLabel(subStart, subEnd, coachName),
+      date: _asDate(row['created_at'] ?? row['payment_date']) ?? DateTime.now(),
+      amount: _pickDouble(row, ['amount', 'total_price', 'paid_amount']),
+      status: status,
+    );
+  }
+
+  String _membershipLabel(DateTime? start, DateTime? end, String? coachName) {
+    if (start != null && end != null) {
+      final days = end.difference(start).inDays;
+      if (days >= 80) return '3 month · ${coachName ?? 'Membership'}';
+      if (days >= 50) return '2 month · ${coachName ?? 'Membership'}';
+      if (days >= 20) return '1 month · ${coachName ?? 'Membership'}';
+    }
+    if (coachName != null && coachName.trim().isNotEmpty) {
+      return coachName.trim();
+    }
+    return 'Membership';
   }
 
   @override
@@ -322,29 +448,15 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
         ['amount', 'revenue', 'total_revenue', 'daily_revenue'],
       );
     }
-
-    if (rows.isEmpty) return 0;
-    final sorted = [...rows]
-      ..sort((a, b) {
-        final da = _asDate(
-              a['day'] ?? a['date'] ?? a['payment_date'] ?? a['created_at'],
-            ) ??
-            DateTime.fromMillisecondsSinceEpoch(0);
-        final db = _asDate(
-              b['day'] ?? b['date'] ?? b['payment_date'] ?? b['created_at'],
-            ) ??
-            DateTime.fromMillisecondsSinceEpoch(0);
-        return db.compareTo(da);
-      });
-    return _pickDouble(
-      sorted.first,
-      ['amount', 'revenue', 'total_revenue', 'daily_revenue'],
-    );
+    return 0;
   }
 
-  double _latestPreviousDayRevenue(List<Map<String, dynamic>> rows, DateTime now) {
-    final yesterday = DateTime(now.year, now.month, now.day)
-        .subtract(const Duration(days: 1));
+  double _latestPreviousDayRevenue(
+    List<Map<String, dynamic>> rows,
+    DateTime now,
+  ) {
+    final yesterday =
+        DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
     final row = rows.cast<Map<String, dynamic>?>().firstWhere(
           (item) {
             final date = _asDate(
@@ -379,38 +491,6 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
     return ((current - previous) / previous) * 100;
   }
 
-  String _activityTitleFromRow(Map<String, dynamic> row) {
-    final explicitType = _pickString(
-      row,
-      ['activity_type', 'type', 'payment_type', 'source'],
-    );
-    if (explicitType.isNotEmpty) return explicitType;
-
-    final method = _pickString(row, ['payment_method'], fallback: 'Payment');
-    final status = _pickString(row, ['status', 'payment_status']);
-    if (status.toLowerCase() == 'refunded' || status.toLowerCase() == 'rejected') {
-      return '$method Refund';
-    }
-    return '$method Membership';
-  }
-
-  bool _activityIsIncomeFromRow(Map<String, dynamic> row) {
-    final amount = _activityAmountFromRow(row);
-    if (amount < 0) return false;
-    final status = _pickString(row, ['status', 'payment_status']).toLowerCase();
-    return status != 'refunded' && status != 'rejected';
-  }
-
-  double _activityAmountFromRow(Map<String, dynamic> row) {
-    final amount = _pickDouble(
-      row,
-      ['amount', 'total_price', 'value', 'paid_amount'],
-    );
-    final status = _pickString(row, ['status', 'payment_status']).toLowerCase();
-    if (status == 'refunded' || status == 'rejected') return -amount.abs();
-    return amount;
-  }
-
   double _monthlyRevenueFromDailyRows(
     List<Map<String, dynamic>> rows,
     String monthStartIso,
@@ -431,36 +511,34 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
   }
 }
 
+enum FinancePaymentStatus { confirmed, pending, rejected }
+
 class FinanceDashboardData extends Equatable {
   const FinanceDashboardData({
     required this.dailyRevenue,
     required this.dailyRevenueChange,
     required this.weeklyRevenue,
     required this.weeklyRevenueChange,
-    required this.monthlyGoal,
     required this.monthlyRevenue,
+    required this.monthlyRevenueChange,
     required this.chart,
     required this.dailyHistory,
     required this.topCoaches,
-    required this.recentActivities,
+    required this.transactions,
+    required this.pendingCount,
   });
 
   final double dailyRevenue;
   final double dailyRevenueChange;
   final double weeklyRevenue;
   final double weeklyRevenueChange;
-  final double monthlyGoal;
   final double monthlyRevenue;
+  final double monthlyRevenueChange;
   final List<FinanceDailyIncome> chart;
   final List<FinanceDailyIncome> dailyHistory;
   final List<TopEarningCoach> topCoaches;
-  final List<RecentFinanceActivity> recentActivities;
-
-  double get goalProgress {
-    if (monthlyGoal <= 0) return 0;
-    final value = monthlyRevenue / monthlyGoal;
-    return value.clamp(0, 1);
-  }
+  final List<FinanceTransaction> transactions;
+  final int pendingCount;
 
   @override
   List<Object?> get props => [
@@ -468,12 +546,13 @@ class FinanceDashboardData extends Equatable {
         dailyRevenueChange,
         weeklyRevenue,
         weeklyRevenueChange,
-        monthlyGoal,
         monthlyRevenue,
+        monthlyRevenueChange,
         chart,
         dailyHistory,
         topCoaches,
-        recentActivities,
+        transactions,
+        pendingCount,
       ];
 }
 
@@ -509,21 +588,47 @@ class TopEarningCoach extends Equatable {
   List<Object?> get props => [id, name, specialty, avatarUrl, amount];
 }
 
-class RecentFinanceActivity extends Equatable {
-  const RecentFinanceActivity({
+class FinanceTransaction extends Equatable {
+  const FinanceTransaction({
     required this.id,
-    required this.title,
+    required this.bookingId,
+    required this.memberName,
+    required this.paymentMethod,
+    required this.detail,
     required this.date,
     required this.amount,
-    required this.isIncome,
+    required this.status,
   });
 
   final String id;
-  final String title;
+  final String bookingId;
+  final String memberName;
+  final String paymentMethod;
+  final String detail;
   final DateTime date;
   final double amount;
-  final bool isIncome;
+  final FinancePaymentStatus status;
+
+  bool get isPending => status == FinancePaymentStatus.pending;
+  bool get isConfirmed => status == FinancePaymentStatus.confirmed;
+
+  String get paymentMethodLabel {
+    final raw = paymentMethod.toLowerCase();
+    if (raw.contains('insta')) return 'InstaPay';
+    if (raw == 'cash') return 'Cash';
+    if (raw.isEmpty) return 'Payment';
+    return paymentMethod[0].toUpperCase() + paymentMethod.substring(1);
+  }
 
   @override
-  List<Object?> get props => [id, title, date, amount, isIncome];
+  List<Object?> get props => [
+        id,
+        bookingId,
+        memberName,
+        paymentMethod,
+        detail,
+        date,
+        amount,
+        status,
+      ];
 }

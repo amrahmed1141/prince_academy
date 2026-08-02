@@ -56,7 +56,9 @@ Future<void> setupDI() async {
     () => AdminDashboardRepository(sl()),
   );
   sl.registerFactory<AdminBloc>(() => AdminBloc(repository: sl()));
-  sl.registerFactory<FinanceCubit>(() => FinanceCubit(repository: sl()));
+  sl.registerFactory<FinanceCubit>(
+    () => FinanceCubit(repository: sl(), adminRepository: sl()),
+  );
   sl.registerFactory<AdminDashboardCubit>(
     () => AdminDashboardCubit(repository: sl()),
   );

@@ -5,6 +5,7 @@ import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/admin_dashboard_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
+import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminRepository extends StreamRepository<List<PendingPaymentModel>> {
@@ -132,6 +133,12 @@ class AdminRepository extends StreamRepository<List<PendingPaymentModel>> {
       final dashboardRepo = sl<AdminDashboardRepository>();
       dashboardRepo.invalidateStreamCache();
       unawaited(dashboardRepo.refresh());
+    }
+
+    if (sl.isRegistered<FinanceRepository>()) {
+      final financeRepo = sl<FinanceRepository>();
+      financeRepo.invalidateStreamCache();
+      unawaited(financeRepo.refresh());
     }
   }
 
