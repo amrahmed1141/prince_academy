@@ -41,6 +41,7 @@ Config: `lib/core/config/supabase_config.dart` (`--dart-define`, publishable URL
 - `user_booking_history`
 - `admin_scan_profile`
 - `today_coach_sessions` — today's scheduled coach sessions for the admin dashboard (includes `booked_count` / `attended_count` from `bookings` + `attendance`)
+- `today_attendance_members` — member-level companion to `today_coach_sessions` (one row per expected booking today with `is_attended`; counts match the KPI sums)
 - Finance-related views (admin finance dashboards)
 - Other admin/member reporting views as defined in SQL scripts
 

@@ -1,0 +1,22 @@
+---
+description: Auto-save notification FCM chat turns into ai/chats/notification*
+alwaysApply: true
+---
+
+# Notification chat auto-save
+
+## Purpose
+
+Keep the Android / FCM notification conversation durable in `ai/chats/`.
+
+## When Applied
+
+Always. Cursor hooks also append turns automatically; this rule is a backup.
+
+## Requirements
+
+- Primary log: [`ai/chats/notification.md`](../../../ai/chats/notification.md)
+- Machine log: [`ai/chats/notification.jsonl`](../../../ai/chats/notification.jsonl)
+- Hooks: `.cursor/hooks.json` → `.cursor/hooks/save_notification_chat.py` on `beforeSubmitPrompt`, `afterAgentResponse`, `stop`
+- If hooks did not fire for an important notification decision, append a short dated note to `notification.md` yourself (do not rewrite history).
+- Do not delete or truncate these chat files unless the user asks.

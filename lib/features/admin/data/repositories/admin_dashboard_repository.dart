@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:prince_academy/core/base/stream_repository.dart';
 import 'package:prince_academy/features/admin/data/models/admin_dashboard_model.dart';
 import 'package:prince_academy/features/admin/data/models/low_attendance_member_model.dart';
+import 'package:prince_academy/features/admin/data/models/paged_result.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
+import 'package:prince_academy/features/admin/data/models/today_attendance_member_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
@@ -93,6 +95,101 @@ class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
   }) async {
     final data = await getDashboard(force: force);
     return List<DashboardTodaySession>.from(data.todaySessionsPreview);
+  }
+
+  /// Members booked on today's sessions (detail for the attendance KPI).
+  /// Not folded into [fetchFromApi] — loaded only by the detail page.
+  Future<PagedResult<TodayAttendanceMember>> getTodayAttendanceMembers({
+    int limit = 50,
+    int offset = 0,
+    String? search,
+    String? coachId,
+    bool force = false,
+  }) async {
+    // [force] kept for caller symmetry with other list APIs.
+    final safeLimit = limit.clamp(1, 100);
+    final safeOffset = offset < 0 ? 0 : offset;
+    final trimmedSearch = search?.trim();
+    final searchParam =
+        (trimmedSearch == null || trimmedSearch.isEmpty) ? null : trimmedSearch;
+    final coachParam =
+        (coachId == null || coachId.trim().isEmpty) ? null : coachId.trim();
+
+    try {
+      var query = _supabase.from('today_attendance_members').select(
+            'booking_id, user_id, member_name, member_photo, '
+            'session_id, coach_id, coach_name, coach_photo, '
+            'session_type, session_time, branch_name, is_attended',
+          );
+
+      if (coachParam != null) {
+        query = query.eq('coach_id', coachParam);
+      }
+
+      if (searchParam != null) {
+        final escaped = searchParam.replaceAll(RegExp(r'[%_,]'), '');
+        if (escaped.isNotEmpty) {
+          query = query.or(
+            'member_name.ilike.%$escaped%,'
+            'coach_name.ilike.%$escaped%,'
+            'session_type.ilike.%$escaped%,'
+            'session_time.ilike.%$escaped%,'
+            'branch_name.ilike.%$escaped%',
+          );
+        }
+      }
+
+      final response = await query
+          .order('is_attended')
+          .order('member_name')
+          .range(safeOffset, safeOffset + safeLimit - 1);
+
+      final members = (response as List)
+          .map(
+            (json) => TodayAttendanceMember.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+
+      return PagedResult(
+        items: members,
+        hasMore: members.length >= safeLimit,
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load today attendance members'));
+    }
+  }
+
+  /// KPI totals for today (matches dashboard Σ attended / Σ booked).
+  Future<({int attended, int booked})> getTodayAttendanceKpiTotals({
+    bool force = false,
+  }) async {
+    final sessions = await getTodaySessions(force: force);
+    final attended = sessions.fold<int>(0, (sum, s) => sum + s.attendedCount);
+    final booked = sessions.fold<int>(0, (sum, s) => sum + s.bookedCount);
+    return (attended: attended, booked: booked);
+  }
+
+  /// Distinct coaches with sessions today (for filter chips).
+  Future<List<({String coachId, String coachName, String? coachPhoto})>>
+      getTodayAttendanceCoaches({bool force = false}) async {
+    final sessions = await getTodaySessions(force: force);
+    final seen = <String>{};
+    final coaches =
+        <({String coachId, String coachName, String? coachPhoto})>[];
+    for (final session in sessions) {
+      if (session.coachId.isEmpty || !seen.add(session.coachId)) continue;
+      coaches.add((
+        coachId: session.coachId,
+        coachName: session.coachName,
+        coachPhoto: session.coachPhoto,
+      ));
+    }
+    coaches.sort(
+      (a, b) => a.coachName.toLowerCase().compareTo(b.coachName.toLowerCase()),
+    );
+    return coaches;
   }
 
   @override

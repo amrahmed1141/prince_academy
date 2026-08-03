@@ -6,6 +6,12 @@ Append dated entries. Do not invent.
 
 <!-- YYYY-MM-DD — note -->
 
+## 2026-08-03 — FCM terminated tap lost before AuthenticatedShell binds
+
+`FirebaseMessagingService.initialize()` runs in `main()` and consumes `getInitialMessage()` before auth mounts the shell. If `onNotificationOpened` is still null, the tap is dropped and the user lands on home instead of the target screen.
+
+**Fix:** buffer the message as `_pendingOpenedMessage` and drain it when `onNotificationOpened` is assigned from `AuthenticatedShell`.
+
 ## 2026-07-29 — verify_payment silently no-op on legacy `payment_status='pending'`
 
 Cash bookings created under an older path can have `payment_status='pending'` + `status='pending_payment'`, while newer create uses `payment_status='pending_payment'` + `status='pending'`.

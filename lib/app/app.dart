@@ -10,10 +10,14 @@ import 'package:prince_academy/app/splash/splash_screen.dart';
 import 'package:prince_academy/core/services/firebase_messaging_service.dart';
 import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_home.dart';
+import 'package:prince_academy/features/admin/presentation/pages/pending_payments_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/today_sessions_page.dart';
+import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
 import 'package:prince_academy/features/notifications/data/repositories/notification_repository.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_bloc.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_event.dart';
 import 'package:prince_academy/features/notifications/presentation/pages/notifications_page.dart';
+import 'package:prince_academy/features/sessions/presentation/pages/sessions_page.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../core/di/injection.dart';
 
@@ -113,33 +117,62 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
         duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'View',
-          onPressed: () {
-            rootNavigatorKey.currentState?.push(
-              MaterialPageRoute<void>(
-                builder: (_) => BlocProvider.value(
-                  value: _notificationBloc,
-                  child: const NotificationsPage(),
-                ),
-              ),
-            );
-          },
+          onPressed: () => _pushForMessage(message),
         ),
       ),
     );
   }
 
   void _onNotificationOpened(RemoteMessage message) {
-    // Prefer in-app feed; deep-links from message.data can be added later.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      rootNavigatorKey.currentState?.push(
-        MaterialPageRoute<void>(
-          builder: (_) => BlocProvider.value(
-            value: _notificationBloc,
-            child: const NotificationsPage(),
-          ),
-        ),
-      );
+      _pushForMessage(message);
     });
+  }
+
+  void _pushForMessage(RemoteMessage message) {
+    final nav = rootNavigatorKey.currentState;
+    if (nav == null) return;
+
+    nav.push(
+      MaterialPageRoute<void>(
+        builder: (_) => _destinationForMessage(message),
+      ),
+    );
+  }
+
+  /// Routes by `data.type` / `data.route` (matches in-app notification types).
+  Widget _destinationForMessage(RemoteMessage message) {
+    final raw = (message.data['type'] ?? message.data['route'] ?? '')
+        .toString()
+        .toLowerCase()
+        .trim();
+
+    switch (raw) {
+      case 'booking':
+        return const BookingHistoryPage();
+      case 'payment':
+        return widget.isAdmin
+            ? const PendingPaymentsPage()
+            : const BookingHistoryPage();
+      case 'session':
+      case 'attendance':
+        return widget.isAdmin
+            ? const TodaySessionsPage()
+            : const SessionsPage(showBackButton: true);
+      case 'admin':
+        return widget.isAdmin
+            ? const PendingPaymentsPage()
+            : _notificationsPage();
+      default:
+        return _notificationsPage();
+    }
+  }
+
+  Widget _notificationsPage() {
+    return BlocProvider.value(
+      value: _notificationBloc,
+      child: const NotificationsPage(),
+    );
   }
 
   @override

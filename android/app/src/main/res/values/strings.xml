@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_notification_channel_id">prince_academy_high</string>
+    <string name="default_notification_channel_name">Prince Academy</string>
+    <string name="default_notification_channel_description">Bookings, sessions, and payment updates</string>
+</resources>

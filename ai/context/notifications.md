@@ -14,6 +14,7 @@ FCM token lifecycle, in-app notification feed, and realtime delivery. Delivery m
 - `FirebaseMessagingService` — `lib/core/services/firebase_messaging_service.dart`
 - UI: `notifications_page.dart`, `notification_bell_button.dart`
 - Wiring: `AuthenticatedShell` in `lib/app/app.dart`; `lib/firebase_options.dart`
+- Android channel: `prince_academy_high` created in `MainActivity`; manifest `default_notification_channel_id`
 
 ## Important repositories
 
@@ -32,6 +33,8 @@ FCM token lifecycle, in-app notification feed, and realtime delivery. Delivery m
 - Dispose notification realtime on sign-out.
 - All notification I/O in the repository — not widgets.
 - Prefer `AppNotification`; no parallel notification models.
+- Terminated notification taps are buffered until `onNotificationOpened` is bound (cold-start race).
+- Tap routing uses `message.data['type']` / `['route']`: `booking` → booking history; `payment` → pending payments (admin) / booking history (member); `session`/`attendance` → today sessions (admin) / sessions (member); else notifications feed.
 
 ## Common mistakes
 
@@ -39,6 +42,7 @@ FCM token lifecycle, in-app notification feed, and realtime delivery. Delivery m
 - Leaving stale token / leaked realtime after logout.
 - Writing tokens from a widget.
 - Putting notification business triggers’ content rules only here (origin domain owns the event).
+- Handling `getInitialMessage` before the shell binds without buffering the pending open.
 
 ## Related documentation
 

@@ -13,7 +13,7 @@ Mark / re-attend / unmark attendance, QR scan flows, and member weekly progress.
 - Admin models: `DayAttendance`, attendance/session detail models — `lib/features/admin/data/models/`
 - Member: `SessionModel` (`attendanceStatus`, `attendedSessions`) — `lib/features/sessions/data/models/`
 - `WeeklyProgressCalculator` — `lib/features/sessions/domain/weekly_progress_calculator.dart`
-- UI: `session_detail_page`, `qr_scanner_page`, `weekly_attendance_chart`
+- UI: `session_detail_page`, `qr_scanner_page`, `weekly_attendance_chart`, `today_attendance_page`
 
 ## Important repositories
 
@@ -35,6 +35,7 @@ Mark / re-attend / unmark attendance, QR scan flows, and member weekly progress.
 - Attendance owns state/corrections; Booking owns schedule creation.
 - Admin dashboard upcoming/live session cards read `attended_count` / `booked_count` from `today_coach_sessions` (derived from `attendance` + active verified `bookings` for today). No separate attendance-progress table. Dashboard realtime listens on `attendance`, `bookings`, `payments`, and `coach_sessions` (must be in `supabase_realtime` publication).
 - Admin Home KPI page 1 sums those per-session counts into **today total attendance** (`Σ attended / Σ booked`) for the arc progress widget — no new RPC.
+- Tap the KPI gauge → `TodayAttendancePage` lists each expected member from companion view `today_attendance_members` (same booking filters as `today_coach_sessions` so counts match). Coach chips filter client-side; Mark attended reuses `CoachRepository.markAttendance`.
 - Member mark-attendance cards use elevation-only chrome — no green gradient border on "markable today" cards.
 - Approved freezes (`booking_freeze_dates`) are excluded from Needs-attention expected days and from `is_scheduled_today` / Mark Attended. `get_booking_sessions` returns `status = frozen` for those dates.
 
@@ -48,6 +49,6 @@ Mark / re-attend / unmark attendance, QR scan flows, and member weekly progress.
 ## Related documentation
 
 - [`docs/supabase-schema-and-rpc.md`](../../docs/supabase-schema-and-rpc.md) (Attendance RPCs)
-- SQL: `supabase/attendance_session_management.sql`, `fix_re_attend_updated_at.sql`
+- SQL: `supabase/attendance_session_management.sql`, `fix_re_attend_updated_at.sql`, `today_coach_sessions.sql`, `today_attendance_members.sql`
 - Companions: [`booking.md`](booking.md), [`supabase.md`](supabase.md), [`architecture.md`](architecture.md)
 - Rules: `.cursor/rules/product/academy-domain.mdc`, `product/admin-operations.mdc`

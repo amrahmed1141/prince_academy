@@ -46,11 +46,29 @@ class FirebaseMessagingService {
   /// Called whenever a usable FCM token is obtained or refreshed.
   static Future<void> Function(String token)? onToken;
 
-  /// Optional navigation / deep-link hook when user taps a notification.
-  static void Function(RemoteMessage message)? onNotificationOpened;
-
   /// Optional UI hook for foreground messages (e.g. SnackBar).
   static void Function(RemoteMessage message)? onForegroundMessage;
+
+  static void Function(RemoteMessage message)? _onNotificationOpened;
+  static RemoteMessage? _pendingOpenedMessage;
+
+  /// Optional navigation / deep-link hook when user taps a notification.
+  ///
+  /// Assigning a non-null handler immediately drains any terminated-state tap
+  /// that arrived before [AuthenticatedShell] was mounted.
+  static void Function(RemoteMessage message)? get onNotificationOpened =>
+      _onNotificationOpened;
+
+  static set onNotificationOpened(
+    void Function(RemoteMessage message)? handler,
+  ) {
+    _onNotificationOpened = handler;
+    final pending = _pendingOpenedMessage;
+    if (handler != null && pending != null) {
+      _pendingOpenedMessage = null;
+      handler(pending);
+    }
+  }
 
   static StreamSubscription<String>? _tokenRefreshSub;
   static StreamSubscription<RemoteMessage>? _foregroundSub;
@@ -204,7 +222,13 @@ class FirebaseMessagingService {
       'Notification opened: id=${message.messageId} data=${message.data}',
       name: 'FirebaseMessagingService',
     );
-    onNotificationOpened?.call(message);
+    final handler = _onNotificationOpened;
+    if (handler == null) {
+      // Cold start: shell has not bound yet — replay when it does.
+      _pendingOpenedMessage = message;
+      return;
+    }
+    handler(message);
   }
 
   /// Clears local token reference on sign-out (optional server clear via repo).
@@ -219,6 +243,8 @@ class FirebaseMessagingService {
     _tokenRefreshSub = null;
     _foregroundSub = null;
     _openedSub = null;
+    _pendingOpenedMessage = null;
+    _onNotificationOpened = null;
     _initialized = false;
   }
 }

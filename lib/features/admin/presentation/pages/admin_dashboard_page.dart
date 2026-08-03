@@ -18,6 +18,7 @@ import 'package:prince_academy/features/admin/presentation/pages/finance_page.da
 import 'package:prince_academy/features/admin/presentation/pages/payment_verification_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/pending_payments_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/qr_scanner_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/today_attendance_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/today_sessions_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/all_coaches_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/all_members_page.dart';
@@ -271,6 +272,7 @@ class _DashboardKpiSection extends StatelessWidget {
           coachesCount: slice.coachesCount,
           membersCount: slice.activeMembers,
           freezePendingCount: slice.freezePendingCount,
+          onAttendanceTap: () => _DashboardNav.openTodayAttendance(context),
           onPendingTap: () => _DashboardNav.openPendingPayments(context),
           onRevenueTap: () => _DashboardNav.openFinance(context),
           onTodaySessionsTap: () => _DashboardNav.openTodaySessions(context),
@@ -389,6 +391,12 @@ abstract final class _DashboardNav {
   static void openTodaySessions(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const TodaySessionsPage()),
+    );
+  }
+
+  static void openTodayAttendance(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const TodayAttendancePage()),
     );
   }
 

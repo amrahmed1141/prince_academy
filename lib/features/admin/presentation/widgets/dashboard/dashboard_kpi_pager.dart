@@ -1,10 +1,9 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/dashboard/today_attendance_kpi_card.dart';
 
 /// Swipeable two-page KPI section: Today Attendance + Overview.
 class DashboardKpiPager extends StatefulWidget {
@@ -18,6 +17,7 @@ class DashboardKpiPager extends StatefulWidget {
     required this.coachesCount,
     required this.membersCount,
     required this.freezePendingCount,
+    this.onAttendanceTap,
     this.onPendingTap,
     this.onRevenueTap,
     this.onTodaySessionsTap,
@@ -35,6 +35,7 @@ class DashboardKpiPager extends StatefulWidget {
   final int coachesCount;
   final int membersCount;
   final int freezePendingCount;
+  final VoidCallback? onAttendanceTap;
   final VoidCallback? onPendingTap;
   final VoidCallback? onRevenueTap;
   final VoidCallback? onTodaySessionsTap;
@@ -97,6 +98,7 @@ class _DashboardKpiPagerState extends State<DashboardKpiPager> {
                   todaySessions: widget.todaySessions,
                   pendingCount: widget.pendingCount,
                   todayRevenue: widget.todayRevenue,
+                  onAttendanceTap: widget.onAttendanceTap,
                   onTodaySessionsTap: widget.onTodaySessionsTap,
                   onPendingTap: widget.onPendingTap,
                   onRevenueTap: widget.onRevenueTap,
@@ -147,6 +149,7 @@ class _AttendancePage extends StatelessWidget {
     required this.todaySessions,
     required this.pendingCount,
     required this.todayRevenue,
+    this.onAttendanceTap,
     this.onTodaySessionsTap,
     this.onPendingTap,
     this.onRevenueTap,
@@ -157,73 +160,28 @@ class _AttendancePage extends StatelessWidget {
   final int todaySessions;
   final int pendingCount;
   final double todayRevenue;
+  final VoidCallback? onAttendanceTap;
   final VoidCallback? onTodaySessionsTap;
   final VoidCallback? onPendingTap;
   final VoidCallback? onRevenueTap;
-
-  double get _progress {
-    if (booked <= 0) return 0;
-    return (attended / booked).clamp(0.0, 1.0);
-  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Expanded(
-          child: AdminSectionCard(
-            borderRadius: 22,
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Members today attendance',
-                  style: TextStyle(
-                    color: EColorConstants.authTextDarkBrown,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
-                  ),
+          child: Hero(
+            tag: TodayAttendanceKpiCard.heroTag,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onAttendanceTap,
+                borderRadius: BorderRadius.circular(22),
+                child: TodayAttendanceKpiCard(
+                  attended: attended,
+                  booked: booked,
                 ),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final side = math.min(
-                        constraints.maxWidth,
-                        constraints.maxHeight * 1.85,
-                      );
-                      return Center(
-                        child: SizedBox(
-                          width: side,
-                          height: side * 0.58,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Positioned.fill(
-                                child: CustomPaint(
-                                  painter: _SemiGaugePainter(
-                                    progress: _progress,
-                                    trackColor: const Color(0xFFE8E0D8),
-                                  ),
-                                ),
-                              ),
-                              Align(
-                                alignment: const Alignment(0, 0.35),
-                                child: _AttendanceStatus(
-                                  attended: attended,
-                                  booked: booked,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -260,60 +218,6 @@ class _AttendancePage extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ],
-    );
-  }
-}
-
-class _AttendanceStatus extends StatelessWidget {
-  const _AttendanceStatus({
-    required this.attended,
-    required this.booked,
-  });
-
-  final int attended;
-  final int booked;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text.rich(
-          TextSpan(
-            style: const TextStyle(fontFamily: 'Poppins', height: 1.1),
-            children: [
-              TextSpan(
-                text: '$attended',
-                style: const TextStyle(
-                  color: EColorConstants.authTextDarkBrown,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const TextSpan(
-                text: ' attendance',
-                style: TextStyle(
-                  color: EColorConstants.authTextDarkBrown,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'from $booked members today',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: EColorConstants.authPlaceholderGray,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            fontFamily: 'Poppins',
-          ),
         ),
       ],
     );
@@ -555,72 +459,5 @@ class _DotsIndicator extends StatelessWidget {
         );
       }),
     );
-  }
-}
-
-/// Semi-circle gauge — fill uses the same green gradient as member session cards.
-class _SemiGaugePainter extends CustomPainter {
-  _SemiGaugePainter({
-    required this.progress,
-    required this.trackColor,
-  });
-
-  final double progress;
-  final Color trackColor;
-
-  /// Same stops as `sessions/.../session_card.dart` `_SessionProgressBar`.
-  static const _fillColors = [
-    Color(0xFFB7E27A),
-    Color(0xFF8FD15B),
-    Color(0xFF66BE47),
-    Color(0xFF3E9F34),
-  ];
-  static const _fillStops = [0.0, 0.35, 0.68, 1.0];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = size.width * 0.085;
-    final inset = stroke / 2 + 2;
-    final diameter = size.width - inset * 2;
-    final radius = diameter / 2;
-    final center = Offset(size.width / 2, size.height - inset);
-    final rect = Rect.fromCircle(center: center, radius: radius);
-
-    final trackPaint = Paint()
-      ..color = trackColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(Path()..addArc(rect, math.pi, math.pi), trackPaint);
-
-    final t = progress.clamp(0.0, 1.0);
-    if (t > 0) {
-      final fillPaint = Paint()
-        ..shader = SweepGradient(
-          startAngle: math.pi,
-          endAngle: math.pi * 2,
-          colors: _fillColors,
-          stops: _fillStops,
-          transform: const GradientRotation(0),
-        ).createShader(rect)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..strokeCap = StrokeCap.round;
-      canvas.drawPath(Path()..addArc(rect, math.pi, math.pi * t), fillPaint);
-    }
-
-    final angle = math.pi + (math.pi * t);
-    final thumb = Offset(
-      center.dx + radius * math.cos(angle),
-      center.dy + radius * math.sin(angle),
-    );
-    // Tip color matches the deepest stop of the session progress gradient.
-    canvas.drawCircle(thumb, stroke * 0.42, Paint()..color = _fillColors.last);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SemiGaugePainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.trackColor != trackColor;
   }
 }

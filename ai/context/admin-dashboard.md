@@ -21,6 +21,7 @@ Not a major context pack — admin spans many domains and over-fetches if loaded
 - Dashboard: `AdminDashboardCubit`, `AdminDashboardRepository`
 - Top KPI: `DashboardKpiPager` (swipeable Today Attendance + Overview); schedules list: `AllSchedulesPage`; freeze inbox: `AllFreezePage` (Overview Freeze card = pending request count)
 - Today attendance ratio = Σ `attended_count` / Σ `booked_count` from `today_coach_sessions` (no extra RPC)
+- Tap attendance gauge → `TodayAttendancePage` + view `today_attendance_members`
 - God repos (incremental only): `AdminRepository`, `CoachRepository`, `FinanceRepository`
 - Rule: `.cursor/rules/product/admin-operations.mdc`
 
