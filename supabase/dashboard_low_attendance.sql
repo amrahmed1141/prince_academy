@@ -100,7 +100,7 @@ BEGIN
     SELECT
       u.user_id,
       u.full_name::text,
-      p.avatar_url::text,
+      COALESCE(p.avatar_url, p.photo_url)::text AS member_avatar_url,
       e.expected_count,
       COALESCE(at.attended_count, 0) AS attended_count,
       CASE
@@ -121,7 +121,7 @@ BEGIN
   SELECT
     ms.user_id,
     ms.full_name,
-    ms.avatar_url,
+    ms.member_avatar_url,
     ms.attended_count,
     ms.expected_count,
     ms.attendance_rate

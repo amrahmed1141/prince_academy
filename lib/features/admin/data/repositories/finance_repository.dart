@@ -72,7 +72,8 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
           .from('pending_payments')
           .select()
           .order('created_at', ascending: false)
-          .limit(30),
+          .limit(50),
+      _fetchAutoCanceledRows(),
     ]);
 
     final allDailyRows =
@@ -104,6 +105,7 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
     final paymentRows = results[3] as List<Map<String, dynamic>>;
     final pendingRows =
         List<Map<String, dynamic>>.from((results[4] as List).cast<Map>());
+    final autoCanceledRows = results[5] as List<Map<String, dynamic>>;
 
     final currentWeekRows = allDailyRows.where((row) {
       final date = _asDate(
@@ -185,6 +187,10 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
       _toIsoDate(previousMonthStart),
     );
 
+    final yearlyRevenue = _yearlyRevenueFromDailyRows(allDailyRows, now.year);
+    final previousYearRevenue =
+        _yearlyRevenueFromDailyRows(allDailyRows, now.year - 1);
+
     final topCoaches = coachRows
         .map(
           (row) => TopEarningCoach(
@@ -218,11 +224,21 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
         .where((tx) => tx.status == FinancePaymentStatus.confirmed)
         .toList();
 
+    final autoCanceledTransactions =
+        autoCanceledRows.map(_transactionFromAutoCanceledRow).toList();
+
     final pendingBookingIds = pendingTransactions.map((t) => t.bookingId).toSet();
+    final autoCanceledBookingIds =
+        autoCanceledTransactions.map((t) => t.bookingId).toSet();
     final merged = <FinanceTransaction>[
       ...pendingTransactions,
+      ...autoCanceledTransactions,
       ...confirmedTransactions.where(
-        (tx) => tx.bookingId.isEmpty || !pendingBookingIds.contains(tx.bookingId),
+        (tx) =>
+            (tx.bookingId.isEmpty ||
+                !pendingBookingIds.contains(tx.bookingId)) &&
+            (tx.bookingId.isEmpty ||
+                !autoCanceledBookingIds.contains(tx.bookingId)),
       ),
     ]..sort((a, b) => b.date.compareTo(a.date));
 
@@ -241,6 +257,11 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
       monthlyRevenueChange: _percentageChange(
         current: monthlyCurrent < 0 ? 0 : monthlyCurrent,
         previous: previousMonthRevenue,
+      ),
+      yearlyRevenue: yearlyRevenue,
+      yearlyRevenueChange: _percentageChange(
+        current: yearlyRevenue,
+        previous: previousYearRevenue,
       ),
       chart: chartDays,
       dailyHistory: dailyHistory,
@@ -261,21 +282,48 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
             'coaches:coach_id(name, specialty))',
           )
           .order('created_at', ascending: false)
-          .limit(24);
+          .limit(100);
       return List<Map<String, dynamic>>.from((response as List).cast<Map>());
     } catch (_) {
       final response = await _supabase
           .from('payments')
           .select()
           .order('created_at', ascending: false)
-          .limit(24);
+          .limit(100);
       return List<Map<String, dynamic>>.from((response as List).cast<Map>());
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchAutoCanceledRows() async {
+    try {
+      final response = await _supabase
+          .from('cash_booking_expiry_log')
+          .select(
+            'id, booking_id, user_id, coach_id, payment_method, total_price, '
+            'booking_created_at, payment_deadline, expired_at, '
+            'profiles:user_id(full_name), coaches:coach_id(name)',
+          )
+          .order('expired_at', ascending: false)
+          .limit(50);
+      return List<Map<String, dynamic>>.from((response as List).cast<Map>());
+    } catch (_) {
+      try {
+        final response = await _supabase
+            .from('cash_booking_expiry_log')
+            .select()
+            .order('expired_at', ascending: false)
+            .limit(50);
+        return List<Map<String, dynamic>>.from((response as List).cast<Map>());
+      } catch (_) {
+        return const [];
+      }
     }
   }
 
   FinanceTransaction _transactionFromPendingRow(Map<String, dynamic> row) {
     final start = _asDate(row['subscription_start']);
     final end = _asDate(row['subscription_end']);
+    final coachName = _pickNullableString(row, ['coach_name']);
     return FinanceTransaction(
       id: _pickString(row, ['booking_id', 'id']),
       bookingId: _pickString(row, ['booking_id', 'id']),
@@ -284,11 +332,47 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
         ['full_name', 'user_name'],
         fallback: 'Member',
       ),
+      coachName: coachName,
       paymentMethod: _pickString(row, ['payment_method'], fallback: 'cash'),
-      detail: _membershipLabel(start, end, row['coach_name'] as String?),
+      detail: _membershipLabel(start, end, coachName),
       date: _asDate(row['created_at']) ?? DateTime.now(),
       amount: _pickDouble(row, ['total_price', 'amount']),
       status: FinancePaymentStatus.pending,
+    );
+  }
+
+  FinanceTransaction _transactionFromAutoCanceledRow(Map<String, dynamic> row) {
+    String memberName = 'Member';
+    final profile = row['profiles'];
+    if (profile is Map) {
+      memberName = _pickString(
+        Map<String, dynamic>.from(profile),
+        ['full_name', 'name'],
+        fallback: 'Member',
+      );
+    }
+
+    String? coachName;
+    final coach = row['coaches'];
+    if (coach is Map) {
+      coachName = _pickNullableString(
+        Map<String, dynamic>.from(coach),
+        ['name', 'coach_name'],
+      );
+    }
+
+    return FinanceTransaction(
+      id: _pickString(row, ['id', 'booking_id']),
+      bookingId: _pickString(row, ['booking_id']),
+      memberName: memberName,
+      coachName: coachName,
+      paymentMethod: _pickString(row, ['payment_method'], fallback: 'cash'),
+      detail: coachName ?? 'Membership',
+      date: _asDate(row['expired_at'] ?? row['booking_created_at']) ??
+          DateTime.now(),
+      amount: _pickDouble(row, ['total_price', 'amount']),
+      status: FinancePaymentStatus.autoCanceled,
+      cancelReason: 'Cash payment not confirmed before deadline',
     );
   }
 
@@ -339,6 +423,7 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
       id: _pickString(row, ['id', 'payment_id', 'booking_id']),
       bookingId: _pickString(row, ['booking_id']),
       memberName: memberName,
+      coachName: coachName,
       paymentMethod: _pickString(row, ['payment_method'], fallback: 'cash'),
       detail: _membershipLabel(subStart, subEnd, coachName),
       date: _asDate(row['created_at'] ?? row['payment_date']) ?? DateTime.now(),
@@ -509,9 +594,26 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
           );
     });
   }
+
+  double _yearlyRevenueFromDailyRows(
+    List<Map<String, dynamic>> rows,
+    int year,
+  ) {
+    return rows.fold<double>(0, (sum, row) {
+      final date = _asDate(
+        row['payment_date'] ?? row['day'] ?? row['date'] ?? row['created_at'],
+      );
+      if (date == null || date.year != year) return sum;
+      return sum +
+          _pickDouble(
+            row,
+            ['daily_revenue', 'amount', 'revenue', 'total_revenue'],
+          );
+    });
+  }
 }
 
-enum FinancePaymentStatus { confirmed, pending, rejected }
+enum FinancePaymentStatus { confirmed, pending, rejected, autoCanceled }
 
 class FinanceDashboardData extends Equatable {
   const FinanceDashboardData({
@@ -521,6 +623,8 @@ class FinanceDashboardData extends Equatable {
     required this.weeklyRevenueChange,
     required this.monthlyRevenue,
     required this.monthlyRevenueChange,
+    required this.yearlyRevenue,
+    required this.yearlyRevenueChange,
     required this.chart,
     required this.dailyHistory,
     required this.topCoaches,
@@ -534,6 +638,8 @@ class FinanceDashboardData extends Equatable {
   final double weeklyRevenueChange;
   final double monthlyRevenue;
   final double monthlyRevenueChange;
+  final double yearlyRevenue;
+  final double yearlyRevenueChange;
   final List<FinanceDailyIncome> chart;
   final List<FinanceDailyIncome> dailyHistory;
   final List<TopEarningCoach> topCoaches;
@@ -548,6 +654,8 @@ class FinanceDashboardData extends Equatable {
         weeklyRevenueChange,
         monthlyRevenue,
         monthlyRevenueChange,
+        yearlyRevenue,
+        yearlyRevenueChange,
         chart,
         dailyHistory,
         topCoaches,
@@ -593,24 +701,29 @@ class FinanceTransaction extends Equatable {
     required this.id,
     required this.bookingId,
     required this.memberName,
+    this.coachName,
     required this.paymentMethod,
     required this.detail,
     required this.date,
     required this.amount,
     required this.status,
+    this.cancelReason,
   });
 
   final String id;
   final String bookingId;
   final String memberName;
+  final String? coachName;
   final String paymentMethod;
   final String detail;
   final DateTime date;
   final double amount;
   final FinancePaymentStatus status;
+  final String? cancelReason;
 
   bool get isPending => status == FinancePaymentStatus.pending;
   bool get isConfirmed => status == FinancePaymentStatus.confirmed;
+  bool get isAutoCanceled => status == FinancePaymentStatus.autoCanceled;
 
   String get paymentMethodLabel {
     final raw = paymentMethod.toLowerCase();
@@ -620,15 +733,35 @@ class FinanceTransaction extends Equatable {
     return paymentMethod[0].toUpperCase() + paymentMethod.substring(1);
   }
 
+  bool matchesSearch(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    final timeHint = [
+      date.hour.toString().padLeft(2, '0'),
+      date.minute.toString().padLeft(2, '0'),
+      '${date.day}',
+      '${date.month}',
+      '${date.year}',
+    ].join(' ');
+    return memberName.toLowerCase().contains(q) ||
+        (coachName?.toLowerCase().contains(q) ?? false) ||
+        paymentMethodLabel.toLowerCase().contains(q) ||
+        detail.toLowerCase().contains(q) ||
+        timeHint.contains(q) ||
+        (cancelReason?.toLowerCase().contains(q) ?? false);
+  }
+
   @override
   List<Object?> get props => [
         id,
         bookingId,
         memberName,
+        coachName,
         paymentMethod,
         detail,
         date,
         amount,
         status,
+        cancelReason,
       ];
 }

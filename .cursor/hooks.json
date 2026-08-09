@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "python .cursor/hooks/save_notification_chat.py",
+        "timeout": 10
+      }
+    ],
+    "afterAgentResponse": [
+      {
+        "command": "python .cursor/hooks/save_notification_chat.py",
+        "timeout": 10
+      }
+    ],
+    "stop": [
+      {
+        "command": "python .cursor/hooks/save_notification_chat.py",
+        "timeout": 10
+      }
+    ]
+  }
+}

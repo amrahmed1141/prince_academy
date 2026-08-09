@@ -13,6 +13,8 @@ abstract final class FinanceCurrency {
     decimalDigits: 0,
   );
 
+  static final DateFormat dateTime = DateFormat('MMM d, yyyy · h:mm a');
+
   static String egp(double amount, {bool decimals = true}) {
     final formatted = (decimals ? full : compact).format(amount).trim();
     return '$formatted EGP';
@@ -33,4 +35,7 @@ abstract final class FinanceCurrency {
     }
     return egpPrefix(amount, decimals: false);
   }
+
+  static String formatDateTime(DateTime date) =>
+      dateTime.format(date.toLocal());
 }

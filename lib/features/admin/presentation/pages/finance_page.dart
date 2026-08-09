@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/finance_bloc.dart';
+import 'package:prince_academy/features/admin/presentation/pages/all_finance_transactions_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/finance_details_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/pending_payments_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/all_coaches_page.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_coach_tile.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_compact_kpi.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_pending_banner.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_performance_card.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_period_selector.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_revenue_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_section_header.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_transaction_tile.dart';
-import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_week_tabs.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/reject_payment_dialog.dart';
 
 class FinancePage extends StatelessWidget {
@@ -30,115 +28,26 @@ class FinancePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<FinanceCubit>()..load(),
-      child: _FinanceView(showBackButton: showBackButton),
+      child: _FinanceHomeView(showBackButton: showBackButton),
     );
   }
 }
 
-class _FinanceView extends StatefulWidget {
-  const _FinanceView({this.showBackButton = false});
+class _FinanceHomeView extends StatefulWidget {
+  const _FinanceHomeView({this.showBackButton = false});
 
   final bool showBackButton;
 
   @override
-  State<_FinanceView> createState() => _FinanceViewState();
+  State<_FinanceHomeView> createState() => _FinanceHomeViewState();
 }
 
-class _FinanceViewState extends State<_FinanceView> {
-  FinancePeriod _period = FinancePeriod.week;
-  DateTime? _selectedDay;
-  late DateTime _selectedMonthStart;
-  late int _selectedWeek;
-  FinanceTxFilter _txFilter = FinanceTxFilter.all;
+class _FinanceHomeViewState extends State<_FinanceHomeView> {
   String? _expandedBookingId;
 
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _selectedMonthStart = DateTime(now.year, now.month, 1);
-    _selectedWeek = _weekOfMonth(now);
-    _selectedDay = DateTime(now.year, now.month, now.day);
-  }
-
-  static int _weekOfMonth(DateTime date) {
-    return (((date.day - 1) ~/ 7) + 1).clamp(1, 4);
-  }
-
-  static DateTime _startOfWeek(DateTime date) {
-    final day = DateTime(date.year, date.month, date.day);
-    return day.subtract(Duration(days: day.weekday - DateTime.monday));
-  }
-
-  List<FinanceDailyIncome> _rowsForSelection(FinanceDashboardData data) {
-    final monthRows = data.dailyHistory.where((entry) {
-      return entry.day.year == _selectedMonthStart.year &&
-          entry.day.month == _selectedMonthStart.month;
-    }).toList();
-
-    if (_period == FinancePeriod.month) {
-      return _fillMonthDays(monthRows, _selectedMonthStart);
-    }
-
-    final weekStart = _weekStartInMonth(_selectedMonthStart, _selectedWeek);
-    return _fillWeekDays(data.dailyHistory, weekStart);
-  }
-
-  DateTime _weekStartInMonth(DateTime monthStart, int week) {
-    final day = ((week - 1) * 7) + 1;
-    final date = DateTime(monthStart.year, monthStart.month, day);
-    return _startOfWeek(date);
-  }
-
-  List<FinanceDailyIncome> _fillWeekDays(
-    List<FinanceDailyIncome> history,
-    DateTime weekStart,
-  ) {
-    return List.generate(7, (index) {
-      final day = weekStart.add(Duration(days: index));
-      final match = history.cast<FinanceDailyIncome?>().firstWhere(
-            (item) => item != null && DateUtils.isSameDay(item.day, day),
-            orElse: () => null,
-          );
-      return FinanceDailyIncome(day: day, amount: match?.amount ?? 0);
-    });
-  }
-
-  List<FinanceDailyIncome> _fillMonthDays(
-    List<FinanceDailyIncome> monthRows,
-    DateTime monthStart,
-  ) {
-    return List.generate(4, (index) {
-      final weekStart = _weekStartInMonth(monthStart, index + 1);
-      final amount = monthRows
-          .where((row) => _weekOfMonth(row.day) == index + 1)
-          .fold<double>(0, (sum, row) => sum + row.amount);
-      return FinanceDailyIncome(day: weekStart, amount: amount);
-    });
-  }
-
-  double _amountForDay(FinanceDashboardData data, DateTime day) {
-    final match = data.dailyHistory.cast<FinanceDailyIncome?>().firstWhere(
-          (item) => item != null && DateUtils.isSameDay(item.day, day),
-          orElse: () => null,
-        );
-    return match?.amount ?? 0;
-  }
-
-  List<FinanceTransaction> _filteredTx(FinanceDashboardData data) {
-    return data.transactions.where((tx) {
-      return switch (_txFilter) {
-        FinanceTxFilter.all =>
-          tx.status != FinancePaymentStatus.rejected,
-        FinanceTxFilter.confirmed => tx.isConfirmed,
-        FinanceTxFilter.pending => tx.isPending,
-      };
-    }).toList(growable: false);
-  }
-
-  Future<void> _reject(BuildContext context, FinanceTransaction tx) async {
+  Future<void> _reject(FinanceTransaction tx) async {
     final reason = await RejectPaymentDialog.show(context);
-    if (reason == null || !context.mounted) return;
+    if (reason == null || !mounted) return;
     context.read<FinanceCubit>().rejectPayment(tx.bookingId, reason);
   }
 
@@ -175,10 +84,7 @@ class _FinanceViewState extends State<_FinanceView> {
           final success = state.successMessage;
           if (error != null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(error),
-                backgroundColor: AppColors.error,
-              ),
+              SnackBar(content: Text(error), backgroundColor: AppColors.error),
             );
             context.read<FinanceCubit>().clearMessages();
           } else if (success != null) {
@@ -198,7 +104,7 @@ class _FinanceViewState extends State<_FinanceView> {
             previous.busyBookingIds != current.busyBookingIds,
         builder: (context, state) {
           if (state.isInitialLoading && state.data == null) {
-            return const _FinanceLoadingView();
+            return const _HomeLoading();
           }
 
           final data = state.data;
@@ -209,143 +115,119 @@ class _FinanceViewState extends State<_FinanceView> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: EColorConstants.primaryColor,
                   foregroundColor: Colors.white,
+                  elevation: 0,
                 ),
                 child: const Text('Retry'),
               ),
             );
           }
 
-          return _FinanceBody(
-            data: data,
-            busyBookingIds: state.busyBookingIds,
-            period: _period,
-            selectedDay: _selectedDay,
-            selectedMonthStart: _selectedMonthStart,
-            selectedWeek: _selectedWeek,
-            txFilter: _txFilter,
-            expandedBookingId: _expandedBookingId,
-            chartRows: _rowsForSelection(data),
-            filteredTransactions: _filteredTx(data),
+          final recent = data.transactions
+              .where((tx) => tx.status != FinancePaymentStatus.rejected)
+              .take(8)
+              .toList(growable: false);
+          final coaches = data.topCoaches.take(5).toList(growable: false);
+
+          return RefreshIndicator(
+            color: EColorConstants.primaryColor,
             onRefresh: () => context.read<FinanceCubit>().refresh(),
-            onPeriodChanged: (period) {
-              setState(() {
-                _period = period;
-                if (period == FinancePeriod.day && _selectedDay == null) {
-                  final now = DateTime.now();
-                  _selectedDay = DateTime(now.year, now.month, now.day);
-                }
-              });
-            },
-            onPreviousPeriod: () {
-              setState(() {
-                if (_period == FinancePeriod.month) {
-                  _selectedMonthStart = DateTime(
-                    _selectedMonthStart.year,
-                    _selectedMonthStart.month - 1,
-                    1,
-                  );
-                  _selectedWeek = 1;
-                  _selectedDay = null;
-                } else if (_period == FinancePeriod.week) {
-                  if (_selectedWeek > 1) {
-                    _selectedWeek -= 1;
-                  } else {
-                    _selectedMonthStart = DateTime(
-                      _selectedMonthStart.year,
-                      _selectedMonthStart.month - 1,
-                      1,
-                    );
-                    _selectedWeek = 4;
-                  }
-                  _selectedDay = null;
-                } else if (_selectedDay != null) {
-                  _selectedDay =
-                      _selectedDay!.subtract(const Duration(days: 1));
-                  _selectedMonthStart =
-                      DateTime(_selectedDay!.year, _selectedDay!.month, 1);
-                  _selectedWeek = _weekOfMonth(_selectedDay!);
-                }
-              });
-            },
-            onNextPeriod: () {
-              setState(() {
-                if (_period == FinancePeriod.month) {
-                  _selectedMonthStart = DateTime(
-                    _selectedMonthStart.year,
-                    _selectedMonthStart.month + 1,
-                    1,
-                  );
-                  _selectedWeek = 1;
-                  _selectedDay = null;
-                } else if (_period == FinancePeriod.week) {
-                  if (_selectedWeek < 4) {
-                    _selectedWeek += 1;
-                  } else {
-                    _selectedMonthStart = DateTime(
-                      _selectedMonthStart.year,
-                      _selectedMonthStart.month + 1,
-                      1,
-                    );
-                    _selectedWeek = 1;
-                  }
-                  _selectedDay = null;
-                } else if (_selectedDay != null) {
-                  _selectedDay = _selectedDay!.add(const Duration(days: 1));
-                  _selectedMonthStart =
-                      DateTime(_selectedDay!.year, _selectedDay!.month, 1);
-                  _selectedWeek = _weekOfMonth(_selectedDay!);
-                }
-              });
-            },
-            onWeekSelected: (week) {
-              setState(() {
-                _selectedWeek = week;
-                _selectedDay = null;
-              });
-            },
-            onDaySelected: (day) {
-              setState(() {
-                if (_selectedDay != null &&
-                    DateUtils.isSameDay(_selectedDay, day)) {
-                  _selectedDay = null;
-                } else {
-                  _selectedDay = day;
-                  _selectedMonthStart = DateTime(day.year, day.month, 1);
-                  _selectedWeek = _weekOfMonth(day);
-                }
-              });
-            },
-            onTxFilterChanged: (filter) {
-              setState(() {
-                _txFilter = filter;
-                _expandedBookingId = null;
-              });
-            },
-            onTransactionTap: (tx) {
-              if (!tx.isPending) return;
-              setState(() {
-                _expandedBookingId =
-                    _expandedBookingId == tx.bookingId ? null : tx.bookingId;
-              });
-            },
-            onConfirm: (tx) =>
-                context.read<FinanceCubit>().verifyPayment(tx.bookingId),
-            onCancel: (tx) => _reject(context, tx),
-            onPendingBannerTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const PendingPaymentsPage(),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+              children: [
+                FinanceCompactKpiRow(
+                  todayAmount: data.dailyRevenue,
+                  weeklyAmount: data.weeklyRevenue,
+                  monthlyAmount: data.monthlyRevenue,
+                  todayChange: data.dailyRevenueChange,
+                  weeklyChange: data.weeklyRevenueChange,
+                  monthlyChange: data.monthlyRevenueChange,
                 ),
-              );
-            },
-            onSeeAllCoaches: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const AllCoachesPage(),
+                const SizedBox(height: 12),
+                FinanceNavRow(
+                  label: 'View finance details',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BlocProvider.value(
+                          value: context.read<FinanceCubit>(),
+                          child: const FinanceDetailsPage(),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-            dayAmount: (day) => _amountForDay(data, day),
+                const SizedBox(height: 14),
+                FinancePendingBanner(
+                  count: data.pendingCount,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const PendingPaymentsPage(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                FinanceSectionHeader(
+                  title: 'Top Earning Coaches',
+                  actionLabel: 'See all',
+                  onAction: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AllCoachesPage(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+                if (coaches.isEmpty)
+                  const _EmptyCard(label: 'No coach revenue yet')
+                else
+                  ...coaches.map((coach) => FinanceCoachTile(coach: coach)),
+                const SizedBox(height: 16),
+                FinanceSectionHeader(
+                  title: 'Recent Transactions',
+                  actionLabel: 'View all',
+                  onAction: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BlocProvider.value(
+                          value: context.read<FinanceCubit>(),
+                          child: const AllFinanceTransactionsPage(),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+                if (recent.isEmpty)
+                  const _EmptyCard(label: 'No transactions yet')
+                else
+                  ...recent.map((tx) {
+                    return FinanceTransactionTile(
+                      transaction: tx,
+                      expanded: _expandedBookingId == tx.bookingId,
+                      isBusy: state.busyBookingIds.contains(tx.bookingId),
+                      onTap: () {
+                        if (!tx.isPending) return;
+                        setState(() {
+                          _expandedBookingId =
+                              _expandedBookingId == tx.bookingId
+                                  ? null
+                                  : tx.bookingId;
+                        });
+                      },
+                      onConfirm: () => context
+                          .read<FinanceCubit>()
+                          .verifyPayment(tx.bookingId),
+                      onCancel: () => _reject(tx),
+                    );
+                  }),
+              ],
+            ),
           );
         },
       ),
@@ -353,211 +235,40 @@ class _FinanceViewState extends State<_FinanceView> {
   }
 }
 
-class _FinanceBody extends StatelessWidget {
-  const _FinanceBody({
-    required this.data,
-    required this.busyBookingIds,
-    required this.period,
-    required this.selectedDay,
-    required this.selectedMonthStart,
-    required this.selectedWeek,
-    required this.txFilter,
-    required this.expandedBookingId,
-    required this.chartRows,
-    required this.filteredTransactions,
-    required this.onRefresh,
-    required this.onPeriodChanged,
-    required this.onPreviousPeriod,
-    required this.onNextPeriod,
-    required this.onWeekSelected,
-    required this.onDaySelected,
-    required this.onTxFilterChanged,
-    required this.onTransactionTap,
-    required this.onConfirm,
-    required this.onCancel,
-    required this.onPendingBannerTap,
-    required this.onSeeAllCoaches,
-    required this.dayAmount,
-  });
-
-  final FinanceDashboardData data;
-  final Set<String> busyBookingIds;
-  final FinancePeriod period;
-  final DateTime? selectedDay;
-  final DateTime selectedMonthStart;
-  final int selectedWeek;
-  final FinanceTxFilter txFilter;
-  final String? expandedBookingId;
-  final List<FinanceDailyIncome> chartRows;
-  final List<FinanceTransaction> filteredTransactions;
-  final Future<void> Function() onRefresh;
-  final ValueChanged<FinancePeriod> onPeriodChanged;
-  final VoidCallback onPreviousPeriod;
-  final VoidCallback onNextPeriod;
-  final ValueChanged<int> onWeekSelected;
-  final ValueChanged<DateTime> onDaySelected;
-  final ValueChanged<FinanceTxFilter> onTxFilterChanged;
-  final ValueChanged<FinanceTransaction> onTransactionTap;
-  final ValueChanged<FinanceTransaction> onConfirm;
-  final ValueChanged<FinanceTransaction> onCancel;
-  final VoidCallback onPendingBannerTap;
-  final VoidCallback onSeeAllCoaches;
-  final double Function(DateTime day) dayAmount;
+class _HomeLoading extends StatelessWidget {
+  const _HomeLoading();
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final todayAmount = selectedDay == null
-        ? data.dailyRevenue
-        : dayAmount(selectedDay!);
-    final todayLabel = selectedDay == null ||
-            DateUtils.isSameDay(selectedDay, now)
-        ? 'Today'
-        : DateFormat('EEE, MMM d').format(selectedDay!);
-
-    final weekTabs = List.generate(4, (index) {
-      final weekNumber = index + 1;
-      final amount = data.dailyHistory
-          .where(
-            (entry) =>
-                entry.day.year == selectedMonthStart.year &&
-                entry.day.month == selectedMonthStart.month &&
-                (((entry.day.day - 1) ~/ 7) + 1) == weekNumber,
-          )
-          .fold<double>(0, (sum, entry) => sum + entry.amount);
-      return FinanceWeekTabData(weekNumber: weekNumber, amount: amount);
-    });
-
-    final performanceTitle = switch (period) {
-      FinancePeriod.day => 'Daily Performance',
-      FinancePeriod.week => 'Weekly Performance',
-      FinancePeriod.month =>
-        '${DateFormat('MMMM').format(selectedMonthStart)} Performance',
-    };
-
-    final chartTotal = chartRows.fold<double>(0, (sum, row) => sum + row.amount);
-    final topCoaches = data.topCoaches.take(5).toList(growable: false);
-
-    return RefreshIndicator(
-      color: EColorConstants.primaryColor,
-      onRefresh: onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
-        ),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate.fixed([
-                FinanceRevenueCard(
-                  label: todayLabel,
-                  amount: todayAmount,
-                  changePercent:
-                      selectedDay == null || DateUtils.isSameDay(selectedDay, now)
-                          ? data.dailyRevenueChange
-                          : null,
-                  changeSubtitle: 'vs yesterday',
-                ),
-                const SizedBox(height: 10),
-                FinanceRevenueCard(
-                  label: 'Weekly',
-                  amount: period == FinancePeriod.week ||
-                          period == FinancePeriod.day
-                      ? chartTotal
-                      : data.weeklyRevenue,
-                  changePercent: data.weeklyRevenueChange,
-                  changeSubtitle: 'vs last week',
-                ),
-                const SizedBox(height: 10),
-                FinanceRevenueCard(
-                  label: 'Monthly',
-                  amount: data.monthlyRevenue,
-                  changePercent: data.monthlyRevenueChange,
-                  changeSubtitle: 'vs last month',
-                ),
-                const SizedBox(height: 18),
-                FinancePeriodSelector(
-                  value: period,
-                  onChanged: onPeriodChanged,
-                  onPrevious: onPreviousPeriod,
-                  onNext: onNextPeriod,
-                ),
-                if (period == FinancePeriod.week ||
-                    period == FinancePeriod.day) ...[
-                  const SizedBox(height: 12),
-                  FinanceWeekTabs(
-                    weeks: weekTabs,
-                    selectedWeek: selectedWeek,
-                    onSelected: onWeekSelected,
-                  ),
-                ],
-                if (period == FinancePeriod.month) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    DateFormat('MMMM yyyy').format(selectedMonthStart),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                FinancePerformanceCard(
-                  title: performanceTitle,
-                  total: chartTotal,
-                  items: chartRows,
-                  selectedDay: selectedDay,
-                  onDaySelected: onDaySelected,
-                  labelBuilder: period == FinancePeriod.month
-                      ? (_, index) => 'W${index + 1}'
-                      : null,
-                ),
-                const SizedBox(height: 14),
-                FinancePendingBanner(
-                  count: data.pendingCount,
-                  onTap: onPendingBannerTap,
-                ),
-                const SizedBox(height: 20),
-                FinanceSectionHeader(
-                  title: 'Top Earning Coaches',
-                  actionLabel: 'See all',
-                  onAction: onSeeAllCoaches,
-                ),
-                const SizedBox(height: 10),
-                if (topCoaches.isEmpty)
-                  const _EmptyCard(label: 'No coach revenue yet')
-                else
-                  ...topCoaches.map((coach) => FinanceCoachTile(coach: coach)),
-                const SizedBox(height: 16),
-                const FinanceSectionHeader(title: 'Recent Transactions'),
-                const SizedBox(height: 10),
-                FinanceTxFilterChips(
-                  value: txFilter,
-                  onChanged: onTxFilterChanged,
-                ),
-                const SizedBox(height: 12),
-                if (filteredTransactions.isEmpty)
-                  const _EmptyCard(label: 'No transactions yet')
-                else
-                  ...filteredTransactions.map((tx) {
-                    return FinanceTransactionTile(
-                      transaction: tx,
-                      expanded: expandedBookingId == tx.bookingId,
-                      isBusy: busyBookingIds.contains(tx.bookingId),
-                      onTap: () => onTransactionTap(tx),
-                      onConfirm: () => onConfirm(tx),
-                      onCancel: () => onCancel(tx),
-                    );
-                  }),
-              ]),
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: List.generate(
+            3,
+            (_) => const Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: _Box(height: 88),
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        const _Box(height: 52),
+        const SizedBox(height: 14),
+        const _Box(height: 56),
+        const SizedBox(height: 20),
+        const _Box(height: 24),
+        const SizedBox(height: 10),
+        const _Box(height: 72),
+        const SizedBox(height: 16),
+        const _Box(height: 24),
+        const SizedBox(height: 10),
+        const _Box(height: 88),
+        const SizedBox(height: 10),
+        const _Box(height: 88),
+      ],
     );
   }
 }
@@ -575,6 +286,13 @@ class _EmptyCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Text(
         label,
@@ -589,36 +307,8 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
-class _FinanceLoadingView extends StatelessWidget {
-  const _FinanceLoadingView();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: const [
-        _ShimmerBox(height: 96),
-        SizedBox(height: 10),
-        _ShimmerBox(height: 96),
-        SizedBox(height: 10),
-        _ShimmerBox(height: 96),
-        SizedBox(height: 16),
-        _ShimmerBox(height: 48),
-        SizedBox(height: 14),
-        _ShimmerBox(height: 200),
-        SizedBox(height: 14),
-        _ShimmerBox(height: 52),
-        SizedBox(height: 16),
-        _ShimmerBox(height: 72),
-        SizedBox(height: 8),
-        _ShimmerBox(height: 72),
-      ],
-    );
-  }
-}
-
-class _ShimmerBox extends StatelessWidget {
-  const _ShimmerBox({required this.height});
+class _Box extends StatelessWidget {
+  const _Box({required this.height});
 
   final double height;
 

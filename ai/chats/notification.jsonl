@@ -1,0 +1,3 @@
+{"ts": "2026-08-03T11:39:00+03:00", "role": "system", "event": "seed", "content": "Seeded from Android Notifications audit + implement chat. See notification.md for full summary."}
+{"ts": "2026-08-03T11:53:00+03:00", "event": "beforeSubmitPrompt", "role": "user", "content": "save this chat in files called notification and every time chat increase save it automatic"}
+{"ts": "2026-08-03T11:53:00+03:00", "event": "afterAgentResponse", "role": "assistant", "content": "Seeded ai/chats/notification.md + notification.jsonl; wired .cursor/hooks.json auto-append on beforeSubmitPrompt, afterAgentResponse, stop."}

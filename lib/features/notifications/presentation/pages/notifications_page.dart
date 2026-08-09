@@ -82,14 +82,13 @@ class _NotificationsView extends StatelessWidget {
                   .read<NotificationBloc>()
                   .add(const NotificationsRefreshed());
               await context.read<NotificationBloc>().stream.firstWhere(
-                    (s) =>
-                        s is NotificationLoaded || s is NotificationError,
+                    (s) => s is NotificationLoaded || s is NotificationError,
                   );
             },
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              itemCount: state.notifications.length +
-                  (state.isRefreshing ? 1 : 0),
+              itemCount:
+                  state.notifications.length + (state.isRefreshing ? 1 : 0),
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 if (state.isRefreshing && index == 0) {
@@ -223,11 +222,25 @@ class _NotificationTile extends StatelessWidget {
   IconData _iconForType(String type) {
     switch (type.toLowerCase()) {
       case 'booking':
+      case 'booking_confirmed':
+      case 'booking_rejected':
+      case 'booking_auto_cancelled':
       case 'payment':
+      case 'payment_pending':
         return Iconsax.ticket;
       case 'session':
+      case 'session_reminder':
       case 'attendance':
         return Iconsax.calendar;
+      case 'freeze':
+      case 'freeze_request':
+      case 'freeze_review':
+        return Iconsax.pause;
+      case 'subscription':
+        return Iconsax.clock;
+      case 'attention':
+      case 'needs_attention':
+        return Iconsax.warning_2;
       case 'admin':
         return Iconsax.shield_tick;
       default:

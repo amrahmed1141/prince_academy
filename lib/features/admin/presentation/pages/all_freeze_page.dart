@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
+import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/core/widgets/branded_pull_to_refresh.dart';
 import 'package:prince_academy/core/widgets/custom_snackbar.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/all_freeze/all_freeze_cubit.dart';
@@ -40,30 +41,40 @@ class _AllFreezeView extends StatelessWidget {
           icon: Iconsax.warning_2,
         );
       },
-      child: Container(
-        decoration: AppGradients.homeScreenDecoration(),
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: const BackButton(color: EColorConstants.authTextDarkBrown),
-            title: BlocSelector<AllFreezeCubit, AllFreezeState, int>(
-              selector: (s) => s.pending.length,
-              builder: (context, pendingCount) {
-                return Text(
-                  'Freeze${pendingCount > 0 ? ' ($pendingCount pending)' : ''}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: EColorConstants.authTextDarkBrown,
-                    fontFamily: 'Poppins',
-                  ),
-                );
-              },
-            ),
-          ),
-          body: BrandedPullToRefresh(
+      child: Theme(
+        data: EAppTheme.lightTheme.copyWith(
+          scaffoldBackgroundColor: Colors.transparent,
+        ),
+        child: Material(
+          color: const Color(0xFFFFF9F5),
+          child: Container(
+            decoration: AppGradients.homeScreenDecoration(),
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                leading: const BackButton(
+                  color: EColorConstants.authTextDarkBrown,
+                ),
+                title: BlocSelector<AllFreezeCubit, AllFreezeState, int>(
+                  selector: (s) => s.pending.length,
+                  builder: (context, pendingCount) {
+                    return Text(
+                      'Freeze${pendingCount > 0 ? ' ($pendingCount pending)' : ''}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: EColorConstants.authTextDarkBrown,
+                        fontFamily: 'Poppins',
+                      ),
+                    );
+                  },
+                ),
+              ),
+              body: BrandedPullToRefresh(
             onRefresh: () => context.read<AllFreezeCubit>().refresh(),
             child: BlocBuilder<AllFreezeCubit, AllFreezeState>(
               builder: (context, state) {
@@ -147,6 +158,8 @@ class _AllFreezeView extends StatelessWidget {
                   ],
                 );
               },
+            ),
+          ),
             ),
           ),
         ),

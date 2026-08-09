@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../firebase_options.dart';
 
@@ -39,6 +41,22 @@ class FirebaseMessagingService {
   FirebaseMessagingService._();
 
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  /// Dedicated channel for foreground local notifications.
+  /// Keep separate from the FCM default channel to avoid stale channel settings.
+  static const String androidChannelId = 'prince_academy_foreground_high';
+
+  static const AndroidNotificationChannel _androidForegroundChannel =
+      AndroidNotificationChannel(
+    androidChannelId,
+    'Prince Academy',
+    description: 'Bookings, sessions, and payment updates',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+  );
 
   /// Latest known FCM token (null until fetched or if APNs is not ready on iOS).
   static String? currentToken;
@@ -46,11 +64,13 @@ class FirebaseMessagingService {
   /// Called whenever a usable FCM token is obtained or refreshed.
   static Future<void> Function(String token)? onToken;
 
-  /// Optional UI hook for foreground messages (e.g. SnackBar).
+  /// Optional UI hook for foreground messages (fallback SnackBar, etc.).
   static void Function(RemoteMessage message)? onForegroundMessage;
+  static void Function(Map<String, dynamic> data)? onNotificationDataOpened;
 
   static void Function(RemoteMessage message)? _onNotificationOpened;
   static RemoteMessage? _pendingOpenedMessage;
+  static bool _localNotificationsReady = false;
 
   /// Optional navigation / deep-link hook when user taps a notification.
   ///
@@ -85,14 +105,26 @@ class FirebaseMessagingService {
       return;
     }
 
-    _initialized = true;
-
-    await _requestPermission();
-    await _configureForegroundPresentation();
-    _listenForTokenRefresh();
-    _listenForForegroundMessages();
-    await _listenForNotificationOpens();
-    await refreshAndSyncToken();
+    try {
+      await _requestPermission();
+      // Never block FCM listeners on local-notification setup failures.
+      await _initializeLocalNotifications();
+      await _configureForegroundPresentation();
+      _listenForTokenRefresh();
+      _listenForForegroundMessages();
+      await _listenForNotificationOpens();
+      await refreshAndSyncToken();
+      _initialized = true;
+    } catch (error, stackTrace) {
+      _initialized = false;
+      developer.log(
+        'FCM initialize failed: $error',
+        name: 'FirebaseMessagingService',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   /// Re-fetch token and push it to [onToken] (call after login / DI ready).
@@ -185,15 +217,20 @@ class FirebaseMessagingService {
 
   static void _listenForForegroundMessages() {
     _foregroundSub?.cancel();
-    _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
+    _foregroundSub = FirebaseMessaging.onMessage.listen((message) async {
       developer.log(
         'Foreground push: id=${message.messageId} '
-        'title=${message.notification?.title}',
+        'title=${message.notification?.title} '
+        'data=${message.data}',
         name: 'FirebaseMessagingService',
       );
-      // Android: no system tray while foreground — UI layer shows SnackBar.
-      // iOS: setForegroundNotificationPresentationOptions shows the banner.
-      onForegroundMessage?.call(message);
+      // Android does not show FCM banners while app is foregrounded.
+      // Always post a local heads-up notification first.
+      final posted = await showForegroundNotification(message);
+      if (!posted) {
+        // Keep in-app UX resilient when local-notification posting fails.
+        onForegroundMessage?.call(message);
+      }
     });
   }
 
@@ -222,6 +259,7 @@ class FirebaseMessagingService {
       'Notification opened: id=${message.messageId} data=${message.data}',
       name: 'FirebaseMessagingService',
     );
+    _emitOpenedData(message.data);
     final handler = _onNotificationOpened;
     if (handler == null) {
       // Cold start: shell has not bound yet — replay when it does.
@@ -245,6 +283,126 @@ class FirebaseMessagingService {
     _openedSub = null;
     _pendingOpenedMessage = null;
     _onNotificationOpened = null;
+    onNotificationDataOpened = null;
+    _localNotificationsReady = false;
     _initialized = false;
+  }
+
+  static Future<void> _initializeLocalNotifications() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+
+    try {
+      final android = _localNotifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+
+      // Android 13+ runtime permission for local banners.
+      await android?.requestNotificationsPermission();
+      await android?.createNotificationChannel(_androidForegroundChannel);
+
+      // defaultIcon MUST be a drawable (not mipmap).
+      const settings = InitializationSettings(
+        android: AndroidInitializationSettings('ic_stat_notification'),
+      );
+      await _localNotifications.initialize(
+        settings,
+        onDidReceiveNotificationResponse: (response) {
+          final payload = response.payload;
+          if (payload == null || payload.isEmpty) return;
+          try {
+            final decoded = jsonDecode(payload);
+            if (decoded is Map) {
+              _emitOpenedData(Map<String, dynamic>.from(decoded));
+            }
+          } catch (_) {
+            // Keep tap handling resilient when payload is malformed.
+          }
+        },
+      );
+      _localNotificationsReady = true;
+      developer.log(
+        'Local notifications ready (channel=$androidChannelId)',
+        name: 'FirebaseMessagingService',
+      );
+    } catch (error, stackTrace) {
+      _localNotificationsReady = false;
+      developer.log(
+        'Local notifications init failed (SnackBar fallback): $error',
+        name: 'FirebaseMessagingService',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Shows an Android heads-up notification while the app is in foreground.
+  /// Returns `true` when a banner was posted successfully.
+  static Future<bool> showForegroundNotification(RemoteMessage message) async {
+    final title = message.notification?.title ??
+        message.data['title']?.toString() ??
+        'Prince Academy';
+    final body =
+        message.notification?.body ?? message.data['body']?.toString() ?? '';
+    return showLocalBanner(
+      title: title,
+      body: body,
+      data: message.data,
+      id: message.messageId?.hashCode ?? message.hashCode,
+    );
+  }
+
+  /// Posts a local heads-up banner (Android). Used for FCM foreground messages
+  /// and realtime in-app notification inserts while the app is open.
+  static Future<bool> showLocalBanner({
+    required String title,
+    String? body,
+    Map<String, dynamic>? data,
+    int? id,
+  }) async {
+    if (kIsWeb || !Platform.isAndroid) return false;
+    if (!_localNotificationsReady) {
+      await _initializeLocalNotifications();
+      if (!_localNotificationsReady) return false;
+    }
+
+    try {
+      final dataPayload = jsonEncode(data ?? const <String, dynamic>{});
+
+      const details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          androidChannelId,
+          'Prince Academy',
+          channelDescription: 'Bookings, sessions, and payment updates',
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: 'ic_stat_notification',
+          // App logo shown in expanded / heads-up presentation.
+          largeIcon: DrawableResourceAndroidBitmap('notification_logo'),
+          playSound: true,
+          enableVibration: true,
+          category: AndroidNotificationCategory.message,
+        ),
+      );
+
+      await _localNotifications.show(
+        id ?? title.hashCode ^ (body?.hashCode ?? 0),
+        title,
+        body ?? '',
+        details,
+        payload: dataPayload,
+      );
+      return true;
+    } catch (error, stackTrace) {
+      developer.log(
+        'showLocalBanner failed: $error',
+        name: 'FirebaseMessagingService',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
+  }
+
+  static void _emitOpenedData(Map<String, dynamic> data) {
+    onNotificationDataOpened?.call(data);
   }
 }

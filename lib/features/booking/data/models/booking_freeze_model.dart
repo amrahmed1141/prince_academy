@@ -147,7 +147,19 @@ String formatFreezeDateParam(DateTime date) {
 
 String formatFreezeDisplayDate(DateTime date) {
   final local = date.toLocal();
-  final d = local.day.toString().padLeft(2, '0');
-  final m = local.month.toString().padLeft(2, '0');
-  return '$d/$m/${local.year}';
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${local.day} ${months[local.month - 1]}';
 }

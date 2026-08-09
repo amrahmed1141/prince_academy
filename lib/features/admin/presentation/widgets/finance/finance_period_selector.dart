@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 
-enum FinancePeriod { day, week, month }
+enum FinancePeriod { week, month, year }
 
 class FinancePeriodSelector extends StatelessWidget {
   const FinancePeriodSelector({
@@ -78,9 +78,9 @@ class FinancePeriodSelector extends StatelessWidget {
 
   static String _label(FinancePeriod period) {
     return switch (period) {
-      FinancePeriod.day => 'Day',
       FinancePeriod.week => 'Week',
       FinancePeriod.month => 'Month',
+      FinancePeriod.year => 'Year',
     };
   }
 }

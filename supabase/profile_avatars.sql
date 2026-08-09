@@ -1,8 +1,15 @@
 -- Profile avatars: column + public storage bucket
 -- Run once in Supabase → SQL Editor (safe to re-run).
+-- Live DB historically used photo_url; keep both in sync for readers.
 
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS avatar_url text;
+
+-- Backfill avatar_url from photo_url when only photo_url is set.
+UPDATE public.profiles
+SET avatar_url = photo_url
+WHERE avatar_url IS NULL
+  AND photo_url IS NOT NULL;
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('profile-avatars', 'profile-avatars', true)

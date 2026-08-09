@@ -1,53 +1,75 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_currency.dart';
 
-enum FinanceTxFilter { all, confirmed, pending }
+enum FinanceTxFilter { all, confirmed, pending, autoCanceled }
 
 class FinanceTxFilterChips extends StatelessWidget {
   const FinanceTxFilterChips({
     super.key,
     required this.value,
     required this.onChanged,
+    this.showAll = true,
   });
 
   final FinanceTxFilter value;
   final ValueChanged<FinanceTxFilter> onChanged;
+  final bool showAll;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: FinanceTxFilter.values.map((filter) {
-        final selected = filter == value;
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: GestureDetector(
-            onTap: () => onChanged(filter),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: selected
-                    ? EColorConstants.primaryColor
-                    : const Color(0xFFF0EBE4),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _label(filter),
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : AppColors.textPrimary,
+    final filters = showAll
+        ? FinanceTxFilter.values
+        : const [
+            FinanceTxFilter.confirmed,
+            FinanceTxFilter.pending,
+            FinanceTxFilter.autoCanceled,
+          ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: filters.map((filter) {
+          final selected = filter == value;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => onChanged(filter),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? EColorConstants.primaryColor
+                      : const Color(0xFFF0EBE4),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: EColorConstants.primaryColor.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  _label(filter),
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? Colors.white : AppColors.textPrimary,
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      }).toList(growable: false),
+          );
+        }).toList(growable: false),
+      ),
     );
   }
 
@@ -56,6 +78,7 @@ class FinanceTxFilterChips extends StatelessWidget {
       FinanceTxFilter.all => 'All',
       FinanceTxFilter.confirmed => 'Confirmed',
       FinanceTxFilter.pending => 'Pending',
+      FinanceTxFilter.autoCanceled => 'Auto-canceled',
     };
   }
 }
@@ -80,18 +103,29 @@ class FinanceTransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPending = transaction.isPending;
-    final statusColor =
-        isPending ? AppColors.pendingOrange : AppColors.success;
-    final statusBg = isPending
-        ? const Color(0xFFFFF3E0)
-        : const Color(0xFFE8F5E9);
-    final time = DateFormat('h:mm a').format(transaction.date.toLocal());
+    final statusColor = switch (transaction.status) {
+      FinancePaymentStatus.pending => AppColors.pendingOrange,
+      FinancePaymentStatus.autoCanceled => AppColors.expiredGrey,
+      FinancePaymentStatus.rejected => AppColors.error,
+      FinancePaymentStatus.confirmed => AppColors.success,
+    };
+    final statusBg = switch (transaction.status) {
+      FinancePaymentStatus.pending => const Color(0xFFFFF3E0),
+      FinancePaymentStatus.autoCanceled => const Color(0xFFF5F5F5),
+      FinancePaymentStatus.rejected => const Color(0xFFFFEBEE),
+      FinancePaymentStatus.confirmed => const Color(0xFFE8F5E9),
+    };
+    final statusLabel = switch (transaction.status) {
+      FinancePaymentStatus.pending => 'Pending',
+      FinancePaymentStatus.autoCanceled => 'Auto-canceled',
+      FinancePaymentStatus.rejected => 'Rejected',
+      FinancePaymentStatus.confirmed => 'Confirmed',
+    };
     final detail = [
       transaction.paymentMethodLabel,
       if (transaction.detail.isNotEmpty) transaction.detail,
-      time,
     ].join(' · ');
+    final dateTime = FinanceCurrency.formatDateTime(transaction.date);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -109,11 +143,12 @@ class FinanceTransactionTile extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isPending ? onTap : null,
+          onTap: transaction.isPending ? onTap : null,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,9 +161,14 @@ class FinanceTransactionTile extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        isPending
-                            ? Icons.schedule_rounded
-                            : Icons.check_rounded,
+                        switch (transaction.status) {
+                          FinancePaymentStatus.pending =>
+                            Icons.schedule_rounded,
+                          FinancePaymentStatus.autoCanceled =>
+                            Icons.timer_off_outlined,
+                          FinancePaymentStatus.rejected => Icons.close_rounded,
+                          FinancePaymentStatus.confirmed => Icons.check_rounded,
+                        },
                         color: statusColor,
                         size: 20,
                       ),
@@ -152,7 +192,7 @@ class FinanceTransactionTile extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             detail,
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: 'Poppins',
@@ -161,6 +201,30 @@ class FinanceTransactionTile extends StatelessWidget {
                               color: AppColors.textSecondary,
                             ),
                           ),
+                          const SizedBox(height: 2),
+                          Text(
+                            dateTime,
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          if (transaction.isAutoCanceled &&
+                              (transaction.cancelReason?.isNotEmpty ??
+                                  false)) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              transaction.cancelReason!,
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.expiredGrey,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -188,7 +252,7 @@ class FinanceTransactionTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            isPending ? 'Pending' : 'Confirmed',
+                            statusLabel,
                             style: TextStyle(
                               fontFamily: 'Poppins',
                               fontSize: 10,
@@ -201,7 +265,7 @@ class FinanceTransactionTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (isPending && expanded) ...[
+                if (transaction.isPending && expanded) ...[
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -241,13 +305,12 @@ class FinanceTransactionTile extends StatelessWidget {
                       Expanded(
                         child: SizedBox(
                           height: 42,
-                          child: OutlinedButton(
+                          child: ElevatedButton(
                             onPressed: isBusy ? null : onCancel,
-                            style: OutlinedButton.styleFrom(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFF0EBE4),
                               foregroundColor: AppColors.textPrimary,
-                              side: BorderSide(
-                                color: Colors.grey.shade300,
-                              ),
+                              elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
