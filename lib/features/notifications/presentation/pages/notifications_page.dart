@@ -4,10 +4,13 @@ import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
 import 'package:prince_academy/features/notifications/data/models/app_notification.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_bloc.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_event.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_state.dart';
+import 'package:prince_academy/features/notifications/presentation/helpers/notification_navigation.dart';
 
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
@@ -126,6 +129,31 @@ class _NotificationTile extends StatelessWidget {
                 .read<NotificationBloc>()
                 .add(NotificationMarkedRead(notification.id));
           }
+          final auth = context.read<AuthBloc>().state;
+          final isAdmin = auth is AuthAuthed && auth.user.role == 'admin';
+          final data = <String, dynamic>{
+            ...?notification.data,
+            'type': notification.type,
+            'notification_id': notification.id,
+          };
+          final type = NotificationNavigation.typeOf(
+            data,
+            fallbackType: notification.type,
+          );
+          // Already on the feed — only leave for a concrete destination.
+          if (type.isEmpty || type == 'general') return;
+
+          final destination = NotificationNavigation.destination(
+            isAdmin: isAdmin,
+            type: notification.type,
+            data: data,
+            fallback: const SizedBox.shrink(),
+          );
+          if (destination is SizedBox) return;
+
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => destination),
+          );
         },
         child: Container(
           padding: const EdgeInsets.all(14),

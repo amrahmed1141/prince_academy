@@ -9,11 +9,15 @@ import 'package:prince_academy/features/admin/data/models/session_detail_model.d
 import 'package:prince_academy/features/admin/data/repositories/admin_dashboard_repository.dart';
 import 'package:prince_academy/features/booking/data/models/booking_freeze_model.dart';
 import 'package:prince_academy/features/booking/data/repositories/booking_freeze_repository.dart';
+import 'package:prince_academy/features/sessions/data/repositories/sessions_repository.dart';
 
 class UserFreezeCubit extends Cubit<UserFreezeState> {
-  UserFreezeCubit(this._repository) : super(const UserFreezeState.initial());
+  UserFreezeCubit(this._freezeRepo, this._sessionsRepo)
+      : super(const UserFreezeState.initial());
 
-  final BookingFreezeRepository _repository;
+  final BookingFreezeRepository _freezeRepo;
+  final SessionsRepository _sessionsRepo;
+  StreamSubscription<List<SessionDetail>>? _sessionsSub;
 
   Future<void> load({
     required String bookingId,
@@ -23,41 +27,93 @@ class UserFreezeCubit extends Cubit<UserFreezeState> {
       state.copyWith(
         bookingId: bookingId,
         actor: actor,
-        isLoading: true,
         clearError: true,
         clearSuccess: true,
       ),
     );
 
+    // Cache-first paint (member reuses SessionsRepository; admin uses freeze TTL).
+    final cachedSessions = actor == FreezeActor.member
+        ? _sessionsRepo.getCachedBookingSessions(bookingId)
+        : _freezeRepo.getCachedBookingSessions(bookingId);
+    final cachedContext = _freezeRepo.getCachedFreezeContext(bookingId);
+    final hasCache = cachedSessions != null || cachedContext != null;
+
+    if (hasCache) {
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: true,
+          subscriptionEnd: cachedContext?.subscriptionEnd,
+          sessions: _selectable(cachedSessions ?? const []),
+          selectedKeys: const {},
+          clearError: true,
+        ),
+      );
+    } else {
+      emit(state.copyWith(isLoading: true, clearError: true));
+    }
+
+    await _sessionsSub?.cancel();
+    _sessionsSub = null;
+    if (actor == FreezeActor.member) {
+      _sessionsSub = _sessionsRepo.watchBookingSessions(bookingId).listen(
+        (sessions) {
+          emit(
+            state.copyWith(
+              isLoading: false,
+              isRefreshing: false,
+              sessions: _selectable(sessions),
+            ),
+          );
+        },
+        onError: (Object error) {
+          if (state.sessions.isEmpty) {
+            emit(
+              state.copyWith(
+                isLoading: false,
+                isRefreshing: false,
+                errorMessage: _message(error),
+              ),
+            );
+          }
+        },
+      );
+    }
+
     try {
-      // Load independently so a missing freeze RPC does not blank the page.
       BookingFreezeContext? context;
       List<SessionDetail> sessions = const [];
       Object? loadError;
 
       try {
-        context = await _repository.getFreezeContext(bookingId);
+        context = await _freezeRepo.getFreezeContext(bookingId, force: true);
       } catch (e) {
         loadError = e;
       }
 
       try {
-        sessions = await _repository.getBookingSessions(bookingId);
+        if (actor == FreezeActor.member) {
+          sessions = await _sessionsRepo.refreshBookingSessions(
+            bookingId,
+            force: true,
+          );
+        } else {
+          sessions = await _freezeRepo.getBookingSessions(
+            bookingId,
+            force: true,
+          );
+        }
       } catch (e) {
         loadError ??= e;
       }
 
-      final selectable = sessions
-          .where((s) => !s.isAttended && s.status.toLowerCase() != 'frozen')
-          .where((s) {
-            final st = s.status.toLowerCase();
-            return st == 'missed' || st == 'today' || st == 'upcoming';
-          })
-          .toList();
+      final selectable = _selectable(sessions);
 
       emit(
         state.copyWith(
           isLoading: false,
+          isRefreshing: false,
           subscriptionEnd: context?.subscriptionEnd,
           sessions: selectable,
           selectedKeys: const {},
@@ -71,6 +127,7 @@ class UserFreezeCubit extends Cubit<UserFreezeState> {
       emit(
         state.copyWith(
           isLoading: false,
+          isRefreshing: false,
           errorMessage: _message(error),
         ),
       );
@@ -96,12 +153,12 @@ class UserFreezeCubit extends Cubit<UserFreezeState> {
 
     try {
       if (state.actor == FreezeActor.admin) {
-        await _repository.applyFreeze(
+        await _freezeRepo.applyFreeze(
           bookingId: state.bookingId!,
           sessionDates: state.selectedDates,
         );
       } else {
-        await _repository.requestFreeze(
+        await _freezeRepo.requestFreeze(
           bookingId: state.bookingId!,
           sessionDates: state.selectedDates,
         );
@@ -128,6 +185,16 @@ class UserFreezeCubit extends Cubit<UserFreezeState> {
     }
   }
 
+  static List<SessionDetail> _selectable(List<SessionDetail> sessions) {
+    return sessions
+        .where((s) => !s.isAttended && s.status.toLowerCase() != 'frozen')
+        .where((s) {
+          final st = s.status.toLowerCase();
+          return st == 'missed' || st == 'today' || st == 'upcoming';
+        })
+        .toList();
+  }
+
   static String _dateKey(DateTime date) {
     final d = SessionScheduleHelper.dateOnly(date);
     return '${d.year}-${d.month}-${d.day}';
@@ -146,6 +213,12 @@ class UserFreezeCubit extends Cubit<UserFreezeState> {
       await sl<AdminDashboardRepository>().refresh();
     } catch (_) {}
   }
+
+  @override
+  Future<void> close() async {
+    await _sessionsSub?.cancel();
+    return super.close();
+  }
 }
 
 class UserFreezeState extends Equatable {
@@ -153,6 +226,7 @@ class UserFreezeState extends Equatable {
     this.bookingId,
     this.actor = FreezeActor.member,
     this.isLoading = false,
+    this.isRefreshing = false,
     this.isSubmitting = false,
     this.sessions = const [],
     this.selectedKeys = const {},
@@ -165,6 +239,7 @@ class UserFreezeState extends Equatable {
       : bookingId = null,
         actor = FreezeActor.member,
         isLoading = true,
+        isRefreshing = false,
         isSubmitting = false,
         sessions = const [],
         selectedKeys = const {},
@@ -175,6 +250,7 @@ class UserFreezeState extends Equatable {
   final String? bookingId;
   final FreezeActor actor;
   final bool isLoading;
+  final bool isRefreshing;
   final bool isSubmitting;
   final List<SessionDetail> sessions;
   final Set<String> selectedKeys;
@@ -212,6 +288,7 @@ class UserFreezeState extends Equatable {
     String? bookingId,
     FreezeActor? actor,
     bool? isLoading,
+    bool? isRefreshing,
     bool? isSubmitting,
     List<SessionDetail>? sessions,
     Set<String>? selectedKeys,
@@ -225,6 +302,7 @@ class UserFreezeState extends Equatable {
       bookingId: bookingId ?? this.bookingId,
       actor: actor ?? this.actor,
       isLoading: isLoading ?? this.isLoading,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       sessions: sessions ?? this.sessions,
       selectedKeys: selectedKeys ?? this.selectedKeys,
@@ -240,6 +318,7 @@ class UserFreezeState extends Equatable {
         bookingId,
         actor,
         isLoading,
+        isRefreshing,
         isSubmitting,
         sessions,
         selectedKeys,

@@ -24,6 +24,7 @@ import 'package:prince_academy/features/booking/presentation/bloc/booking_bloc.d
 import 'package:prince_academy/features/booking/presentation/bloc/booking_detail_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/user_freeze/user_freeze_cubit.dart';
+import 'package:prince_academy/features/booking/presentation/bloc/my_freeze_requests/my_freeze_requests_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/all_freeze/all_freeze_cubit.dart';
 import 'package:prince_academy/core/services/admin_tab_controller.dart';
 import 'package:prince_academy/core/services/main_tab_controller.dart';
@@ -92,7 +93,13 @@ Future<void> setupDI() async {
   sl.registerFactory<BookingHistoryBloc>(() => BookingHistoryBloc(sl()));
   sl.registerFactory<BookingDetailBloc>(() => BookingDetailBloc(sl()));
   sl.registerFactory<UserFreezeCubit>(
-    () => UserFreezeCubit(sl()),
+    () => UserFreezeCubit(
+      sl<BookingFreezeRepository>(),
+      sl<SessionsRepository>(),
+    ),
+  );
+  sl.registerFactory<MyFreezeRequestsCubit>(
+    () => MyFreezeRequestsCubit(sl()),
   );
   sl.registerFactory<AllFreezeCubit>(
     () => AllFreezeCubit(sl()),

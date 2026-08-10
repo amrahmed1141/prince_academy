@@ -1,5 +1,23 @@
+import 'package:equatable/equatable.dart';
+
 /// Actor that opens [UserFreezePage] — drives confirm CTA + RPC.
 enum FreezeActor { admin, member }
+
+/// Admin pending + active freeze lists (stream / TTL cache payload).
+class AdminFreezeLists extends Equatable {
+  const AdminFreezeLists({
+    this.pending = const [],
+    this.active = const [],
+  });
+
+  final List<PendingFreezeRequest> pending;
+  final List<ActiveBookingFreeze> active;
+
+  bool get isEmpty => pending.isEmpty && active.isEmpty;
+
+  @override
+  List<Object?> get props => [pending, active];
+}
 
 class BookingFreezeContext {
   const BookingFreezeContext({
@@ -106,6 +124,54 @@ class ActiveBookingFreeze {
       originalSubscriptionEnd: _parseDate(json['original_subscription_end']),
       newSubscriptionEnd: _parseDate(json['new_subscription_end']),
       approvedAt: _parseDateTime(json['approved_at']),
+    );
+  }
+}
+
+/// Member-facing freeze request row from [get_my_freeze_requests].
+class MemberFreezeRequest {
+  const MemberFreezeRequest({
+    required this.freezeId,
+    required this.bookingId,
+    required this.status,
+    required this.coachName,
+    required this.sessionDates,
+    required this.createdAt,
+    this.reviewedAt,
+    this.originalSubscriptionEnd,
+    this.newSubscriptionEnd,
+    this.currentSubscriptionEnd,
+  });
+
+  final String freezeId;
+  final String bookingId;
+  final String status;
+  final String coachName;
+  final List<DateTime> sessionDates;
+  final DateTime createdAt;
+  final DateTime? reviewedAt;
+  final DateTime? originalSubscriptionEnd;
+  final DateTime? newSubscriptionEnd;
+  final DateTime? currentSubscriptionEnd;
+
+  int get sessionCount => sessionDates.length;
+
+  bool get isPending => status == 'pending';
+  bool get isApproved => status == 'approved';
+  bool get isRejected => status == 'rejected';
+
+  factory MemberFreezeRequest.fromJson(Map<String, dynamic> json) {
+    return MemberFreezeRequest(
+      freezeId: json['freeze_id'] as String? ?? '',
+      bookingId: json['booking_id'] as String? ?? '',
+      status: (json['status'] as String? ?? '').toLowerCase(),
+      coachName: json['coach_name'] as String? ?? 'Coach',
+      sessionDates: _parseDateList(json['session_dates']),
+      createdAt: _parseDateTime(json['created_at']) ?? DateTime.now(),
+      reviewedAt: _parseDateTime(json['reviewed_at']),
+      originalSubscriptionEnd: _parseDate(json['original_subscription_end']),
+      newSubscriptionEnd: _parseDate(json['new_subscription_end']),
+      currentSubscriptionEnd: _parseDate(json['current_subscription_end']),
     );
   }
 }

@@ -22,6 +22,28 @@ class WeeklyDayProgress extends Equatable {
   List<Object?> get props => [date, expected, attended];
 }
 
+/// Per-day attended / total sessions for Member Home calendar day circles.
+class DaySessionAttendance extends Equatable {
+  final int attended;
+  final int total;
+
+  const DaySessionAttendance({
+    required this.attended,
+    required this.total,
+  });
+
+  double get ratio {
+    if (total <= 0) return 0;
+    return (attended / total).clamp(0.0, 1.0);
+  }
+
+  bool get allAttended => total > 0 && attended >= total;
+  bool get noneAttended => total > 0 && attended <= 0;
+
+  @override
+  List<Object?> get props => [attended, total];
+}
+
 class WeeklyProgressSummary extends Equatable {
   final List<WeeklyDayProgress> days;
   final int totalExpected;

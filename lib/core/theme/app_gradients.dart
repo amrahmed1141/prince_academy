@@ -8,6 +8,19 @@ class AppGradients {
   static const Alignment _top = Alignment.topCenter;
   static const Alignment _bottom = Alignment.bottomCenter;
 
+  /// Session-card progress bar fill — shared by member home day circles.
+  static const LinearGradient sessionProgress = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [
+      Color(0xFFB7E27A),
+      Color(0xFF8FD15B),
+      Color(0xFF66BE47),
+      Color(0xFF3E9F34),
+    ],
+    stops: [0.0, 0.35, 0.68, 1.0],
+  );
+
   /// Standard screen background (booking, sessions, profile).
   static LinearGradient get screen => LinearGradient(
         begin: _top,

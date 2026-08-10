@@ -6,6 +6,7 @@ import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/core/widgets/custom_snackbar.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/session_detail_model.dart';
 import 'package:prince_academy/features/booking/data/models/booking_freeze_model.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/user_freeze/user_freeze_cubit.dart';
@@ -97,11 +98,7 @@ class _UserFreezeView extends StatelessWidget {
                 prev.sessions != next.sessions,
             builder: (context, state) {
               if (state.isLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    color: EColorConstants.primaryColor,
-                  ),
-                );
+                return const UserFreezePageShimmer();
               }
 
               if (state.sessions.isEmpty) {

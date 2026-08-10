@@ -7,7 +7,11 @@ import 'package:prince_academy/features/admin/data/repositories/finance_reposito
 import 'package:prince_academy/features/admin/presentation/bloc/finance_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_performance_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_period_selector.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_section_header.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_transaction_tile.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_week_day_totals.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_week_tabs.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/reject_payment_dialog.dart';
 
 class FinanceDetailsPage extends StatefulWidget {
   const FinanceDetailsPage({super.key});
@@ -22,6 +26,7 @@ class _FinanceDetailsPageState extends State<FinanceDetailsPage> {
   late DateTime _selectedMonthStart;
   late int _selectedWeek;
   late int _selectedYear;
+  String? _expandedBookingId;
 
   @override
   void initState() {
@@ -30,7 +35,42 @@ class _FinanceDetailsPageState extends State<FinanceDetailsPage> {
     _selectedMonthStart = DateTime(now.year, now.month, 1);
     _selectedWeek = _weekOfMonth(now);
     _selectedYear = now.year;
-    _selectedDay = DateTime(now.year, now.month, now.day);
+    _selectedDay = _dayInSelectedWeek(DateTime(now.year, now.month, now.day))
+        ? DateTime(now.year, now.month, now.day)
+        : null;
+  }
+
+  bool _dayInSelectedWeek(DateTime day) {
+    final weekStart = _weekStartInMonth(_selectedMonthStart, _selectedWeek);
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    return !day.isBefore(weekStart) && !day.isAfter(weekEnd);
+  }
+
+  void _selectDay(DateTime day) {
+    setState(() {
+      _selectedDay =
+          _selectedDay != null && DateUtils.isSameDay(_selectedDay, day)
+              ? null
+              : day;
+      _expandedBookingId = null;
+    });
+  }
+
+  List<FinanceTransaction> _transactionsForDay(
+    List<FinanceTransaction> transactions,
+    DateTime day,
+  ) {
+    return transactions
+        .where((tx) => tx.status != FinancePaymentStatus.rejected)
+        .where((tx) => DateUtils.isSameDay(tx.date, day))
+        .toList(growable: false)
+      ..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  Future<void> _reject(FinanceTransaction tx) async {
+    final reason = await RejectPaymentDialog.show(context);
+    if (reason == null || !mounted) return;
+    context.read<FinanceCubit>().rejectPayment(tx.bookingId, reason);
   }
 
   static int _weekOfMonth(DateTime date) =>
@@ -125,9 +165,12 @@ class _FinanceDetailsPageState extends State<FinanceDetailsPage> {
               ),
             );
             context.read<FinanceCubit>().clearMessages();
+            setState(() => _expandedBookingId = null);
           }
         },
-        buildWhen: (previous, current) => previous.data != current.data,
+        buildWhen: (previous, current) =>
+            previous.data != current.data ||
+            previous.busyBookingIds != current.busyBookingIds,
         builder: (context, state) {
           final data = state.data;
           if (data == null) {
@@ -263,14 +306,7 @@ class _FinanceDetailsPageState extends State<FinanceDetailsPage> {
                   total: chartTotal,
                   items: chartRows,
                   selectedDay: _selectedDay,
-                  onDaySelected: (day) {
-                    setState(() {
-                      _selectedDay =
-                          _selectedDay != null && DateUtils.isSameDay(_selectedDay, day)
-                              ? null
-                              : day;
-                    });
-                  },
+                  onDaySelected: _selectDay,
                   labelBuilder: switch (_period) {
                     FinancePeriod.month => (_, index) => 'W${index + 1}',
                     FinancePeriod.year => (item, _) =>
@@ -278,10 +314,127 @@ class _FinanceDetailsPageState extends State<FinanceDetailsPage> {
                     FinancePeriod.week => null,
                   },
                 ),
+                if (_period == FinancePeriod.week) ...[
+                  const SizedBox(height: 16),
+                  FinanceWeekDayTotals(
+                    days: chartRows,
+                    selectedDay: _selectedDay,
+                    onDaySelected: _selectDay,
+                  ),
+                  if (_selectedDay != null) ...[
+                    const SizedBox(height: 20),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      child: _DayTransactionsSection(
+                        key: ValueKey(_selectedDay),
+                        day: _selectedDay!,
+                        transactions: _transactionsForDay(
+                          data.transactions,
+                          _selectedDay!,
+                        ),
+                        expandedBookingId: _expandedBookingId,
+                        busyBookingIds: state.busyBookingIds,
+                        onExpand: (bookingId) {
+                          setState(() {
+                            _expandedBookingId =
+                                _expandedBookingId == bookingId
+                                    ? null
+                                    : bookingId;
+                          });
+                        },
+                        onConfirm: (bookingId) => context
+                            .read<FinanceCubit>()
+                            .verifyPayment(bookingId),
+                        onReject: _reject,
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _DayTransactionsSection extends StatelessWidget {
+  const _DayTransactionsSection({
+    super.key,
+    required this.day,
+    required this.transactions,
+    required this.expandedBookingId,
+    required this.busyBookingIds,
+    required this.onExpand,
+    required this.onConfirm,
+    required this.onReject,
+  });
+
+  final DateTime day;
+  final List<FinanceTransaction> transactions;
+  final String? expandedBookingId;
+  final Set<String> busyBookingIds;
+  final ValueChanged<String> onExpand;
+  final ValueChanged<String> onConfirm;
+  final Future<void> Function(FinanceTransaction tx) onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = DateFormat('EEEE, MMM d').format(day);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FinanceSectionHeader(title: title),
+        const SizedBox(height: 10),
+        if (transactions.isEmpty)
+          const _EmptyDayCard()
+        else
+          ...transactions.map((tx) {
+            return FinanceTransactionTile(
+              transaction: tx,
+              expanded: expandedBookingId == tx.bookingId,
+              isBusy: busyBookingIds.contains(tx.bookingId),
+              onTap: () => onExpand(tx.bookingId),
+              onConfirm: () => onConfirm(tx.bookingId),
+              onCancel: () => onReject(tx),
+            );
+          }),
+      ],
+    );
+  }
+}
+
+class _EmptyDayCard extends StatelessWidget {
+  const _EmptyDayCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Text(
+        'No transactions on this day',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w500,
+          fontFamily: 'Poppins',
+        ),
       ),
     );
   }

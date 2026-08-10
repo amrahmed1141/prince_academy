@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
 import 'package:prince_academy/features/sessions/data/models/session_model.dart';
@@ -532,17 +533,7 @@ class _SessionProgressBar extends StatelessWidget {
                 child: const SizedBox.expand(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          Color(0xFFB7E27A),
-                          Color(0xFF8FD15B),
-                          Color(0xFF66BE47),
-                          Color(0xFF3E9F34),
-                        ],
-                        stops: [0.0, 0.35, 0.68, 1.0],
-                      ),
+                      gradient: AppGradients.sessionProgress,
                     ),
                   ),
                 ),

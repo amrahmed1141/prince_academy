@@ -14,6 +14,7 @@ import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
+import 'package:prince_academy/features/booking/presentation/pages/my_freeze_requests_page.dart';
 import 'package:prince_academy/features/notifications/presentation/widgets/notification_bell_button.dart';
 import 'package:prince_academy/features/profile/presentation/pages/profile/edit_profile_page.dart';
 import 'package:prince_academy/features/profile/presentation/pages/profile/payments_page.dart';
@@ -174,6 +175,20 @@ class _ProfilePageState extends State<ProfilePage> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => const PaymentsPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      const _DividerLine(),
+                      _ActionTile(
+                        icon: Iconsax.pause_circle,
+                        title: 'Freeze Requests',
+                        subtitle: 'Pending & approved session freezes',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const MyFreezeRequestsPage(),
                             ),
                           );
                         },

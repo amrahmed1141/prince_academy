@@ -1,8 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/features/home/presentation/bloc/home_bloc.dart';
 import 'package:prince_academy/features/sessions/data/models/session_model.dart';
+import 'package:prince_academy/features/sessions/domain/weekly_progress_calculator.dart';
+import 'package:prince_academy/features/sessions/domain/weekly_progress_summary.dart';
 
 class CalendarStrip extends StatelessWidget {
   final DateTime selectedDate;
@@ -41,6 +46,7 @@ class CalendarStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final days = _weekDays();
+    final today = HomeBloc.today();
 
     return SizedBox(
       height: 82,
@@ -59,6 +65,11 @@ class CalendarStrip extends StatelessWidget {
           final dayName = DateFormat('E').format(day);
           final dayNumber = day.day.toString();
           final hasSession = _hasSessionOnDay(day);
+          final attendance = WeeklyProgressCalculator.daySessionAttendance(
+            day: day,
+            sessions: allSessions,
+            today: today,
+          );
 
           return GestureDetector(
             onTap: () => onDateSelected(HomeBloc.dateOnly(day)),
@@ -97,26 +108,9 @@ class CalendarStrip extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 7),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: const Color.fromARGB(255, 187, 187, 187),
-                      ),
-                      borderRadius: BorderRadius.circular(17),
-                    ),
-                    child: Center(
-                      child: Text(
-                        dayNumber,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
+                  _DayAttendanceCircle(
+                    dayNumber: dayNumber,
+                    attendance: attendance,
                   ),
                   const SizedBox(height: 5),
                   AnimatedOpacity(
@@ -140,5 +134,111 @@ class CalendarStrip extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Day number with a thin circular progress ring (stroke only — no fill).
+class _DayAttendanceCircle extends StatelessWidget {
+  static const double _size = 34;
+
+  final String dayNumber;
+  final DaySessionAttendance? attendance;
+
+  const _DayAttendanceCircle({
+    required this.dayNumber,
+    required this.attendance,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: CustomPaint(
+        painter: _DayAttendanceRingPainter(attendance: attendance),
+        child: Center(
+          child: Text(
+            dayNumber,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DayAttendanceRingPainter extends CustomPainter {
+  static const double _strokeWidth = 1.5;
+  static const Color _neutralRing = Color.fromARGB(255, 187, 187, 187);
+
+  final DaySessionAttendance? attendance;
+
+  const _DayAttendanceRingPainter({required this.attendance});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (math.min(size.width, size.height) - _strokeWidth) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final attendance = this.attendance;
+    if (attendance == null) {
+      track.color = _neutralRing;
+      canvas.drawCircle(center, radius, track);
+      return;
+    }
+
+    if (attendance.noneAttended) {
+      track.color = AppColors.error;
+      canvas.drawCircle(center, radius, track);
+      return;
+    }
+
+    if (attendance.allAttended) {
+      track.shader = AppGradients.sessionProgress.createShader(rect);
+      canvas.drawCircle(center, radius, track);
+      return;
+    }
+
+    // Partial: gradient arc for attended, red for the rest.
+    final ratio = attendance.ratio;
+    final attendedSweep = 2 * math.pi * ratio;
+    const start = -math.pi / 2;
+
+    final attendedPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..shader = AppGradients.sessionProgress.createShader(rect);
+
+    canvas.drawArc(rect, start, attendedSweep, false, attendedPaint);
+
+    final missedPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..color = AppColors.error;
+
+    canvas.drawArc(
+      rect,
+      start + attendedSweep,
+      2 * math.pi - attendedSweep,
+      false,
+      missedPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DayAttendanceRingPainter oldDelegate) {
+    return oldDelegate.attendance != attendance;
   }
 }

@@ -34,7 +34,8 @@ FCM token lifecycle, in-app notification feed, and realtime delivery. Delivery m
 - All notification I/O in the repository — not widgets.
 - Prefer `AppNotification`; no parallel notification models.
 - Terminated notification taps are buffered until `onNotificationOpened` is bound (cold-start race).
-- Tap routing uses `message.data['type']` / `['route']`: `booking` → booking history; `payment` → pending payments (admin) / booking history (member); `session`/`attendance` → today sessions (admin) / sessions (member); else notifications feed.
+- Tap routing uses `message.data['type']` / `['route']` (shared `NotificationNavigation`): `booking*` / `subscription` → booking history; `payment*` → pending payments (admin) / booking history (member); `session*` / `attendance` → today sessions (admin) / sessions (member); `freeze*` → all-freeze (admin) / user freeze or booking history (member); `needs_attention` → today sessions (admin); else notifications feed.
+- In-app notification list taps use the same router as push / local banner taps.
 
 ## Common mistakes
 

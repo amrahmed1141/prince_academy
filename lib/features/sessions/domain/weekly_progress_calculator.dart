@@ -56,6 +56,40 @@ class WeeklyProgressCalculator {
         session.attendanceStatus?.toLowerCase() == 'attended';
   }
 
+  static bool isSessionFrozen(Session session) {
+    return session.sessionStatus.toLowerCase() == 'frozen';
+  }
+
+  /// Attended / total sessions on [day] for calendar circle coloring.
+  /// Returns null when the day has no countable sessions, or is in the future.
+  static DaySessionAttendance? daySessionAttendance({
+    required DateTime day,
+    required List<Session> sessions,
+    DateTime? today,
+  }) {
+    final target = DateTime(day.year, day.month, day.day);
+    final now = today ?? DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+
+    if (target.isAfter(todayDate)) return null;
+
+    final isToday = isSameDay(target, todayDate);
+    var total = 0;
+    var attended = 0;
+
+    for (final session in sessions) {
+      if (isSessionFrozen(session)) continue;
+      final onDay = isSameDay(session.sessionDate, target) ||
+          (isToday && session.isToday);
+      if (!onDay) continue;
+      total += 1;
+      if (isSessionAttended(session)) attended += 1;
+    }
+
+    if (total == 0) return null;
+    return DaySessionAttendance(attended: attended, total: total);
+  }
+
   static BookingDisplayStatus resolveDisplayStatus(BookingHistoryModel booking) {
     // Use display_status from the view — do not override pending with active.
     final status = booking.displayStatus.toLowerCase();

@@ -7,6 +7,7 @@ import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/core/widgets/branded_pull_to_refresh.dart';
 import 'package:prince_academy/core/widgets/custom_snackbar.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/all_freeze/all_freeze_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_home/admin_empty_state.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_smooth_scroll.dart';
@@ -79,11 +80,7 @@ class _AllFreezeView extends StatelessWidget {
             child: BlocBuilder<AllFreezeCubit, AllFreezeState>(
               builder: (context, state) {
                 if (state.isLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: EColorConstants.primaryColor,
-                    ),
-                  );
+                  return const AllFreezeListShimmer();
                 }
 
                 return ListView(

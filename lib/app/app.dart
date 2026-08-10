@@ -12,17 +12,13 @@ import 'package:prince_academy/app/splash/splash_screen.dart';
 import 'package:prince_academy/core/services/firebase_messaging_service.dart';
 import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_home.dart';
-import 'package:prince_academy/features/admin/presentation/pages/all_freeze_page.dart';
-import 'package:prince_academy/features/admin/presentation/pages/pending_payments_page.dart';
-import 'package:prince_academy/features/admin/presentation/pages/today_sessions_page.dart';
-import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
 import 'package:prince_academy/features/notifications/data/models/app_notification.dart';
 import 'package:prince_academy/features/notifications/data/repositories/notification_repository.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_bloc.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_event.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_state.dart';
+import 'package:prince_academy/features/notifications/presentation/helpers/notification_navigation.dart';
 import 'package:prince_academy/features/notifications/presentation/pages/notifications_page.dart';
-import 'package:prince_academy/features/sessions/presentation/pages/sessions_page.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../core/di/injection.dart';
 
@@ -211,14 +207,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
   }
 
   void _pushForMessage(RemoteMessage message) {
-    final nav = rootNavigatorKey.currentState;
-    if (nav == null) return;
-
-    nav.push(
-      MaterialPageRoute<void>(
-        builder: (_) => _destinationForMessage(message),
-      ),
-    );
+    _pushForData(message.data);
   }
 
   void _pushForData(Map<String, dynamic> data) {
@@ -227,60 +216,13 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
 
     nav.push(
       MaterialPageRoute<void>(
-        builder: (_) => _destinationForType(_notificationType(data)),
+        builder: (_) => NotificationNavigation.destination(
+          isAdmin: widget.isAdmin,
+          data: data,
+          fallback: _notificationsPage(),
+        ),
       ),
     );
-  }
-
-  Widget _destinationForMessage(RemoteMessage message) {
-    return _destinationForType(_notificationType(message.data));
-  }
-
-  /// Routes by `data.type` / `data.route` (matches in-app notification types).
-  Widget _destinationForType(String raw) {
-    switch (raw) {
-      case 'booking':
-      case 'booking_confirmed':
-      case 'booking_rejected':
-      case 'booking_auto_cancelled':
-      case 'subscription':
-        return const BookingHistoryPage();
-      case 'payment':
-      case 'payment_pending':
-        return widget.isAdmin
-            ? const PendingPaymentsPage()
-            : const BookingHistoryPage();
-      case 'session':
-      case 'session_reminder':
-      case 'attendance':
-        return widget.isAdmin
-            ? const TodaySessionsPage()
-            : const SessionsPage(showBackButton: true);
-      case 'freeze':
-      case 'freeze_request':
-      case 'freeze_review':
-        return widget.isAdmin
-            ? const AllFreezePage()
-            : const BookingHistoryPage();
-      case 'attention':
-      case 'needs_attention':
-        return widget.isAdmin
-            ? const TodaySessionsPage()
-            : _notificationsPage();
-      case 'admin':
-        return widget.isAdmin
-            ? const PendingPaymentsPage()
-            : _notificationsPage();
-      default:
-        return _notificationsPage();
-    }
-  }
-
-  String _notificationType(Map<String, dynamic> data) {
-    return (data['type'] ?? data['route'] ?? '')
-        .toString()
-        .toLowerCase()
-        .trim();
   }
 
   Widget _notificationsPage() {

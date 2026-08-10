@@ -78,6 +78,9 @@ class SessionsRepository {
     }
   }
 
+  /// Starts postgres realtime for this member (safe to call from shell warmup).
+  void ensureRealtime() => _ensureRealtimeSubscription();
+
   void _hydrateFromDisk() {
     if (_cachedSnapshot != null) return;
     final userId = supabase.auth.currentUser?.id;
@@ -115,6 +118,7 @@ class SessionsRepository {
 
   Future<SessionsSnapshot> refreshSessions({bool force = false}) async {
     _hydrateFromDisk();
+    _ensureRealtimeSubscription();
     if (!force && _isFetchingSnapshot && _cachedSnapshot != null) {
       return _cachedSnapshot!;
     }
@@ -224,6 +228,17 @@ class SessionsRepository {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'bookings',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (_) => unawaited(_onRealtimeChanged()),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'booking_freezes',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'user_id',

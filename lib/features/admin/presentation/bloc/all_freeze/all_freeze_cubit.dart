@@ -11,27 +11,62 @@ class AllFreezeCubit extends Cubit<AllFreezeState> {
   AllFreezeCubit(this._repository) : super(const AllFreezeState.initial());
 
   final BookingFreezeRepository _repository;
+  StreamSubscription<AdminFreezeLists>? _subscription;
 
   Future<void> load() async {
-    final hasData =
-        state.pending.isNotEmpty || state.active.isNotEmpty;
-    emit(
-      state.copyWith(
-        isLoading: !hasData,
-        isRefreshing: hasData,
-        clearError: true,
-      ),
+    final cached = _repository.cachedValue;
+    final hasData = state.pending.isNotEmpty ||
+        state.active.isNotEmpty ||
+        cached != null;
+
+    if (cached != null &&
+        state.pending.isEmpty &&
+        state.active.isEmpty) {
+      emit(
+        state.copyWith(
+          pending: cached.pending,
+          active: cached.active,
+          isLoading: false,
+          isRefreshing: true,
+          clearError: true,
+        ),
+      );
+    } else if (!hasData) {
+      emit(state.copyWith(isLoading: true, clearError: true));
+    } else {
+      emit(state.copyWith(isRefreshing: true, clearError: true));
+    }
+
+    await _subscription?.cancel();
+    _repository.ensureAdminListsRealtime();
+    _subscription = _repository.stream.listen(
+      (lists) {
+        emit(
+          AllFreezeState(
+            pending: lists.pending,
+            active: lists.active,
+            isLoading: false,
+            isRefreshing: false,
+          ),
+        );
+      },
+      onError: (Object error) {
+        emit(
+          state.copyWith(
+            isLoading: false,
+            isRefreshing: false,
+            errorMessage: _message(error),
+          ),
+        );
+      },
     );
 
     try {
-      final results = await Future.wait([
-        _repository.getPendingRequests(),
-        _repository.getActiveFreezes(),
-      ]);
+      final lists = await _repository.getAdminLists(force: false);
       emit(
         AllFreezeState(
-          pending: results[0] as List<PendingFreezeRequest>,
-          active: results[1] as List<ActiveBookingFreeze>,
+          pending: lists.pending,
+          active: lists.active,
           isLoading: false,
           isRefreshing: false,
         ),
@@ -47,7 +82,30 @@ class AllFreezeCubit extends Cubit<AllFreezeState> {
     }
   }
 
-  Future<void> refresh() => load();
+  Future<void> refresh() async {
+    final hasData = state.pending.isNotEmpty || state.active.isNotEmpty;
+    if (!hasData) return load();
+
+    emit(state.copyWith(isRefreshing: true, clearError: true));
+    try {
+      final lists = await _repository.getAdminLists(force: true);
+      emit(
+        AllFreezeState(
+          pending: lists.pending,
+          active: lists.active,
+          isLoading: false,
+          isRefreshing: false,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          isRefreshing: false,
+          errorMessage: _message(error),
+        ),
+      );
+    }
+  }
 
   Future<void> approve(String freezeId) => _review(freezeId, true);
 
@@ -58,7 +116,8 @@ class AllFreezeCubit extends Cubit<AllFreezeState> {
     try {
       await _repository.reviewFreeze(freezeId: freezeId, approve: approve);
       unawaited(_refreshDashboardQuietly());
-      await load();
+      // Realtime / reviewInvalidate already refresh the stream; clear busy.
+      emit(state.copyWith(clearBusy: true));
     } catch (error) {
       emit(
         state.copyWith(
@@ -81,6 +140,12 @@ class AllFreezeCubit extends Cubit<AllFreezeState> {
       return text.substring('Exception: '.length);
     }
     return text;
+  }
+
+  @override
+  Future<void> close() async {
+    await _subscription?.cancel();
+    return super.close();
   }
 }
 

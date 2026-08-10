@@ -12,8 +12,8 @@ Mark / re-attend / unmark attendance, QR scan flows, and member weekly progress.
 
 - Admin models: `DayAttendance`, attendance/session detail models — `lib/features/admin/data/models/`
 - Member: `SessionModel` (`attendanceStatus`, `attendedSessions`) — `lib/features/sessions/data/models/`
-- `WeeklyProgressCalculator` — `lib/features/sessions/domain/weekly_progress_calculator.dart`
-- UI: `session_detail_page`, `qr_scanner_page`, `weekly_attendance_chart`, `today_attendance_page`
+- `WeeklyProgressCalculator` — `lib/features/sessions/domain/weekly_progress_calculator.dart` (`daySessionAttendance` for home calendar circles)
+- UI: `session_detail_page`, `qr_scanner_page`, `weekly_attendance_chart`, `today_attendance_page`, `calendar_strip`
 
 ## Important repositories
 
@@ -38,6 +38,7 @@ Mark / re-attend / unmark attendance, QR scan flows, and member weekly progress.
 - Tap the KPI gauge → `TodayAttendancePage` lists each expected member from companion view `today_attendance_members` (same booking filters as `today_coach_sessions` so counts match). Coach chips filter client-side; Mark attended reuses `CoachRepository.markAttendance`.
 - Member mark-attendance cards use elevation-only chrome — no green gradient border on "markable today" cards.
 - Approved freezes (`booking_freeze_dates`) are excluded from Needs-attention expected days and from `is_scheduled_today` / Mark Attended. `get_booking_sessions` returns `status = frozen` for those dates.
+- Member Home calendar day circles color from per-day attended/total via `WeeklyProgressCalculator.daySessionAttendance` — thin progress ring around the day number (full `AppGradients.sessionProgress`, proportional gradient + red remainder, or full red). Future days and days with no countable sessions keep the neutral gray ring. Frozen sessions are excluded from the ratio.
 
 ## Common mistakes
 

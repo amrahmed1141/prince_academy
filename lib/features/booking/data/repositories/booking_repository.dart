@@ -304,6 +304,17 @@ class BookingRepository {
           ),
           callback: (_) => unawaited(getUserBookings(force: true)),
         )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'booking_freezes',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (_) => unawaited(getUserBookings(force: true)),
+        )
         .subscribe();
   }
 }

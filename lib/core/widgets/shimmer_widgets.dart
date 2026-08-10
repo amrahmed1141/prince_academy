@@ -303,3 +303,87 @@ class CoachProfileShimmer extends StatelessWidget {
     );
   }
 }
+
+/// Admin freeze list: pending row + active cards.
+class AllFreezeListShimmer extends StatelessWidget {
+  const AllFreezeListShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        const _ShimmerBox(width: 140, height: 14, borderRadius: 6),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 168,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: 3,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, __) => const _ShimmerBox(
+              width: 260,
+              height: 168,
+              borderRadius: 16,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const _ShimmerBox(width: 120, height: 14, borderRadius: 6),
+        const SizedBox(height: 10),
+        ...List.generate(
+          3,
+          (_) => const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: _ShimmerBox(
+              width: double.infinity,
+              height: 110,
+              borderRadius: 18,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Member/admin freeze form: calendar + preview + CTA skeleton.
+class UserFreezePageShimmer extends StatelessWidget {
+  const UserFreezePageShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            children: const [
+              _ShimmerBox(width: 180, height: 14, borderRadius: 6),
+              SizedBox(height: 8),
+              _ShimmerBox(width: double.infinity, height: 12, borderRadius: 6),
+              SizedBox(height: 6),
+              _ShimmerBox(width: 220, height: 12, borderRadius: 6),
+              SizedBox(height: 16),
+              _ShimmerBox(width: double.infinity, height: 340, borderRadius: 16),
+              SizedBox(height: 16),
+              _ShimmerBox(width: double.infinity, height: 56, borderRadius: 14),
+            ],
+          ),
+        ),
+        const SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: _ShimmerBox(
+              width: double.infinity,
+              height: 52,
+              borderRadius: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
