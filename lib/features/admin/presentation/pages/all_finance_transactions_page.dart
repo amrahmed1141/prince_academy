@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
+import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
+import 'package:prince_academy/features/admin/data/admin_search_index.dart';
 import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/finance_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_transaction_tile.dart';
@@ -55,23 +57,6 @@ class _AllFinanceTransactionsPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F6F2),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF9F6F2),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          color: AppColors.textPrimary,
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: const Text(
-          'All Transactions',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontFamily: 'Poppins',
-          ),
-        ),
-      ),
       body: BlocConsumer<FinanceCubit, FinanceState>(
         listenWhen: (previous, current) =>
             previous.errorMessage != current.errorMessage ||
@@ -121,93 +106,111 @@ class _AllFinanceTransactionsPageState
 
           final items = _filterList(data.transactions);
 
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: AppSearchBar(
-                  controller: _searchController,
-                  hintText: 'Search member, coach, or time',
-                  variant: AppSearchBarVariant.elevated,
-                  padding: EdgeInsets.zero,
-                  onChanged: (value) {
-                    _debounce?.cancel();
-                    _debounce = Timer(const Duration(milliseconds: 220), () {
-                      if (!mounted) return;
-                      setState(() => _query = value);
-                    });
-                  },
-                  onClear: () => setState(() => _query = ''),
+          return NestedScrollView(
+            floatHeaderSlivers: true,
+            headerSliverBuilder: (context, _) => [
+              ScrollAwaySearchHeader(
+                backgroundColor: const Color(0xFFF9F6F2),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                  color: AppColors.textPrimary,
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: FinanceTxFilterChips(
-                  value: _filter,
-                  showAll: false,
-                  onChanged: (filter) {
-                    setState(() {
-                      _filter = filter;
-                      _expandedBookingId = null;
-                    });
-                  },
+                title: const Text(
+                  'All Transactions',
+                  style: TextStyle(color: AppColors.textPrimary),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: RefreshIndicator(
-                  color: EColorConstants.primaryColor,
-                  onRefresh: () => context.read<FinanceCubit>().refresh(),
-                  child: items.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: const [
-                            SizedBox(height: 120),
-                            Center(
-                              child: Text(
-                                'No transactions found',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            final tx = items[index];
-                            return FinanceTransactionTile(
-                              transaction: tx,
-                              expanded: _expandedBookingId == tx.bookingId,
-                              isBusy:
-                                  state.busyBookingIds.contains(tx.bookingId),
-                              onTap: () {
-                                if (!tx.isPending) return;
-                                setState(() {
-                                  _expandedBookingId =
-                                      _expandedBookingId == tx.bookingId
-                                          ? null
-                                          : tx.bookingId;
-                                });
-                              },
-                              onConfirm: () => context
-                                  .read<FinanceCubit>()
-                                  .verifyPayment(tx.bookingId),
-                              onCancel: () => _reject(tx),
-                            );
-                          },
-                        ),
+                searchBar: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: AppSearchBar(
+                    controller: _searchController,
+                    hintText: 'Search member, coach, or time',
+                    hintPhrases: AdminSearchHints.transactions,
+                    variant: AppSearchBarVariant.elevated,
+                    padding: EdgeInsets.zero,
+                    onChanged: (value) {
+                      _debounce?.cancel();
+                      _debounce = Timer(const Duration(milliseconds: 220), () {
+                        if (!mounted) return;
+                        setState(() => _query = value);
+                      });
+                    },
+                    onClear: () => setState(() => _query = ''),
+                  ),
                 ),
               ),
             ],
+            body: Column(
+              children: [
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: FinanceTxFilterChips(
+                    value: _filter,
+                    showAll: false,
+                    onChanged: (filter) {
+                      setState(() {
+                        _filter = filter;
+                        _expandedBookingId = null;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: RefreshIndicator(
+                    color: EColorConstants.primaryColor,
+                    onRefresh: () => context.read<FinanceCubit>().refresh(),
+                    child: items.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: const [
+                              SizedBox(height: 120),
+                              Center(
+                                child: Text(
+                                  'No transactions found',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
+                            ),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                            itemCount: items.length,
+                            itemBuilder: (context, index) {
+                              final tx = items[index];
+                              return FinanceTransactionTile(
+                                transaction: tx,
+                                expanded: _expandedBookingId == tx.bookingId,
+                                isBusy:
+                                    state.busyBookingIds.contains(tx.bookingId),
+                                onTap: () {
+                                  if (!tx.isPending) return;
+                                  setState(() {
+                                    _expandedBookingId =
+                                        _expandedBookingId == tx.bookingId
+                                            ? null
+                                            : tx.bookingId;
+                                  });
+                                },
+                                onConfirm: () => context
+                                    .read<FinanceCubit>()
+                                    .verifyPayment(tx.bookingId),
+                                onCancel: () => _reject(tx),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),

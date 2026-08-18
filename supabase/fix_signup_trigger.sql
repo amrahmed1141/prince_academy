@@ -44,7 +44,11 @@ BEGIN
     v_role := 'user';
   END IF;
 
-  v_name := nullif(trim(coalesce(NEW.raw_user_meta_data ->> 'full_name', '')), '');
+  v_name := nullif(trim(coalesce(
+    NEW.raw_user_meta_data ->> 'full_name',
+    NEW.raw_user_meta_data ->> 'name',
+    ''
+  )), '');
   v_phone := nullif(trim(coalesce(NEW.raw_user_meta_data ->> 'phone', '')), '');
 
   INSERT INTO public.profiles (id, full_name, phone, role)

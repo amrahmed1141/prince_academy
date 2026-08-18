@@ -1,9 +1,38 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/today_attendance_kpi_card.dart';
+
+/// Edge bounce + very snappy page settle for the KPI [PageView].
+///
+/// [PageView] wraps this with [PageScrollPhysics], which reads [spring] from
+/// its parent — a stiff spring makes the snap feel fast instead of floaty.
+class _FastBouncePagePhysics extends BouncingScrollPhysics {
+  const _FastBouncePagePhysics({super.parent});
+
+  @override
+  _FastBouncePagePhysics applyTo(ScrollPhysics? ancestor) {
+    return _FastBouncePagePhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  SpringDescription get spring => SpringDescription.withDampingRatio(
+        mass: 0.28,
+        stiffness: 520,
+        ratio: 1.05,
+      );
+
+  /// Stock bouncing physics doubles the fling threshold and feels sluggish.
+  @override
+  double get minFlingVelocity => kMinFlingVelocity * 0.55;
+
+  @override
+  double get dragStartDistanceMotionThreshold => 1.5;
+}
 
 /// Swipeable two-page KPI section: Today Attendance + Overview.
 class DashboardKpiPager extends StatefulWidget {
@@ -58,68 +87,72 @@ class DashboardKpiPager extends StatefulWidget {
 
 class _DashboardKpiPagerState extends State<DashboardKpiPager> {
   late final PageController _controller;
-  double _page = 0;
 
   @override
   void initState() {
     super.initState();
     _controller = PageController();
-    _controller.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    final page = _controller.page;
-    if (page == null || !mounted) return;
-    if ((page - _page).abs() < 0.01) return;
-    setState(() => _page = page);
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_onScroll);
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // PageView itself never rebuilds on scroll — only the dots listen.
     return Column(
       children: [
         SizedBox(
           height: 340,
-          child: PageView(
-            controller: _controller,
-            physics: const BouncingScrollPhysics(),
-            children: [
-              _PageInset(
-                child: _AttendancePage(
-                  attended: widget.todayAttended,
-                  booked: widget.todayBooked,
-                  todaySessions: widget.todaySessions,
-                  pendingCount: widget.pendingCount,
-                  todayRevenue: widget.todayRevenue,
-                  onAttendanceTap: widget.onAttendanceTap,
-                  onTodaySessionsTap: widget.onTodaySessionsTap,
-                  onPendingTap: widget.onPendingTap,
-                  onRevenueTap: widget.onRevenueTap,
+          child: NotificationListener<ScrollNotification>(
+            // Keep horizontal paging from fighting the parent vertical list.
+            onNotification: (notification) =>
+                notification.metrics.axis == Axis.horizontal,
+            child: PageView(
+              controller: _controller,
+              physics: const _FastBouncePagePhysics(),
+              children: [
+                _PageInset(
+                  child: _AttendancePage(
+                    attended: widget.todayAttended,
+                    booked: widget.todayBooked,
+                    todaySessions: widget.todaySessions,
+                    pendingCount: widget.pendingCount,
+                    todayRevenue: widget.todayRevenue,
+                    onAttendanceTap: widget.onAttendanceTap,
+                    onTodaySessionsTap: widget.onTodaySessionsTap,
+                    onPendingTap: widget.onPendingTap,
+                    onRevenueTap: widget.onRevenueTap,
+                  ),
                 ),
-              ),
-              _PageInset(
-                child: _OverviewPage(
-                  coachesCount: widget.coachesCount,
-                  membersCount: widget.membersCount,
-                  freezePendingCount: widget.freezePendingCount,
-                  onAllSchedulesTap: widget.onAllSchedulesTap,
-                  onCoachesTap: widget.onCoachesTap,
-                  onMembersTap: widget.onMembersTap,
-                  onFreezeTap: widget.onFreezeTap,
+                _PageInset(
+                  child: _OverviewPage(
+                    coachesCount: widget.coachesCount,
+                    membersCount: widget.membersCount,
+                    freezePendingCount: widget.freezePendingCount,
+                    onAllSchedulesTap: widget.onAllSchedulesTap,
+                    onCoachesTap: widget.onCoachesTap,
+                    onMembersTap: widget.onMembersTap,
+                    onFreezeTap: widget.onFreezeTap,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 12),
-        _DotsIndicator(page: _page, count: 2),
+        ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) {
+            final page = _controller.hasClients
+                ? (_controller.page ?? 0)
+                : 0.0;
+            return _DotsIndicator(page: page, count: 2);
+          },
+        ),
       ],
     );
   }
@@ -442,9 +475,9 @@ class _DotsIndicator extends StatelessWidget {
         final distance = (page - index).abs().clamp(0.0, 1.0);
         final selected = 1.0 - distance;
         final size = 6.0 + (selected * 2.0);
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+        // Plain Container: page already updates every frame; AnimatedContainer
+        // stacked another animation and made the slider feel laggy.
+        return Container(
           width: size,
           height: size,
           margin: const EdgeInsets.symmetric(horizontal: 4),

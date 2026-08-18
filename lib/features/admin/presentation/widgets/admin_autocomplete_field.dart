@@ -11,6 +11,7 @@ class AdminAutocompleteField extends StatefulWidget {
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
   final String? hint;
+  final String? suffixText;
 
   const AdminAutocompleteField({
     super.key,
@@ -21,6 +22,7 @@ class AdminAutocompleteField extends StatefulWidget {
     this.validator,
     this.onChanged,
     this.hint,
+    this.suffixText,
   });
 
   @override
@@ -76,7 +78,8 @@ class _AdminAutocompleteFieldState extends State<AdminAutocompleteField> {
                 color: EColorConstants.authTextDarkBrown,
                 fontFamily: 'Poppins',
               ),
-              decoration: AdminFormStyles.fieldDecoration(hintText: widget.hint),
+              decoration: AdminFormStyles.fieldDecoration(hintText: widget.hint)
+                  .copyWith(suffixText: widget.suffixText),
             );
           },
           optionsViewBuilder: (context, onSelected, iterableOptions) {

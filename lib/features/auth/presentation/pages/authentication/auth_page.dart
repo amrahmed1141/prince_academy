@@ -12,6 +12,7 @@ import 'package:prince_academy/features/auth/presentation/pages/authentication/w
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/auth_text_field.dart';
 import 'package:prince_academy/features/auth/presentation/pages/auth/signup/widgets/signup_form.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/gradient_button.dart';
+import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/auth_social_buttons.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -340,6 +341,7 @@ class _SignInTabState extends State<_SignInTab> {
                 );
           },
         ),
+        const AuthSocialButtons(),
       ],
     );
   }

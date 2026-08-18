@@ -5,7 +5,9 @@ import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
+import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
+import 'package:prince_academy/features/admin/data/admin_search_index.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/members/members_list_cubit.dart';
@@ -41,26 +43,18 @@ class _AllMembersView extends StatefulWidget {
 
 class _AllMembersViewState extends State<_AllMembersView> {
   final _searchController = TextEditingController();
-  final _scrollController = ScrollController();
 
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final position = _scrollController.position;
-    if (position.pixels >= position.maxScrollExtent - 240) {
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    if (notification.metrics.pixels >=
+        notification.metrics.maxScrollExtent - 240) {
       context.read<MembersListCubit>().loadMore();
     }
+    return false;
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -71,35 +65,33 @@ class _AllMembersViewState extends State<_AllMembersView> {
       builder: (context, state) {
         return Scaffold(
           backgroundColor: EColorConstants.authFieldBackground,
-          appBar: AppBar(
-            backgroundColor: EColorConstants.authFieldBackground,
-            elevation: 0,
-            leading: const BackButton(color: EColorConstants.authTextDarkBrown),
-            title: Text(
-              'All Members (${state.titleCountLabel})',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: EColorConstants.authTextDarkBrown,
-                fontFamily: 'Poppins',
-              ),
+          body: NotificationListener<ScrollNotification>(
+            onNotification: _onScrollNotification,
+            child: NestedScrollView(
+              floatHeaderSlivers: true,
+              headerSliverBuilder: (context, _) => [
+                ScrollAwaySearchHeader(
+                  leading: const BackButton(
+                    color: EColorConstants.authTextDarkBrown,
+                  ),
+                  title: Text('All Members (${state.titleCountLabel})'),
+                  searchBar: AppSearchBar(
+                    controller: _searchController,
+                    hintText: 'Search by name or phone...',
+                    hintPhrases: AdminSearchHints.members,
+                    variant: AppSearchBarVariant.outlined,
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                    onChanged:
+                        context.read<MembersListCubit>().onSearchChanged,
+                    onClear: () {
+                      _searchController.clear();
+                      context.read<MembersListCubit>().clearSearch();
+                    },
+                  ),
+                ),
+              ],
+              body: _buildBody(context, state),
             ),
-          ),
-          body: Column(
-            children: [
-              AppSearchBar(
-                controller: _searchController,
-                hintText: 'Search by name or phone...',
-                variant: AppSearchBarVariant.outlined,
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                onChanged: context.read<MembersListCubit>().onSearchChanged,
-                onClear: () {
-                  _searchController.clear();
-                  context.read<MembersListCubit>().clearSearch();
-                },
-              ),
-              Expanded(child: _buildBody(context, state)),
-            ],
           ),
         );
       },
@@ -160,7 +152,6 @@ class _AllMembersViewState extends State<_AllMembersView> {
       color: EColorConstants.primaryColor,
       onRefresh: () => context.read<MembersListCubit>().load(force: true),
       child: ListView.builder(
-        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),

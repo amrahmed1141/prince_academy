@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_bloc.dart';
@@ -36,7 +37,7 @@ class _PendingPaymentsView extends StatelessWidget {
   void _precacheCoachPhotos(BuildContext context, List<PendingPaymentModel> payments) {
     AppImageCache.precacheUrls(
       context,
-      payments.map((p) => p.coachPhoto),
+      CoachPhotoHelper.thumbnailUrls(payments.map((p) => p.coachPhoto)),
     );
   }
 

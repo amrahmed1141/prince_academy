@@ -48,90 +48,112 @@ class CalendarStrip extends StatelessWidget {
     final days = _weekDays();
     final today = HomeBloc.today();
 
-    return SizedBox(
-      height: 82,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        primary: false,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: days.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final day = days[index];
-          final isSelected = HomeBloc.isSameDay(day, selectedDate);
-          final dayName = DateFormat('E').format(day);
-          final dayNumber = day.day.toString();
-          final hasSession = _hasSessionOnDay(day);
-          final attendance = WeeklyProgressCalculator.daySessionAttendance(
-            day: day,
-            sessions: allSessions,
-            today: today,
-          );
-
-          return GestureDetector(
-            onTap: () => onDateSelected(HomeBloc.dateOnly(day)),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 46,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              decoration: BoxDecoration(
-                color: isSelected ? Colors.white : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color:
-                      isSelected ? const Color(0xFFE6E8EB) : Colors.transparent,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SizedBox(
+        height: 82,
+        child: Row(
+          children: [
+            for (var index = 0; index < days.length; index++) ...[
+              if (index > 0) const SizedBox(width: 8),
+              Expanded(
+                child: _CalendarDayCell(
+                  day: days[index],
+                  selectedDate: selectedDate,
+                  hasSession: _hasSessionOnDay(days[index]),
+                  attendance: WeeklyProgressCalculator.daySessionAttendance(
+                    day: days[index],
+                    sessions: allSessions,
+                    today: today,
+                  ),
+                  onTap: () => onDateSelected(HomeBloc.dateOnly(days[index])),
                 ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : null,
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Text(
-                    dayName,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: isSelected
-                          ? AppColors.textPrimary
-                          : const Color(0xFF9AA0A6),
-                    ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarDayCell extends StatelessWidget {
+  const _CalendarDayCell({
+    required this.day,
+    required this.selectedDate,
+    required this.hasSession,
+    required this.attendance,
+    required this.onTap,
+  });
+
+  final DateTime day;
+  final DateTime selectedDate;
+  final bool hasSession;
+  final DaySessionAttendance? attendance;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = HomeBloc.isSameDay(day, selectedDate);
+    final dayName = DateFormat('E').format(day);
+    final dayNumber = day.day.toString();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFE6E8EB) : Colors.transparent,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
                   ),
-                  const SizedBox(height: 7),
-                  _DayAttendanceCircle(
-                    dayNumber: dayNumber,
-                    attendance: attendance,
-                  ),
-                  const SizedBox(height: 5),
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: isSelected || hasSession ? 1 : 0,
-                    child: Container(
-                      width: 3,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isSelected || hasSession
-                            ? AppColors.primary
-                            : Colors.transparent,
-                      ),
-                    ),
-                  ),
-                ],
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Text(
+              dayName,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: isSelected
+                    ? AppColors.textPrimary
+                    : const Color(0xFF9AA0A6),
               ),
             ),
-          );
-        },
+            const SizedBox(height: 7),
+            _DayAttendanceCircle(
+              dayNumber: dayNumber,
+              attendance: attendance,
+            ),
+            const SizedBox(height: 5),
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: isSelected || hasSession ? 1 : 0,
+              child: Container(
+                width: 3,
+                height: 3,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected || hasSession
+                      ? AppColors.primary
+                      : Colors.transparent,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -442,6 +442,7 @@ prince_academy/
 |   |       |-- branded_pull_to_refresh.dart
 |   |       |-- custom_snackbar.dart
 |   |       |-- offline_banner.dart
+|   |       |-- semi_circular_gauge.dart
 |   |       `-- shimmer_widgets.dart
 |   |-- features
 |   |   |-- admin

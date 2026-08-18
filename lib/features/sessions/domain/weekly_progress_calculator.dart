@@ -162,6 +162,9 @@ class WeeklyProgressCalculator {
     );
   }
 
+  /// Attended / scheduled sessions for the Sun–Sat week containing [anchor].
+  /// Upcoming scheduled days count toward [WeeklyProgressSummary.totalExpected]
+  /// but cannot be attended yet.
   static WeeklyProgressSummary calculate({
     required List<BookingHistoryModel> bookings,
     required List<Session> sessions,
@@ -176,20 +179,17 @@ class WeeklyProgressCalculator {
     var totalAttended = 0;
 
     for (final day in weekDays) {
-      if (day.isAfter(today)) {
-        days.add(WeeklyDayProgress(date: day, expected: 0, attended: 0));
-        continue;
-      }
-
       final expected = bookings
           .where((b) => isBookingSchedulable(b, day))
           .length;
 
-      final attended = sessions.where((session) {
-        if (!isSameDay(session.sessionDate, day)) return false;
-        if (!isSessionAttended(session)) return false;
-        return bookings.any((b) => b.bookingId == session.bookingId);
-      }).length;
+      final attended = day.isAfter(today)
+          ? 0
+          : sessions.where((session) {
+              if (!isSameDay(session.sessionDate, day)) return false;
+              if (!isSessionAttended(session)) return false;
+              return bookings.any((b) => b.bookingId == session.bookingId);
+            }).length;
 
       days.add(
         WeeklyDayProgress(date: day, expected: expected, attended: attended),

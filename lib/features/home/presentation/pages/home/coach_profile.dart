@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/cache/image_cache.dart';
-import 'package:prince_academy/features/home/data/models/coaches_model.dart';
-import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/core/widgets/offline_banner.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/booking/presentation/helpers/book_now_navigation.dart';
 import 'package:prince_academy/features/booking/presentation/widgets/branch_picker_sheet.dart';
+import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
+import 'package:prince_academy/features/home/data/models/coaches_model.dart';
 import 'package:prince_academy/features/home/data/repositories/home_coach_repository.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/session_info_card.dart';
-import 'package:prince_academy/core/di/injection.dart';
+import 'package:shimmer/shimmer.dart';
 
 class CoachProfilePage extends StatefulWidget {
   final String coachId;
@@ -128,41 +130,52 @@ class _CoachProfilePageState extends State<CoachProfilePage> {
   }
 
   Widget _buildCoachHeaderImage(String? photoUrl, Size size) {
-    if (photoUrl == null || photoUrl.isEmpty) {
-      return ColoredBox(
-        color: Colors.grey[900]!,
-        child: const Center(
-          child: Icon(Iconsax.user, color: Colors.white24, size: 80),
-        ),
-      );
-    }
-    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
-      final dpr = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 2.0;
-      final cacheWidth = (size.width * dpr).round().clamp(320, 1280);
-      return Image(
-        image: ResizeImage(
-          AppImageCache.provider(photoUrl),
-          width: cacheWidth,
-        ),
+    final placeholder = ColoredBox(
+      color: Colors.grey[900]!,
+      child: const Center(
+        child: Icon(Iconsax.user, color: Colors.white24, size: 80),
+      ),
+    );
+
+    if (photoUrl == null || photoUrl.isEmpty) return placeholder;
+
+    if (!photoUrl.startsWith('http://') &&
+        !photoUrl.startsWith('https://') &&
+        !CoachPhotoHelper.isLocalPath(photoUrl)) {
+      return Image.asset(
+        photoUrl,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
         alignment: Alignment.topCenter,
-        gaplessPlayback: true,
-        errorBuilder: (context, error, stackTrace) => ColoredBox(
-          color: Colors.grey[900]!,
-          child: const Center(
-            child: Icon(Iconsax.user, color: Colors.white24, size: 80),
-          ),
-        ),
+        errorBuilder: (_, __, ___) => placeholder,
       );
     }
-    return Image.asset(
-      photoUrl,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
-      alignment: Alignment.topCenter,
+
+    final original = CoachPhotoHelper.normalize(photoUrl);
+    if (original == null) return placeholder;
+
+    final localFile = CoachPhotoHelper.localFile(original);
+    if (localFile != null) {
+      return Image.file(
+        localFile,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        alignment: Alignment.topCenter,
+        errorBuilder: (_, __, ___) => placeholder,
+      );
+    }
+
+    final heroUrl = CoachPhotoHelper.heroUrl(photoUrl) ?? original;
+    final dpr = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 2.0;
+    final cacheWidth = (size.width * dpr).round().clamp(320, 1280);
+
+    return _HeaderNetworkPhoto(
+      url: heroUrl,
+      fallbackUrl: heroUrl == original ? null : original,
+      cacheWidth: cacheWidth,
+      placeholder: placeholder,
     );
   }
 
@@ -788,6 +801,53 @@ class _EmptySessionsCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _HeaderNetworkPhoto extends StatelessWidget {
+  const _HeaderNetworkPhoto({
+    required this.url,
+    required this.fallbackUrl,
+    required this.cacheWidth,
+    required this.placeholder,
+  });
+
+  final String url;
+  final String? fallbackUrl;
+  final int cacheWidth;
+  final Widget placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image(
+      image: ResizeImage(
+        AppImageCache.provider(url),
+        width: cacheWidth,
+      ),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      alignment: Alignment.topCenter,
+      gaplessPlayback: true,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) return child;
+        return Shimmer.fromColors(
+          baseColor: Colors.grey.shade800,
+          highlightColor: Colors.grey.shade600,
+          child: const ColoredBox(color: Color(0xFF212121)),
+        );
+      },
+      errorBuilder: (_, __, ___) {
+        final fallback = fallbackUrl;
+        if (fallback == null) return placeholder;
+        return _HeaderNetworkPhoto(
+          url: fallback,
+          fallbackUrl: null,
+          cacheWidth: cacheWidth,
+          placeholder: placeholder,
+        );
+      },
     );
   }
 }

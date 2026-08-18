@@ -20,8 +20,20 @@ abstract class AuthRepo {
   Future<String> uploadAvatar(File file);
 
   Future<void> signIn(String email, String password);
+
+  /// Native Google ID-token sign-in. Throws [SocialAuthCancelled] if dismissed.
+  Future<void> signInWithGoogle();
+
+  /// Native Facebook ID-token sign-in. Throws [SocialAuthCancelled] if dismissed.
+  Future<void> signInWithFacebook();
+
   Future<void> signOut();
   Future<UserModel?> loadUser();
   UserModel? cachedUser();
   bool hasSession();
+}
+
+/// User closed the Google / Facebook sheet. Not an error.
+class SocialAuthCancelled implements Exception {
+  const SocialAuthCancelled();
 }

@@ -25,11 +25,15 @@ Reservation lifecycle: create, cancel, reschedule, history, and booking cache/re
 - `BookingBloc` — create flow
 - `BookingDetailBloc` — detail / member actions
 - `BookingHistoryBloc` — history stream (Hive + realtime)
+- `BookingRenewCubit` — expired/finished renew prompt + 2-step renew flow
 
 ## Business rules
 
 - Remote I/O only in DS/repo — not pages.
-- Multi-step create/mutations via RPCs: `create_booking_with_schedule`, `cancel_booking`, `update_booking_days`, `reschedule_booking`.
+- Multi-step create/mutations via RPCs: `create_booking_with_schedule`, `cancel_booking`, `update_booking_days`, `reschedule_booking`, `get_renewable_bookings`, `dismiss_booking_renew_prompt`, `renew_expired_booking`.
+- Member renew: expired (`subscription_end < today`) or finished (attended ≥ monthly total). Same days/time/price; new start date + payment method. Prompt shows on member shell open (`BookingRenewCubit.load`). Cancel is **session-only** (no permanent `renew_prompt_dismissed_at`); next cold start shows the card again until a live booking exists. SQL: `supabase/booking_renew.sql`.
+- After cancel of renew prompt, member may book the same coach manually (home / coach / Book Now) or tap **Renew** on an Expired history card. Duplicate checks must treat date-expired rows as inactive even if `status` is still `active`.
+- Booking history: Expired cards show **Renew** beside Details → same `BookingRenewCubit` / `BookingRenewPage` flow (`BookingRenewNavigation.openForBooking`).
 - Session freeze RPCs: `request_booking_freeze`, `apply_booking_freeze`, `review_booking_freeze` (+N days to `subscription_end`). SQL: `supabase/session_freeze.sql`.
 - Preserve cache-first history (`bookings_$userId` Hive + stream).
 - After mutations call `MemberDataSync` (bookings + sessions).
@@ -47,6 +51,6 @@ Reservation lifecycle: create, cancel, reschedule, history, and booking cache/re
 ## Related documentation
 
 - [`docs/caching-and-sync.md`](../../docs/caching-and-sync.md), [`docs/supabase-schema-and-rpc.md`](../../docs/supabase-schema-and-rpc.md), [`docs/feature-playbook.md`](../../docs/feature-playbook.md)
-- SQL: `supabase/booking_flow.sql`, `user_booking_actions.sql`
+- SQL: `supabase/booking_flow.sql`, `user_booking_actions.sql`, `booking_renew.sql`
 - Companions: [`payments.md`](payments.md), [`subscriptions.md`](subscriptions.md), [`attendance.md`](attendance.md)
 - Rule: `.cursor/rules/product/academy-domain.mdc`

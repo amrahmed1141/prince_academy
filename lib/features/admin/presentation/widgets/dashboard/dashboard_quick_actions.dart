@@ -5,16 +5,14 @@ import 'package:prince_academy/core/constants/colors.dart';
 class DashboardQuickActions extends StatelessWidget {
   const DashboardQuickActions({
     super.key,
-    this.onScanQr,
-    this.onVerifyPayments,
-    this.onManageAcademy,
-    this.onAddSession,
+    this.onScan,
+    this.onTracking,
+    this.onAddInfo,
   });
 
-  final VoidCallback? onScanQr;
-  final VoidCallback? onVerifyPayments;
-  final VoidCallback? onManageAcademy;
-  final VoidCallback? onAddSession;
+  final VoidCallback? onScan;
+  final VoidCallback? onTracking;
+  final VoidCallback? onAddInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -36,32 +34,24 @@ class DashboardQuickActions extends StatelessWidget {
             Expanded(
               child: _ActionChip(
                 icon: Iconsax.scan_barcode,
-                label: 'Scan QR',
-                onTap: onScanQr,
+                label: 'Scan',
+                onTap: onScan,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _ActionChip(
-                icon: Iconsax.tick_circle,
-                label: 'Verify',
-                onTap: onVerifyPayments,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _ActionChip(
-                icon: Iconsax.setting_2,
-                label: 'Manage',
-                onTap: onManageAcademy,
+                icon: Iconsax.chart,
+                label: 'Tracking',
+                onTap: onTracking,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _ActionChip(
                 icon: Iconsax.add_circle,
-                label: 'Session',
-                onTap: onAddSession,
+                label: 'Create',
+                onTap: onAddInfo,
               ),
             ),
           ],
@@ -91,6 +81,7 @@ class _ActionChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
           decoration: BoxDecoration(
             color: Colors.white,

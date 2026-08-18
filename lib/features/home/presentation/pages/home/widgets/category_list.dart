@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/features/home/data/models/catgeory_model.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_smooth_scroll.dart';
 
 class CategoryList extends StatelessWidget {
   final ValueNotifier<String?> selectedCategoryNotifier;
@@ -26,9 +27,7 @@ class CategoryList extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             primary: false,
             itemCount: displayCategories.length,
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
+            physics: AdminSmoothScrollBehavior.physics,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             clipBehavior: Clip.none,
             separatorBuilder: (_, __) => const SizedBox(width: 10),

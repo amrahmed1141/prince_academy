@@ -1,11 +1,37 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
+
+/// Edge bounce + snappy fling/overscroll (works well on Android).
+///
+/// Stock [BouncingScrollPhysics] doubles the fling threshold and feels sluggish.
+class FastBounceScrollPhysics extends BouncingScrollPhysics {
+  const FastBounceScrollPhysics({super.parent});
+
+  @override
+  FastBounceScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return FastBounceScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  SpringDescription get spring => SpringDescription.withDampingRatio(
+        mass: 0.28,
+        stiffness: 520,
+        ratio: 1.05,
+      );
+
+  @override
+  double get minFlingVelocity => kMinFlingVelocity * 0.55;
+
+  @override
+  double get dragStartDistanceMotionThreshold => 1.5;
+}
 
 /// Smooth, responsive scroll physics for admin tabs (works well on Android).
 class AdminSmoothScrollBehavior extends ScrollBehavior {
   const AdminSmoothScrollBehavior();
 
-  static const ScrollPhysics physics = BouncingScrollPhysics(
+  static const ScrollPhysics physics = FastBounceScrollPhysics(
     parent: AlwaysScrollableScrollPhysics(),
   );
 

@@ -34,6 +34,7 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
 
   static const int defaultPageSize = 50;
   static const Duration _scanProfileCacheTtl = Duration(minutes: 5);
+  static const Duration _listCacheTtl = Duration(minutes: 5);
 
   final TtlCache<List<ActiveUser>> _activeUsersCache = TtlCache();
   final TtlCache<PagedResult<ActiveUser>> _membersPageCache = TtlCache();
@@ -44,10 +45,68 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
   final Map<String, RealtimeChannel> _scanProfileChannels = {};
   final Map<String, Timer> _scanProfileDebounce = {};
 
+  // Admin home: All Coaches (stats) — cache-first + realtime
+  List<CoachUserStats>? _coachStatsCached;
+  DateTime? _coachStatsCachedAt;
+  StreamController<List<CoachUserStats>>? _coachStatsController;
+  RealtimeChannel? _coachStatsChannel;
+  Timer? _coachStatsDebounce;
+  bool _coachStatsFetching = false;
+  bool _coachStatsPendingRefresh = false;
+
+  // Admin home: All Schedules — cache-first + realtime
+  List<CoachSessionModel>? _allSessionsCached;
+  DateTime? _allSessionsCachedAt;
+  StreamController<List<CoachSessionModel>>? _allSessionsController;
+  RealtimeChannel? _allSessionsChannel;
+  Timer? _allSessionsDebounce;
+  bool _allSessionsFetching = false;
+  bool _allSessionsPendingRefresh = false;
+
   void invalidateCaches() {
     invalidateStreamCache();
     _activeUsersCache.invalidate();
     _membersPageCache.invalidate();
+    invalidateCoachUserStatsCache();
+    invalidateAllSessionsCache();
+  }
+
+  void invalidateCoachUserStatsCache() {
+    _coachStatsCached = null;
+    _coachStatsCachedAt = null;
+  }
+
+  void invalidateAllSessionsCache() {
+    _allSessionsCached = null;
+    _allSessionsCachedAt = null;
+  }
+
+  List<CoachUserStats>? get cachedCoachUserStats => _coachStatsCached;
+
+  bool get hasValidCoachUserStatsCache {
+    if (_coachStatsCached == null || _coachStatsCachedAt == null) return false;
+    return DateTime.now().difference(_coachStatsCachedAt!) < _listCacheTtl;
+  }
+
+  Stream<List<CoachUserStats>> get coachUserStatsStream {
+    _coachStatsController ??=
+        StreamController<List<CoachUserStats>>.broadcast();
+    return _coachStatsController!.stream;
+  }
+
+  List<CoachSessionModel>? get cachedAllSessions => _allSessionsCached;
+
+  bool get hasValidAllSessionsCache {
+    if (_allSessionsCached == null || _allSessionsCachedAt == null) {
+      return false;
+    }
+    return DateTime.now().difference(_allSessionsCachedAt!) < _listCacheTtl;
+  }
+
+  Stream<List<CoachSessionModel>> get allSessionsStream {
+    _allSessionsController ??=
+        StreamController<List<CoachSessionModel>>.broadcast();
+    return _allSessionsController!.stream;
   }
 
   PagedResult<ActiveUser>? get cachedMembersFirstPage =>
@@ -159,6 +218,8 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
         'photo_url': photoUrl,
         'is_active': true,
       });
+      invalidateStreamCache();
+      invalidateCoachUserStatsCache();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'add coach'));
     }
@@ -178,7 +239,113 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     }
   }
 
-  Future<List<CoachSessionModel>> getAllSessionsWithCoach() async {
+  Future<List<CoachSessionModel>> getAllSessionsWithCoach({
+    bool force = false,
+  }) async {
+    if (!force && hasValidAllSessionsCache && _allSessionsCached != null) {
+      return List<CoachSessionModel>.from(_allSessionsCached!);
+    }
+    return refreshAllSessions();
+  }
+
+  Future<List<CoachSessionModel>> refreshAllSessions({
+    bool silent = false,
+  }) async {
+    if (_allSessionsFetching) {
+      _allSessionsPendingRefresh = true;
+      if (_allSessionsCached != null) {
+        return List<CoachSessionModel>.from(_allSessionsCached!);
+      }
+      while (_allSessionsFetching) {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+      }
+      if (_allSessionsCached != null && !_allSessionsPendingRefresh) {
+        return List<CoachSessionModel>.from(_allSessionsCached!);
+      }
+    }
+
+    _allSessionsFetching = true;
+    _allSessionsPendingRefresh = false;
+    try {
+      final sessions = await _fetchAllSessionsFromApi();
+      _allSessionsCached = sessions;
+      _allSessionsCachedAt = DateTime.now();
+      final controller = _allSessionsController;
+      if (controller != null && !controller.isClosed) {
+        controller.add(List<CoachSessionModel>.from(sessions));
+      }
+      return List<CoachSessionModel>.from(sessions);
+    } catch (error, stackTrace) {
+      if (silent && _allSessionsCached != null) {
+        return List<CoachSessionModel>.from(_allSessionsCached!);
+      }
+      final controller = _allSessionsController;
+      if (controller != null && !controller.isClosed) {
+        controller.addError(error, stackTrace);
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    } finally {
+      _allSessionsFetching = false;
+      if (_allSessionsPendingRefresh) {
+        _allSessionsPendingRefresh = false;
+        unawaited(refreshAllSessionsInBackground());
+      }
+    }
+  }
+
+  Future<void> refreshAllSessionsInBackground() async {
+    try {
+      await refreshAllSessions(silent: true);
+    } catch (_) {}
+  }
+
+  void ensureAllSessionsRealtime() {
+    if (_allSessionsChannel != null) return;
+
+    final channel = _supabase
+        .channel('admin-all-schedules')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'coach_sessions',
+          callback: (_) => _scheduleAllSessionsRefresh(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'coaches',
+          callback: (_) => _scheduleAllSessionsRefresh(),
+        );
+
+    final subscribed = RealtimeChannelHelper.subscribeSafely(
+      channel,
+      onStatus: (status, _) {
+        if (status == RealtimeSubscribeStatus.channelError ||
+            status == RealtimeSubscribeStatus.timedOut) {
+          unawaited(_dropAllSessionsChannel());
+        }
+      },
+    );
+    if (subscribed != null) {
+      _allSessionsChannel = subscribed;
+    }
+  }
+
+  void _scheduleAllSessionsRefresh() {
+    _allSessionsDebounce?.cancel();
+    _allSessionsDebounce = Timer(const Duration(milliseconds: 500), () {
+      invalidateAllSessionsCache();
+      unawaited(refreshAllSessionsInBackground());
+    });
+  }
+
+  Future<void> _dropAllSessionsChannel() async {
+    final channel = _allSessionsChannel;
+    _allSessionsChannel = null;
+    await RealtimeChannelHelper.removeSafely(_supabase, channel);
+  }
+
+  Future<List<CoachSessionModel>> _fetchAllSessionsFromApi() async {
     try {
       final response = await _supabase
           .from('coach_sessions')
@@ -311,6 +478,8 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
       };
 
       await _supabase.from('coach_sessions').insert(payload);
+      invalidateAllSessionsCache();
+      invalidateCoachUserStatsCache();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'save session'));
     }
@@ -321,6 +490,8 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
 
     try {
       await _supabase.from('coach_sessions').delete().eq('coach_id', coachId);
+      invalidateAllSessionsCache();
+      invalidateCoachUserStatsCache();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'delete sessions'));
     }
@@ -331,6 +502,8 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
 
     try {
       await _supabase.from('coach_sessions').delete().eq('id', sessionId);
+      invalidateAllSessionsCache();
+      invalidateCoachUserStatsCache();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'delete session'));
     }
@@ -342,6 +515,7 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
     try {
       await _supabase.from('coach_sessions').delete().eq('coach_id', coachId);
       await _supabase.from('coaches').delete().eq('id', coachId);
+      invalidateCaches();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'delete coach'));
     }
@@ -361,6 +535,9 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
         if (photoUrl != null) 'photo_url': photoUrl,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', coachId);
+      invalidateStreamCache();
+      invalidateCoachUserStatsCache();
+      invalidateAllSessionsCache();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'update coach'));
     }
@@ -429,13 +606,128 @@ class CoachRepository extends StreamRepository<List<CoachModel>> {
         if (classTypes != null) 'session_type': classTypes.join(', '),
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', sessionId);
+      invalidateAllSessionsCache();
+      invalidateCoachUserStatsCache();
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'update session'));
     }
   }
 
 
-  Future<List<CoachUserStats>> getCoachUserStats() async {
+  Future<List<CoachUserStats>> getCoachUserStats({bool force = false}) async {
+    if (!force && hasValidCoachUserStatsCache && _coachStatsCached != null) {
+      return List<CoachUserStats>.from(_coachStatsCached!);
+    }
+    return refreshCoachUserStats();
+  }
+
+  Future<List<CoachUserStats>> refreshCoachUserStats({
+    bool silent = false,
+  }) async {
+    if (_coachStatsFetching) {
+      _coachStatsPendingRefresh = true;
+      if (_coachStatsCached != null) {
+        return List<CoachUserStats>.from(_coachStatsCached!);
+      }
+      while (_coachStatsFetching) {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+      }
+      if (_coachStatsCached != null && !_coachStatsPendingRefresh) {
+        return List<CoachUserStats>.from(_coachStatsCached!);
+      }
+    }
+
+    _coachStatsFetching = true;
+    _coachStatsPendingRefresh = false;
+    try {
+      final stats = await _fetchCoachUserStatsFromApi();
+      _coachStatsCached = stats;
+      _coachStatsCachedAt = DateTime.now();
+      final controller = _coachStatsController;
+      if (controller != null && !controller.isClosed) {
+        controller.add(List<CoachUserStats>.from(stats));
+      }
+      return List<CoachUserStats>.from(stats);
+    } catch (error, stackTrace) {
+      if (silent && _coachStatsCached != null) {
+        return List<CoachUserStats>.from(_coachStatsCached!);
+      }
+      final controller = _coachStatsController;
+      if (controller != null && !controller.isClosed) {
+        controller.addError(error, stackTrace);
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    } finally {
+      _coachStatsFetching = false;
+      if (_coachStatsPendingRefresh) {
+        _coachStatsPendingRefresh = false;
+        unawaited(refreshCoachUserStatsInBackground());
+      }
+    }
+  }
+
+  Future<void> refreshCoachUserStatsInBackground() async {
+    try {
+      await refreshCoachUserStats(silent: true);
+    } catch (_) {}
+  }
+
+  void ensureCoachUserStatsRealtime() {
+    if (_coachStatsChannel != null) return;
+
+    final channel = _supabase
+        .channel('admin-coach-user-stats')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'bookings',
+          callback: (_) => _scheduleCoachStatsRefresh(invalidateSessions: false),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'coaches',
+          callback: (_) => _scheduleCoachStatsRefresh(invalidateSessions: false),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'coach_sessions',
+          callback: (_) => _scheduleCoachStatsRefresh(invalidateSessions: true),
+        );
+
+    final subscribed = RealtimeChannelHelper.subscribeSafely(
+      channel,
+      onStatus: (status, _) {
+        if (status == RealtimeSubscribeStatus.channelError ||
+            status == RealtimeSubscribeStatus.timedOut) {
+          unawaited(_dropCoachStatsChannel());
+        }
+      },
+    );
+    if (subscribed != null) {
+      _coachStatsChannel = subscribed;
+    }
+  }
+
+  void _scheduleCoachStatsRefresh({required bool invalidateSessions}) {
+    _coachStatsDebounce?.cancel();
+    _coachStatsDebounce = Timer(const Duration(milliseconds: 600), () {
+      invalidateCoachUserStatsCache();
+      if (invalidateSessions) {
+        invalidateAllSessionsCache();
+      }
+      unawaited(refreshCoachUserStatsInBackground());
+    });
+  }
+
+  Future<void> _dropCoachStatsChannel() async {
+    final channel = _coachStatsChannel;
+    _coachStatsChannel = null;
+    await RealtimeChannelHelper.removeSafely(_supabase, channel);
+  }
+
+  Future<List<CoachUserStats>> _fetchCoachUserStatsFromApi() async {
     await _requireAdmin();
 
     try {

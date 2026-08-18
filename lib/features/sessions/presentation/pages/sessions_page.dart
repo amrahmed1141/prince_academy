@@ -186,6 +186,7 @@ class _SessionsLoadedBody extends StatelessWidget {
           SliverToBoxAdapter(
             child: AppSearchBar(
               hintText: 'Search by coach, specialty, or branch',
+              hintPhrases: const ['coaches', 'specialty', 'branch'],
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               onChanged: (value) {
                 context.read<SessionsBloc>().add(SearchSessions(value));

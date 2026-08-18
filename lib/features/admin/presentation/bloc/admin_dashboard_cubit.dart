@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:prince_academy/core/helpers/remote_error.dart';
 import 'package:prince_academy/features/admin/data/models/admin_dashboard_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/admin_dashboard_repository.dart';
 
@@ -102,11 +103,7 @@ class AdminDashboardCubit extends Cubit<AdminDashboardState> {
   }
 
   static String _errorMessage(Object error) {
-    final text = error.toString();
-    if (text.startsWith('Exception: ')) {
-      return text.substring('Exception: '.length);
-    }
-    return text;
+    return userFacingRemoteError(error);
   }
 
   @override

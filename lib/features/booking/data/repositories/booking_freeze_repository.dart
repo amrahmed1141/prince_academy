@@ -49,7 +49,7 @@ class BookingFreezeRepository extends StreamRepository<AdminFreezeLists> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'booking_freezes',
-          callback: (_) => unawaited(refresh()),
+          callback: (_) => unawaited(refreshInBackground()),
         )
         .subscribe();
   }
@@ -191,7 +191,7 @@ class BookingFreezeRepository extends StreamRepository<AdminFreezeLists> {
         },
       );
       invalidateStreamCache();
-      unawaited(refresh());
+      unawaited(refreshInBackground());
     } on PostgrestException catch (e) {
       throw Exception(_friendly(e, approve ? 'approve freeze' : 'reject freeze'));
     }
@@ -241,7 +241,7 @@ class BookingFreezeRepository extends StreamRepository<AdminFreezeLists> {
   void _afterFreezeMutation(String bookingId) {
     invalidateBookingFormCache(bookingId);
     invalidateStreamCache();
-    unawaited(refresh());
+    unawaited(refreshInBackground());
   }
 
   bool _isFresh(DateTime at) =>

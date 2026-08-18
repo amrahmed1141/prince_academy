@@ -55,6 +55,13 @@ DECLARE
   v_base_price numeric;
   v_sessions_per_week integer;
 BEGIN
+  -- Keep caller-provided price on INSERT (member renew copies the original total).
+  IF TG_OP = 'INSERT'
+     AND NEW.total_price IS NOT NULL
+     AND NEW.total_price > 0 THEN
+    RETURN NEW;
+  END IF;
+
   v_sessions_per_week := COALESCE(
     NULLIF(array_length(NEW.selected_days, 1), 0),
     1

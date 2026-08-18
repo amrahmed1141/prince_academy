@@ -122,7 +122,7 @@ begin
   insert into public.profiles (id, full_name, phone, role)
   values (
     new.id,
-    coalesce(nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''), 'Member'),
+    coalesce(nullif(trim(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name')), ''), 'Member'),
     nullif(trim(coalesce(new.raw_user_meta_data ->> 'phone', '')), ''),
     v_role
   )

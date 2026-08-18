@@ -5,6 +5,7 @@ import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/auth_text_field.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/gradient_button.dart';
+import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/auth_social_buttons.dart';
 
 class SignupForm extends StatefulWidget {
   const SignupForm({super.key});
@@ -162,6 +163,7 @@ class _SignupFormState extends State<SignupForm> {
             loading: loading,
             onPressed: _onSubmit,
           ),
+          const AuthSocialButtons(),
         ],
       ),
     );

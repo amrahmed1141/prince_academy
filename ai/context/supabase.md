@@ -51,4 +51,4 @@ None own SQL directly. BLoCs/Cubits call repositories that call `.from` / `.rpc`
 
 ### Quick RPC map
 
-Booking create/cancel/reschedule · Payments `verify_payment`/`reject_payment` · Attendance `re_attend_session`/`unmark_session` · Subscriptions `renew_booking_subscription` · Auth `handle_new_user` / `is_admin`
+Booking create/cancel/reschedule/renew (`get_renewable_bookings`, `dismiss_booking_renew_prompt`, `renew_expired_booking`) · Payments `verify_payment`/`reject_payment` · Attendance `re_attend_session`/`unmark_session` · Subscriptions `renew_booking_subscription` · Auth `handle_new_user` / `is_admin`

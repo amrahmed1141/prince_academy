@@ -19,7 +19,7 @@ Not a major context pack — admin spans many domains and over-fetches if loaded
 
 - `AdminHomeScreen` — `lib/features/admin/presentation/pages/admin_home.dart`
 - Dashboard: `AdminDashboardCubit`, `AdminDashboardRepository`
-- Top KPI: `DashboardKpiPager` (swipeable Today Attendance + Overview); schedules list: `AllSchedulesPage`; freeze inbox: `AllFreezePage` (Overview Freeze card = pending request count)
+- Top KPI: `DashboardKpiPager` (swipeable Today Attendance + Overview); Quick actions under KPI: Scan → `QrScannerPage`, Tracking → `TrackingPage(showBackButton: true)`, Create → `AdminAddInfoPage(showAsStandalone: true)` (hub; coach/session forms are pushed pages); schedules list: `AllSchedulesPage`; freeze inbox: `AllFreezePage` (Overview Freeze card = pending request count)
 - Today attendance ratio = Σ `attended_count` / Σ `booked_count` from `today_coach_sessions` (no extra RPC)
 - Tap attendance gauge → `TodayAttendancePage` + view `today_attendance_members`
 - God repos (incremental only): `AdminRepository`, `CoachRepository`, `FinanceRepository`

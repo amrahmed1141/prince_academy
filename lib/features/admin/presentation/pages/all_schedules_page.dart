@@ -15,7 +15,7 @@ import 'package:prince_academy/features/admin/presentation/widgets/admin_smooth_
 import 'package:prince_academy/features/admin/presentation/widgets/session_card.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
-/// Full list of every coach schedule (same source as Add Info → Sessions).
+/// Full list of every coach schedule (create new ones from Create → Session).
 class AllSchedulesPage extends StatelessWidget {
   const AllSchedulesPage({super.key});
 
@@ -123,7 +123,7 @@ class _AllSchedulesView extends StatelessWidget {
                     AdminEmptyState(
                       icon: Iconsax.calendar_remove,
                       message:
-                          'No sessions added yet.\nCreate schedules from Add Info.',
+                          'No sessions added yet.\nCreate a session from Create.',
                     ),
                   ],
                 );

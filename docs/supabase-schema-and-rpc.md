@@ -53,7 +53,7 @@ Prefer RPCs for transactional / multi-step work. Catalog by responsibility:
 
 | Domain | RPC purposes (from analysis) |
 |--------|------------------------------|
-| Booking | Create, reschedule, cancel, conflict checks |
+| Booking | Create, reschedule, cancel, conflict checks, member renew (`get_renewable_bookings`, `dismiss_booking_renew_prompt`, `renew_expired_booking`) |
 | Payments | Verify / reject |
 | Attendance | Mark / unmark |
 | Admin users | Paged active users, member counts |

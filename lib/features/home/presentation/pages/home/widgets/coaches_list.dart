@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 import 'package:prince_academy/core/search/search_query_cubit.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/home/data/models/coaches_model.dart';
@@ -37,9 +39,10 @@ class _CoachesListState extends State<CoachesList> {
     super.initState();
     widget.selectedCategoryNotifier.addListener(_onFiltersChanged);
     _bindSearchCubit(widget.searchQueryCubit);
+    _seedFromCache();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _loadCoaches(initial: true);
+      _loadCoaches(initial: _allCoaches.isEmpty);
     });
   }
 
@@ -73,6 +76,33 @@ class _CoachesListState extends State<CoachesList> {
 
   void _onFiltersChanged() => _applyFilters();
 
+  void _seedFromCache() {
+    final repository = sl<HomeCoachRepository>();
+    final cached = repository.peekActiveCoaches();
+    if (cached.isEmpty) return;
+
+    final counts = repository.peekStudentCounts();
+    _allCoaches = cached
+        .map(
+          (coach) => coach.copyWith(
+            memberCount: counts[coach.id] ?? coach.memberCount,
+          ),
+        )
+        .toList();
+    _classTypesByCoachId = repository.peekClassTypes();
+    _isInitialLoading = false;
+    _filteredCoaches = _computeFiltered();
+  }
+
+  void _warmPhotos(List<CoachModel> coaches) {
+    final urls = CoachPhotoHelper.thumbnailUrls(
+      coaches.map((coach) => coach.photoUrl),
+    );
+    unawaited(AppImageCache.warmUrls(urls));
+    if (!mounted) return;
+    unawaited(AppImageCache.precacheUrls(context, urls));
+  }
+
   String? _mapCategoryToSpecialty(String? categoryName) {
     if (categoryName == null || categoryName == 'All') return null;
     switch (categoryName.toLowerCase()) {
@@ -92,7 +122,7 @@ class _CoachesListState extends State<CoachesList> {
 
   Future<void> _loadCoaches({bool initial = false, bool force = false}) async {
     if (!mounted) return;
-    if (initial) {
+    if (initial && _allCoaches.isEmpty) {
       setState(() {
         _isInitialLoading = true;
         _errorMessage = null;
@@ -102,32 +132,33 @@ class _CoachesListState extends State<CoachesList> {
     try {
       final repository = sl<HomeCoachRepository>();
       final allCoaches = await repository.getActiveCoaches(force: force);
-      final coachIds = allCoaches.map((c) => c.id).toList();
-      final results = await Future.wait([
-        repository.getPrimaryClassTypesForCoaches(coachIds, force: force),
-        repository.getStudentCountsForCoaches(coachIds, force: force),
-      ]);
-      final classTypes = results[0] as Map<String, String>;
-      final memberCounts = results[1] as Map<String, int>;
-
       if (!mounted) return;
-      final coaches = allCoaches
-          .map<CoachModel>(
-            (coach) => coach.copyWith(
-              memberCount: memberCounts[coach.id] ?? coach.memberCount,
-            ),
-          )
-          .toList();
 
-      setState(() {
-        _allCoaches = coaches;
-        _classTypesByCoachId = classTypes;
-        _isInitialLoading = false;
-        _errorMessage = null;
-      });
-      _applyFilters();
+      _emitCoaches(allCoaches, classTypes: _classTypesByCoachId);
+      _warmPhotos(allCoaches);
+
+      final coachIds = allCoaches.map((c) => c.id).toList();
+      try {
+        final results = await Future.wait([
+          repository.getPrimaryClassTypesForCoaches(coachIds, force: force),
+          repository.getStudentCountsForCoaches(coachIds, force: force),
+        ]);
+        if (!mounted) return;
+        final classTypes = results[0] as Map<String, String>;
+        final memberCounts = results[1] as Map<String, int>;
+        final coaches = allCoaches
+            .map<CoachModel>(
+              (coach) => coach.copyWith(
+                memberCount: memberCounts[coach.id] ?? coach.memberCount,
+              ),
+            )
+            .toList();
+        _emitCoaches(coaches, classTypes: classTypes);
+      } catch (_) {
+        // Keep the coach cards visible; extras are optional chrome.
+      }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _allCoaches.isEmpty) {
         setState(() {
           _errorMessage = e.toString().replaceFirst('Exception: ', '');
           _isInitialLoading = false;
@@ -136,8 +167,20 @@ class _CoachesListState extends State<CoachesList> {
     }
   }
 
-  void _applyFilters() {
-    if (!mounted) return;
+  void _emitCoaches(
+    List<CoachModel> coaches, {
+    required Map<String, String> classTypes,
+  }) {
+    setState(() {
+      _allCoaches = coaches;
+      _classTypesByCoachId = classTypes;
+      _isInitialLoading = false;
+      _errorMessage = null;
+      _filteredCoaches = _computeFiltered();
+    });
+  }
+
+  List<CoachModel> _computeFiltered() {
     final specialty =
         _mapCategoryToSpecialty(widget.selectedCategoryNotifier.value);
     final query = widget.searchQueryCubit?.state ?? '';
@@ -157,8 +200,12 @@ class _CoachesListState extends State<CoachesList> {
             classType.contains(query);
       }).toList();
     }
+    return filtered;
+  }
 
-    setState(() => _filteredCoaches = filtered);
+  void _applyFilters() {
+    if (!mounted) return;
+    setState(() => _filteredCoaches = _computeFiltered());
   }
 
   @override
@@ -256,7 +303,7 @@ class _CoachesListState extends State<CoachesList> {
           );
         },
         childCount: _filteredCoaches.length,
-        addAutomaticKeepAlives: true,
+        addAutomaticKeepAlives: false,
         addRepaintBoundaries: false,
       ),
     );

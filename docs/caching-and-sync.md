@@ -13,6 +13,7 @@ Prince Academy optimizes perceived performance with **cache-first / stale-while-
 | `StreamRepository<T>` | Broadcast stream + TTL + dedupe + auto-refresh |
 | `SharedPreferences` | Admin session-form drafts only |
 | `MemberDataSync` / prefetch services | Invalidation and member data warm-up |
+| `AppImageCache` + `DiskImageCache` | Coach/avatar photos: disk file + in-memory decode. List avatars use Storage **render** thumbnail URLs (`CoachPhotoHelper.thumbnailUrl`); profile hero uses `heroUrl`. |
 
 Path for stream base: `lib/core/base/stream_repository.dart`.
 

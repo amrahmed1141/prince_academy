@@ -22,7 +22,7 @@ const _destinations = [
     assetIcon: 'assets/icons/logo.png',
     label: 'Home',
   ),
-  _AdminNavDestination(icon: Iconsax.add_circle, label: 'Add Info'),
+  _AdminNavDestination(icon: Iconsax.add_circle, label: 'Create'),
   _AdminNavDestination(icon: Iconsax.chart, label: 'Tracking'),
   _AdminNavDestination(icon: Iconsax.receipt_2, label: 'Finance'),
 ];

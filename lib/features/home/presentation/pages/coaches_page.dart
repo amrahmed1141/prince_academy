@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 import 'package:prince_academy/core/search/search_cubit.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/theme/theme.dart';
@@ -43,7 +47,8 @@ class _CoachesPageState extends State<CoachesPage> {
             classType.contains(query);
       },
     );
-    // Defer so a sync cache hit never setStates during the first build.
+    _seedFromCache();
+    // Defer network so a sync cache hit never setStates during the first build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _loadCoaches();
@@ -57,50 +62,90 @@ class _CoachesPageState extends State<CoachesPage> {
     super.dispose();
   }
 
+  void _seedFromCache() {
+    final repository = sl<HomeCoachRepository>();
+    final cached = repository.peekActiveCoaches();
+    if (cached.isEmpty) return;
+
+    final counts = repository.peekStudentCounts();
+    _classTypesByCoachId
+      ..clear()
+      ..addAll(repository.peekClassTypes());
+    _searchCubit.setItems(
+      cached
+          .map(
+            (coach) => coach.copyWith(
+              memberCount: counts[coach.id] ?? coach.memberCount,
+            ),
+          )
+          .toList(),
+    );
+    _isLoading = false;
+  }
+
+  void _warmPhotos(List<CoachModel> coaches) {
+    final urls = CoachPhotoHelper.thumbnailUrls(
+      coaches.map((coach) => coach.photoUrl),
+    );
+    unawaited(AppImageCache.warmUrls(urls));
+    if (!mounted) return;
+    unawaited(AppImageCache.precacheUrls(context, urls));
+  }
+
   Future<void> _loadCoaches({bool force = false}) async {
     if (!mounted) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    final hasItems = _searchCubit.state.allItems.isNotEmpty;
+    if (!hasItems) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final repository = sl<HomeCoachRepository>();
       final allCoaches = await repository.getActiveCoaches(force: force);
-      final coachIds = allCoaches.map((c) => c.id).toList();
-      final results = await Future.wait([
-        repository.getPrimaryClassTypesForCoaches(coachIds, force: force),
-        repository.getStudentCountsForCoaches(coachIds, force: force),
-      ]);
-      final classTypes = results[0] as Map<String, String>;
-      final memberCounts = results[1] as Map<String, int>;
-
       if (!mounted) return;
 
-      final coaches = allCoaches
-          .map(
-            (coach) => coach.copyWith(
-              memberCount: memberCounts[coach.id] ?? coach.memberCount,
-            ),
-          )
-          .toList();
-
-      _classTypesByCoachId
-        ..clear()
-        ..addAll(classTypes);
-      _searchCubit.setItems(coaches);
-
+      _searchCubit.setItems(allCoaches);
+      _warmPhotos(allCoaches);
       setState(() {
         _isLoading = false;
         _errorMessage = null;
       });
+
+      final coachIds = allCoaches.map((c) => c.id).toList();
+      try {
+        final results = await Future.wait([
+          repository.getPrimaryClassTypesForCoaches(coachIds, force: force),
+          repository.getStudentCountsForCoaches(coachIds, force: force),
+        ]);
+        if (!mounted) return;
+        final classTypes = results[0] as Map<String, String>;
+        final memberCounts = results[1] as Map<String, int>;
+
+        _classTypesByCoachId
+          ..clear()
+          ..addAll(classTypes);
+        _searchCubit.setItems(
+          allCoaches
+              .map(
+                (coach) => coach.copyWith(
+                  memberCount: memberCounts[coach.id] ?? coach.memberCount,
+                ),
+              )
+              .toList(),
+        );
+      } catch (_) {}
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
-        _isLoading = false;
-      });
+      if (_searchCubit.state.allItems.isEmpty) {
+        setState(() {
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -137,6 +182,7 @@ class _CoachesPageState extends State<CoachesPage> {
                   CubitSearchBar<CoachModel>(
                     controller: _searchController,
                     hintText: 'Search coaches by name or specialty',
+                    hintPhrases: const ['name', 'specialty'],
                   ),
                   const SizedBox(height: 8),
                   Expanded(child: _buildBody()),

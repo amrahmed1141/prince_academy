@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
+import 'package:prince_academy/features/admin/data/admin_search_index.dart';
 
 /// Legacy alias — prefer [AppSearchBar] with [AppSearchBarVariant.outlined].
 class TrackingSearchBar extends StatelessWidget {
@@ -25,6 +26,7 @@ class TrackingSearchBar extends StatelessWidget {
             onChanged('');
           },
       hintText: 'Search by name or phone...',
+      hintPhrases: AdminSearchHints.tracking,
       variant: AppSearchBarVariant.outlined,
       padding: EdgeInsets.zero,
     );

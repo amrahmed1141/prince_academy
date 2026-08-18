@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
@@ -10,6 +11,7 @@ import 'package:prince_academy/features/booking/data/models/booking_history_mode
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_event.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_state.dart';
+import 'package:prince_academy/features/booking/presentation/helpers/booking_renew_navigation.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_details/booking_detail_page.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/coach_profile.dart';
 
@@ -42,9 +44,15 @@ class _BookingHistoryView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+    return Container(
+      decoration: AppGradients.homeScreenDecoration(),
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         automaticallyImplyLeading: Navigator.canPop(context),
         title: const Text('Booking History'),
       ),
@@ -93,6 +101,7 @@ class _BookingHistoryView extends StatelessWidget {
                 ],
                 AppSearchBar(
                   hintText: 'Search by coach, specialty, or status',
+                  hintPhrases: const ['coaches', 'specialty', 'status'],
                   padding: EdgeInsets.zero,
                   onChanged: (value) {
                     context
@@ -142,6 +151,7 @@ class _BookingHistoryView extends StatelessWidget {
                         booking: booking,
                         onDetails: () => _onDetails(context, booking),
                         onEnrollAgain: () => _onEnrollAgain(context, booking),
+                        onRenew: () => _onRenew(context, booking),
                       ),
                     ),
                   ),
@@ -172,6 +182,7 @@ class _BookingHistoryView extends StatelessWidget {
           );
         },
       ),
+    ),
     );
   }
 
@@ -195,6 +206,10 @@ class _BookingHistoryView extends StatelessWidget {
         builder: (_) => CoachProfilePage(coachId: booking.coachId),
       ),
     );
+  }
+
+  void _onRenew(BuildContext context, BookingHistoryModel booking) {
+    BookingRenewNavigation.openForBooking(context, booking);
   }
 }
 
@@ -339,11 +354,13 @@ class _BookingHistoryCard extends StatelessWidget {
     required this.booking,
     required this.onDetails,
     required this.onEnrollAgain,
+    required this.onRenew,
   });
 
   final BookingHistoryModel booking;
   final VoidCallback onDetails;
   final VoidCallback onEnrollAgain;
+  final VoidCallback onRenew;
 
   @override
   Widget build(BuildContext context) {
@@ -475,32 +492,61 @@ class _BookingHistoryCard extends StatelessWidget {
                     )
                   : Align(
                       alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: onDetails,
-                        style: TextButton.styleFrom(
-                          foregroundColor: _AppColors.primary,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Details',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (status == 'expired') ...[
+                            TextButton(
+                              onPressed: onRenew,
+                              style: TextButton.styleFrom(
+                                foregroundColor: _AppColors.primary,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text(
+                                'Renew',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
-                            SizedBox(width: 4),
-                            Icon(
-                              Icons.chevron_right,
-                              size: 18,
-                            ),
+                            const SizedBox(width: 4),
                           ],
-                        ),
+                          TextButton(
+                            onPressed: onDetails,
+                            style: TextButton.styleFrom(
+                              foregroundColor: _AppColors.primary,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Details',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
             ],

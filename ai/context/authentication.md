@@ -13,7 +13,7 @@ Session lifecycle, roles, profile identity, and authenticated navigation entry.
 - `UserModel` — `lib/features/auth/data/models/app_user.dart`
 - `AuthenticatedShell` — `lib/app/app.dart`
 - `AuthPage` — `lib/features/auth/presentation/pages/authentication/auth_page.dart`
-- SQL helpers: `is_admin()`, `handle_new_user()` — `supabase/profiles_rls_fix.sql`, `fix_signup_trigger.sql`
+- SQL helpers: `is_admin()`, `handle_new_user()` — `supabase/profiles_rls_fix.sql`, `fix_signup_trigger.sql`, `oauth_handle_new_user.sql`
 
 ## Important repositories
 
@@ -24,12 +24,13 @@ Session lifecycle, roles, profile identity, and authenticated navigation entry.
 ## Important Cubits / BLoCs
 
 - `AuthBloc` — `lib/features/auth/presentation/bloc/auth_bloc.dart`
-- Key events: `AuthStarted`, `AuthUserSignIn`, `AuthAdminSignIn`, `AuthSignOut`, `AuthRefreshProfile`
+- Key events: `AuthStarted`, `AuthUserSignIn`, `AuthAdminSignIn`, `AuthGoogleSignIn`, `AuthFacebookSignIn`, `AuthSignOut`, `AuthRefreshProfile`
 - Key states: `AuthAuthed`, `AuthNoSession`
 
 ## Business rules
 
 - All auth remote I/O through `AuthRepo` → impl → DS.
+- Native Google/Facebook sign-in is member-only (Sign In + Sign Up). Admin stays email/password.
 - Missing `profiles` row → sign out → `AuthNoSession`.
 - Admin requires `role == 'admin'`; UI role ≠ RLS.
 - Do not treat signup metadata as authorization.

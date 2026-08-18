@@ -101,6 +101,7 @@ class _BookingScreenView extends StatelessWidget {
               children: [
                 const CubitSearchBar<_EnrollmentItem>(
                   hintText: 'Search by coach, status, or date',
+                  hintPhrases: ['coaches', 'status', 'date'],
                   padding: EdgeInsets.zero,
                 ),
                 const SizedBox(height: 12),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:prince_academy/features/notifications/data/models/app_notification.dart';
@@ -19,6 +20,10 @@ class NotificationRepository {
   String? _subscribedUserId;
   StreamController<List<AppNotification>>? _controller;
   List<AppNotification> _cache = const [];
+  static const List<Duration> _networkRetryDelays = [
+    Duration(milliseconds: 300),
+    Duration(seconds: 1),
+  ];
 
   String? get _userId => _client.auth.currentUser?.id;
 
@@ -53,12 +58,14 @@ class NotificationRepository {
     }
 
     try {
-      final rows = await _client
-          .from('notifications')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false)
-          .limit(100);
+      final rows = await _withTransientRetry(
+        () => _client
+            .from('notifications')
+            .select()
+            .eq('user_id', userId)
+            .order('created_at', ascending: false)
+            .limit(100),
+      );
 
       final list = rows
           .map((e) => AppNotification.fromJson(
@@ -119,10 +126,12 @@ class NotificationRepository {
       return;
     }
 
-    await _client.from('profiles').update({
-      'fcm_token': token,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', userId);
+    await _withTransientRetry(
+      () => _client.from('profiles').update({
+        'fcm_token': token,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', userId),
+    );
 
     developer.log(
       'Saved FCM token for user $userId',
@@ -136,10 +145,12 @@ class NotificationRepository {
     if (userId == null) return;
 
     try {
-      await _client.from('profiles').update({
-        'fcm_token': null,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', userId);
+      await _withTransientRetry(
+        () => _client.from('profiles').update({
+          'fcm_token': null,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }).eq('id', userId),
+      );
     } catch (error, stackTrace) {
       developer.log(
         'clearFcmToken failed: $error',
@@ -205,5 +216,47 @@ class NotificationRepository {
     _teardownRealtime();
     _cache = const [];
     _controller?.add(const []);
+  }
+
+  Future<T> _withTransientRetry<T>(Future<T> Function() action) async {
+    Object? lastError;
+    StackTrace? lastStackTrace;
+
+    for (var attempt = 0; attempt <= _networkRetryDelays.length; attempt++) {
+      try {
+        return await action();
+      } catch (error, stackTrace) {
+        lastError = error;
+        lastStackTrace = stackTrace;
+
+        if (!_isTransientNetworkError(error) ||
+            attempt == _networkRetryDelays.length) {
+          rethrow;
+        }
+
+        final delay = _networkRetryDelays[attempt];
+        developer.log(
+          'Transient network error; retrying in ${delay.inMilliseconds}ms '
+          '(attempt ${attempt + 1}/${_networkRetryDelays.length + 1}): $error',
+          name: 'NotificationRepository',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        await Future<void>.delayed(delay);
+      }
+    }
+
+    // Defensive fallback: loop above either returns or throws.
+    Error.throwWithStackTrace(lastError!, lastStackTrace!);
+  }
+
+  bool _isTransientNetworkError(Object error) {
+    if (error is! ClientException) return false;
+    final message = error.message.toLowerCase();
+    return message.contains('connection closed before full header was received') ||
+        message.contains('connection closed') ||
+        message.contains('connection reset') ||
+        message.contains('connection terminated') ||
+        message.contains('timed out');
   }
 }

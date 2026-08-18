@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:prince_academy/core/base/stream_repository.dart';
+import 'package:prince_academy/core/helpers/remote_error.dart';
 import 'package:prince_academy/features/admin/data/models/admin_dashboard_model.dart';
 import 'package:prince_academy/features/admin/data/models/low_attendance_member_model.dart';
 import 'package:prince_academy/features/admin/data/models/paged_result.dart';
@@ -77,7 +78,7 @@ class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
   void _scheduleRealtimeRefresh() {
     _realtimeDebounce?.cancel();
     _realtimeDebounce = Timer(const Duration(milliseconds: 600), () {
-      unawaited(refresh());
+      unawaited(refreshInBackground());
     });
   }
 
@@ -319,35 +320,11 @@ class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
       final today = _toIsoDate(DateTime.now());
       final response = await _supabase
           .from('finance_daily_revenue')
-          .select()
+          .select('payment_date, daily_revenue')
           .eq('payment_date', today)
           .maybeSingle();
 
-      if (response == null) {
-        final all = await _supabase
-            .from('finance_daily_revenue')
-            .select()
-            .order('payment_date', ascending: false)
-            .limit(7);
-
-        final rows = List<Map<String, dynamic>>.from((all as List).cast<Map>());
-        for (final row in rows) {
-          final date = _asDate(
-            row['payment_date'] ??
-                row['day'] ??
-                row['date'] ??
-                row['created_at'],
-          );
-          if (date == null) continue;
-          if (_isSameDay(date, DateTime.now())) {
-            return _pickDouble(
-              row,
-              ['daily_revenue', 'amount', 'revenue', 'total_revenue'],
-            );
-          }
-        }
-        return 0;
-      }
+      if (response == null) return 0;
 
       final row = Map<String, dynamic>.from(response);
       return _pickDouble(
@@ -356,6 +333,11 @@ class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
       );
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'load today revenue'));
+    } catch (e) {
+      if (isTransientNetworkError(e)) {
+        return cachedValue?.todayRevenue ?? 0;
+      }
+      throw Exception(userFacingRemoteError(e, action: 'load today revenue'));
     }
   }
 
@@ -407,18 +389,6 @@ class AdminDashboardRepository extends StreamRepository<AdminDashboardData> {
     final m = local.month.toString().padLeft(2, '0');
     final d = local.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
-  }
-
-  static DateTime? _asDate(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value;
-    return DateTime.tryParse(value.toString());
-  }
-
-  static bool _isSameDay(DateTime a, DateTime b) {
-    final al = a.toLocal();
-    final bl = b.toLocal();
-    return al.year == bl.year && al.month == bl.month && al.day == bl.day;
   }
 
   static double _pickDouble(Map<String, dynamic> row, List<String> keys) {

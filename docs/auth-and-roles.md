@@ -24,8 +24,11 @@
 
 ## Login
 
-- `signInWithPassword`
+- `signInWithPassword` (email) on Sign In / Admin
+- Native Google / Facebook ID-token sign-in on Sign In and Sign Up only (`signInWithIdToken`)
 - Admin path additionally enforces `role == 'admin'`; otherwise sign out
+- Dismissing a Google / Facebook sheet is not an error (stays on `AuthPage`)
+- Google Web Client ID via `--dart-define=GOOGLE_WEB_CLIENT_ID=...`; secrets stay in the Supabase dashboard
 
 ---
 

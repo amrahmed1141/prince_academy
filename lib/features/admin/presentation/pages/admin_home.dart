@@ -23,11 +23,13 @@ class AdminHomeScreen extends StatefulWidget {
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   late final AdminTabController _tabController;
+  late final Set<int> _visitedTabs;
 
   @override
   void initState() {
     super.initState();
     _tabController = sl<AdminTabController>();
+    _visitedTabs = {_tabController.index};
     _tabController.addListener(_onTabControllerChanged);
   }
 
@@ -39,7 +41,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   void _onTabControllerChanged() {
     if (!mounted) return;
-    setState(() {});
+    setState(() => _visitedTabs.add(_tabController.index));
+  }
+
+  Widget _tabAt(int index, Widget page) {
+    if (!_visitedTabs.contains(index)) {
+      return const SizedBox.shrink();
+    }
+    return page;
   }
 
   void _openQrScanner() {
@@ -73,11 +82,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           children: [
             IndexedStack(
               index: currentIndex,
-              children: const [
-                AdminDashboardPage(),
-                AdminAddInfoPage(),
-                TrackingPage(),
-                FinancePage(),
+              children: [
+                _tabAt(0, const AdminDashboardPage()),
+                _tabAt(1, const AdminAddInfoPage()),
+                _tabAt(2, const TrackingPage()),
+                _tabAt(3, const FinancePage()),
               ],
             ),
             Positioned(

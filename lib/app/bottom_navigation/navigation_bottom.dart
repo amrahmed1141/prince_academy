@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/app/bottom_navigation/widgets/glass_floating_nav_bar.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/services/main_tab_controller.dart';
 import 'package:prince_academy/core/services/member_data_prefetch.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
-import 'package:prince_academy/features/home/presentation/pages/home_page.dart';
+import 'package:prince_academy/features/booking/presentation/bloc/booking_renew/booking_renew_cubit.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
+import 'package:prince_academy/features/booking/presentation/widgets/renew_prompt_host.dart';
+import 'package:prince_academy/features/home/presentation/pages/home_page.dart';
 import 'package:prince_academy/features/profile/presentation/pages/profile/profile.dart';
 import 'package:prince_academy/features/profile/presentation/widgets/qr_code_bottom_sheet.dart';
 import 'package:prince_academy/features/sessions/presentation/pages/sessions_page.dart';
@@ -20,6 +23,7 @@ class NavigationBottom extends StatefulWidget {
 class _NavigationBottomState extends State<NavigationBottom> {
   late final MainTabController _tabController;
   late final UserQrService _qrService;
+  late final BookingRenewCubit _renewCubit;
   late final List<WidgetBuilder> _tabBuilders;
   late final List<bool> _visitedTabs;
   late int _currentIndex;
@@ -29,6 +33,7 @@ class _NavigationBottomState extends State<NavigationBottom> {
     super.initState();
     _tabController = sl<MainTabController>();
     _qrService = sl<UserQrService>();
+    _renewCubit = sl<BookingRenewCubit>();
     _currentIndex = _tabController.index;
     _tabBuilders = [
       (_) => const RepaintBoundary(child: HomePage()),
@@ -44,6 +49,8 @@ class _NavigationBottomState extends State<NavigationBottom> {
     _visitedTabs[_currentIndex] = true;
     _tabController.addListener(_onTabControllerChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Load after RenewPromptHost is mounted so the first prompt is not missed.
+      _renewCubit.load();
       MemberDataPrefetch.warmUnawaited();
     });
   }
@@ -51,6 +58,7 @@ class _NavigationBottomState extends State<NavigationBottom> {
   @override
   void dispose() {
     _tabController.removeListener(_onTabControllerChanged);
+    _renewCubit.close();
     super.dispose();
   }
 
@@ -62,6 +70,10 @@ class _NavigationBottomState extends State<NavigationBottom> {
       _currentIndex = index;
       _visitedTabs[index] = true;
     });
+    // Re-check renewals when returning to Home.
+    if (index == MainTabController.home) {
+      _renewCubit.load();
+    }
   }
 
   void _onQrFabPressed() {
@@ -78,50 +90,55 @@ class _NavigationBottomState extends State<NavigationBottom> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _currentIndex,
-            children: List<Widget>.generate(_tabBuilders.length, (index) {
-              if (!_visitedTabs[index]) {
-                return const SizedBox.shrink();
-              }
-              return _tabBuilders[index](context);
-            }),
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 24,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: GlassFloatingNavBar(
-                    selectedIndex: _currentIndex,
-                    hasQrCode: _qrService.hasQrCode,
-                    onDestinationSelected: (index) {
-                      _tabController.select(index);
-                    },
-                  ),
+    return BlocProvider.value(
+      value: _renewCubit,
+      child: RenewPromptHost(
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          body: Stack(
+            children: [
+              IndexedStack(
+                index: _currentIndex,
+                children: List<Widget>.generate(_tabBuilders.length, (index) {
+                  if (!_visitedTabs[index]) {
+                    return const SizedBox.shrink();
+                  }
+                  return _tabBuilders[index](context);
+                }),
+              ),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 24,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: GlassFloatingNavBar(
+                        selectedIndex: _currentIndex,
+                        hasQrCode: _qrService.hasQrCode,
+                        onDestinationSelected: (index) {
+                          _tabController.select(index);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ListenableBuilder(
+                      listenable: _qrService,
+                      builder: (context, _) {
+                        return _QrFabButton(
+                          onPressed: _onQrFabPressed,
+                          hasQrCode: _qrService.hasQrCode,
+                          isLoading: _qrService.isLoading,
+                        );
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                ListenableBuilder(
-                  listenable: _qrService,
-                  builder: (context, _) {
-                    return _QrFabButton(
-                      onPressed: _onQrFabPressed,
-                      hasQrCode: _qrService.hasQrCode,
-                      isLoading: _qrService.isLoading,
-                    );
-                  },
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

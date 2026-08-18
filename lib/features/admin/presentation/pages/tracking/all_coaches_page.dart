@@ -1,15 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
+import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
+import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
+import 'package:prince_academy/features/admin/data/admin_search_index.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
-import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
+import 'package:prince_academy/features/admin/presentation/bloc/all_coaches/all_coaches_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 
-class AllCoachesPage extends StatefulWidget {
+class AllCoachesPage extends StatelessWidget {
   final List<CoachUserStats> initialCoaches;
 
   const AllCoachesPage({
@@ -18,26 +22,26 @@ class AllCoachesPage extends StatefulWidget {
   });
 
   @override
-  State<AllCoachesPage> createState() => _AllCoachesPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) =>
+          AllCoachesCubit(sl(), initialCoaches: initialCoaches)..load(),
+      child: const _AllCoachesView(),
+    );
+  }
 }
 
-class _AllCoachesPageState extends State<AllCoachesPage> {
-  final _searchController = TextEditingController();
-  final _repository = sl<CoachRepository>();
-
-  List<CoachUserStats> _allCoaches = [];
-  List<CoachUserStats> _visibleCoaches = [];
-  bool _isLoading = true;
-  String? _error;
-  Timer? _debounce;
+class _AllCoachesView extends StatefulWidget {
+  const _AllCoachesView();
 
   @override
-  void initState() {
-    super.initState();
-    _allCoaches = List.of(widget.initialCoaches);
-    _visibleCoaches = List.of(_allCoaches);
-    _loadCoaches();
-  }
+  State<_AllCoachesView> createState() => _AllCoachesViewState();
+}
+
+class _AllCoachesViewState extends State<_AllCoachesView> {
+  final _searchController = TextEditingController();
+  Timer? _debounce;
+  String _query = '';
 
   @override
   void dispose() {
@@ -46,34 +50,11 @@ class _AllCoachesPageState extends State<AllCoachesPage> {
     super.dispose();
   }
 
-  Future<void> _loadCoaches() async {
-    setState(() {
-      _isLoading = _allCoaches.isEmpty;
-      _error = null;
-    });
-
-    try {
-      final coaches = await _repository.getCoachUserStats();
-      if (!mounted) return;
-      setState(() {
-        _allCoaches = coaches;
-        _visibleCoaches = _filter(coaches, _searchController.text);
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
-        _isLoading = false;
-      });
-    }
-  }
-
   void _onSearchChanged(String query) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 250), () {
       if (!mounted) return;
-      setState(() => _visibleCoaches = _filter(_allCoaches, query));
+      setState(() => _query = query);
     });
   }
 
@@ -94,91 +75,105 @@ class _AllCoachesPageState extends State<AllCoachesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: EColorConstants.authFieldBackground,
-      appBar: AppBar(
-        backgroundColor: EColorConstants.authFieldBackground,
-        elevation: 0,
-        leading: const BackButton(color: EColorConstants.authTextDarkBrown),
-        title: Text(
-          'All Coaches (${_visibleCoaches.length})',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: EColorConstants.authTextDarkBrown,
-            fontFamily: 'Poppins',
+      body: NestedScrollView(
+        floatHeaderSlivers: true,
+        headerSliverBuilder: (context, _) => [
+          ScrollAwaySearchHeader(
+            leading: const BackButton(
+              color: EColorConstants.authTextDarkBrown,
+            ),
+            title: BlocBuilder<AllCoachesCubit, AllCoachesState>(
+              buildWhen: (prev, next) => prev.coaches != next.coaches,
+              builder: (context, state) {
+                final visible = _filter(state.coaches, _query);
+                return Text('All Coaches (${visible.length})');
+              },
+            ),
+            searchBar: AppSearchBar(
+              controller: _searchController,
+              hintText: 'Search by coach name...',
+              hintPhrases: AdminSearchHints.coaches,
+              variant: AppSearchBarVariant.outlined,
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              onChanged: _onSearchChanged,
+              onClear: () {
+                _searchController.clear();
+                setState(() => _query = '');
+              },
+            ),
           ),
-        ),
-      ),
-      body: Column(
-        children: [
-          AppSearchBar(
-            controller: _searchController,
-            hintText: 'Search by coach name...',
-            variant: AppSearchBarVariant.outlined,
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-            onChanged: _onSearchChanged,
-            onClear: () {
-              _searchController.clear();
-              setState(() => _visibleCoaches = List.of(_allCoaches));
-            },
-          ),
-          Expanded(child: _buildBody()),
         ],
+        body: _buildBody(),
       ),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: EColorConstants.primaryColor),
-      );
-    }
+    return BlocBuilder<AllCoachesCubit, AllCoachesState>(
+      builder: (context, state) {
+        final visible = _filter(state.coaches, _query);
 
-    if (_error != null && _allCoaches.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              OutlinedButton(onPressed: _loadCoaches, child: const Text('Retry')),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_visibleCoaches.isEmpty) {
-      return const Center(
-        child: Text(
-          'No coaches match your search.',
-          style: TextStyle(
-            color: EColorConstants.authPlaceholderGray,
-            fontFamily: 'Poppins',
-          ),
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      color: EColorConstants.primaryColor,
-      onRefresh: _loadCoaches,
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
-        ),
-        padding: const EdgeInsets.only(bottom: 24),
-        itemCount: _visibleCoaches.length,
-        itemBuilder: (context, index) {
-          final coach = _visibleCoaches[index];
-          return _CoachListCard(
-            coach: coach,
-            onTap: () => Navigator.of(context).pop(coach.coachId),
+        if (state.isLoading && state.coaches.isEmpty) {
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            children: const [CoachListShimmer(itemCount: 5)],
           );
-        },
-      ),
+        }
+
+        if (state.errorMessage != null && state.coaches.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(state.errorMessage!, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () =>
+                        context.read<AllCoachesCubit>().load(force: true),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (visible.isEmpty) {
+          return const Center(
+            child: Text(
+              'No coaches match your search.',
+              style: TextStyle(
+                color: EColorConstants.authPlaceholderGray,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          color: EColorConstants.primaryColor,
+          onRefresh: () => context.read<AllCoachesCubit>().refresh(),
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: visible.length,
+            itemBuilder: (context, index) {
+              final coach = visible[index];
+              return _CoachListCard(
+                coach: coach,
+                onTap: () => Navigator.of(context).pop(coach.coachId),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

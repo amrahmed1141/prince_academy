@@ -4,7 +4,9 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
+import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
+import 'package:prince_academy/features/admin/data/admin_search_index.dart';
 import 'package:prince_academy/features/admin/data/repositories/admin_dashboard_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/today_sessions/today_sessions_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/today_sessions/today_sessions_state.dart';
@@ -44,35 +46,30 @@ class _TodaySessionsViewState extends State<_TodaySessionsView> {
       builder: (context, state) {
         return Scaffold(
           backgroundColor: EColorConstants.authFieldBackground,
-          appBar: AppBar(
-            backgroundColor: EColorConstants.authFieldBackground,
-            elevation: 0,
-            leading: const BackButton(color: EColorConstants.authTextDarkBrown),
-            title: Text(
-              "Today's Sessions (${state.sessions.length})",
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: EColorConstants.authTextDarkBrown,
-                fontFamily: 'Poppins',
+          body: NestedScrollView(
+            floatHeaderSlivers: true,
+            headerSliverBuilder: (context, _) => [
+              ScrollAwaySearchHeader(
+                leading: const BackButton(
+                  color: EColorConstants.authTextDarkBrown,
+                ),
+                title: Text("Today's Sessions (${state.sessions.length})"),
+                searchBar: AppSearchBar(
+                  controller: _searchController,
+                  hintText: 'Search by coach, session, or branch...',
+                  hintPhrases: AdminSearchHints.sessions,
+                  variant: AppSearchBarVariant.outlined,
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                  onChanged:
+                      context.read<TodaySessionsCubit>().onSearchChanged,
+                  onClear: () {
+                    _searchController.clear();
+                    context.read<TodaySessionsCubit>().clearSearch();
+                  },
+                ),
               ),
-            ),
-          ),
-          body: Column(
-            children: [
-              AppSearchBar(
-                controller: _searchController,
-                hintText: 'Search by coach, session, or branch...',
-                variant: AppSearchBarVariant.outlined,
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                onChanged: context.read<TodaySessionsCubit>().onSearchChanged,
-                onClear: () {
-                  _searchController.clear();
-                  context.read<TodaySessionsCubit>().clearSearch();
-                },
-              ),
-              Expanded(child: _buildBody(context, state)),
             ],
+            body: _buildBody(context, state),
           ),
         );
       },

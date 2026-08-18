@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 import 'package:prince_academy/core/services/user_qr_service.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/booking/data/repositories/booking_freeze_repository.dart';
@@ -30,7 +32,19 @@ abstract final class MemberDataPrefetch {
         sl<BookingFreezeRepository>().ensureMyFreezesRealtime();
       }),
       _safe(() async {
-        await sl<HomeCoachRepository>().getActiveCoaches(force: true);
+        final repo = sl<HomeCoachRepository>();
+        final cached = repo.peekActiveCoaches();
+        if (cached.isNotEmpty) {
+          unawaited(
+            AppImageCache.warmUrls(
+              CoachPhotoHelper.thumbnailUrls(cached.map((c) => c.photoUrl)),
+            ),
+          );
+        }
+        final coaches = await repo.getActiveCoaches(force: true);
+        await AppImageCache.warmUrls(
+          CoachPhotoHelper.thumbnailUrls(coaches.map((c) => c.photoUrl)),
+        );
       }),
       _safe(() async {
         await sl<BranchRepository>().getAllBranches(force: true);

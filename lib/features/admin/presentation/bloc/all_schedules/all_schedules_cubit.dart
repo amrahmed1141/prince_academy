@@ -1,26 +1,83 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:prince_academy/core/helpers/remote_error.dart';
 import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/home/data/models/coach_session_model.dart';
 
 class AllSchedulesCubit extends Cubit<AllSchedulesState> {
-  AllSchedulesCubit(this._repository) : super(const AllSchedulesState.initial());
+  AllSchedulesCubit(this._repository)
+      : super(AllSchedulesState.initial(_repository.cachedAllSessions));
 
   final CoachRepository _repository;
+  StreamSubscription<List<CoachSessionModel>>? _subscription;
 
   Future<void> load({bool force = false}) async {
-    final hasData = state.groups.isNotEmpty;
-    emit(
-      state.copyWith(
-        isLoading: !hasData,
-        isRefreshing: hasData,
-        clearError: true,
-      ),
+    final cached = _repository.cachedAllSessions;
+    final hasValidCache =
+        cached != null && cached.isNotEmpty && _repository.hasValidAllSessionsCache;
+
+    await _subscription?.cancel();
+    _repository.ensureAllSessionsRealtime();
+    _subscription = _repository.allSessionsStream.listen(
+      (sessions) {
+        emit(
+          state.copyWith(
+            groups: CoachWithSessions.group(sessions),
+            isLoading: false,
+            isRefreshing: false,
+            clearError: true,
+          ),
+        );
+      },
+      onError: (Object error) {
+        emit(
+          state.copyWith(
+            isLoading: false,
+            isRefreshing: false,
+            errorMessage: userFacingRemoteError(error),
+          ),
+        );
+      },
     );
 
+    // Second open (and later): serve TTL cache with no network.
+    if (!force && hasValidCache) {
+      emit(
+        state.copyWith(
+          groups: CoachWithSessions.group(cached),
+          isLoading: false,
+          isRefreshing: false,
+          clearError: true,
+        ),
+      );
+      return;
+    }
+
+    final keepList = state.groups.isNotEmpty || (cached?.isNotEmpty ?? false);
+    if (cached != null && cached.isNotEmpty && state.groups.isEmpty) {
+      emit(
+        state.copyWith(
+          groups: CoachWithSessions.group(cached),
+          isLoading: false,
+          isRefreshing: true,
+          clearError: true,
+        ),
+      );
+    } else {
+      emit(
+        state.copyWith(
+          isLoading: !keepList,
+          isRefreshing: keepList,
+          clearError: true,
+        ),
+      );
+    }
+
     try {
-      final sessions = await _repository.getAllSessionsWithCoach();
+      final sessions = await _repository.getAllSessionsWithCoach(force: force);
       emit(
         AllSchedulesState(
           groups: CoachWithSessions.group(sessions),
@@ -33,7 +90,7 @@ class AllSchedulesCubit extends Cubit<AllSchedulesState> {
         state.copyWith(
           isLoading: false,
           isRefreshing: false,
-          errorMessage: _message(error),
+          errorMessage: userFacingRemoteError(error),
         ),
       );
     }
@@ -48,16 +105,14 @@ class AllSchedulesCubit extends Cubit<AllSchedulesState> {
       }
       await load(force: true);
     } catch (error) {
-      emit(state.copyWith(errorMessage: _message(error)));
+      emit(state.copyWith(errorMessage: userFacingRemoteError(error)));
     }
   }
 
-  static String _message(Object error) {
-    final text = error.toString();
-    if (text.startsWith('Exception: ')) {
-      return text.substring('Exception: '.length);
-    }
-    return text;
+  @override
+  Future<void> close() async {
+    await _subscription?.cancel();
+    return super.close();
   }
 }
 
@@ -69,11 +124,15 @@ class AllSchedulesState extends Equatable {
     this.errorMessage,
   });
 
-  const AllSchedulesState.initial()
-      : groups = const [],
-        isLoading = true,
-        isRefreshing = false,
-        errorMessage = null;
+  factory AllSchedulesState.initial(List<CoachSessionModel>? cached) {
+    final groups = cached == null || cached.isEmpty
+        ? const <CoachWithSessions>[]
+        : CoachWithSessions.group(cached);
+    return AllSchedulesState(
+      groups: groups,
+      isLoading: groups.isEmpty,
+    );
+  }
 
   final List<CoachWithSessions> groups;
   final bool isLoading;

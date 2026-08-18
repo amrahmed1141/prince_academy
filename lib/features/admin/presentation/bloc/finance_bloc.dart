@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:prince_academy/core/helpers/remote_error.dart';
 import 'package:prince_academy/features/admin/data/repositories/admin_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 
@@ -171,7 +172,7 @@ class FinanceCubit extends Cubit<FinanceState> {
   }
 
   String _errorMessage(Object error) {
-    return error.toString().replaceFirst('Exception: ', '');
+    return userFacingRemoteError(error);
   }
 
   @override

@@ -129,6 +129,20 @@ class HomeCoachRepository {
     );
   }
 
+  /// Hive / in-memory snapshot without waiting on the network.
+  List<CoachModel> peekActiveCoaches() {
+    _hydrateFromDisk();
+    return List<CoachModel>.from(_coachesCache.value ?? const []);
+  }
+
+  Map<String, String> peekClassTypes() {
+    return Map<String, String>.from(_classTypesCache.value ?? const {});
+  }
+
+  Map<String, int> peekStudentCounts() {
+    return Map<String, int>.from(_studentCountsCache.value ?? const {});
+  }
+
   /// Fetch all active coaches (cached). Filter by specialty in memory.
   Future<List<CoachModel>> getActiveCoaches({bool force = false}) async {
     _hydrateFromDisk();

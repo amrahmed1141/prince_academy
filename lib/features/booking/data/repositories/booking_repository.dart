@@ -263,6 +263,32 @@ class BookingRepository {
     );
   }
 
+  Future<List<BookingHistoryModel>> getRenewableBookings() {
+    return _wrap(_remoteDs.getRenewableBookings());
+  }
+
+  Future<void> dismissBookingRenewPrompt(String bookingId) {
+    return _wrap(_remoteDs.dismissBookingRenewPrompt(bookingId));
+  }
+
+  Future<BookingModel> renewExpiredBooking({
+    required String sourceBookingId,
+    required DateTime startDate,
+    required String paymentMethod,
+    String? paymentReference,
+  }) async {
+    final created = await _wrap(
+      _remoteDs.renewExpiredBooking(
+        sourceBookingId: sourceBookingId,
+        startDate: startDate,
+        paymentMethod: paymentMethod,
+        paymentReference: paymentReference,
+      ),
+    );
+    await refreshBookingsAfterMutation();
+    return created;
+  }
+
   Future<T> _wrap<T>(Future<T> future) async {
     try {
       return await future.timeout(const Duration(seconds: 15));

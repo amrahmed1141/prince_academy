@@ -7,17 +7,18 @@ import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/widgets/branded_pull_to_refresh.dart';
 import 'package:prince_academy/core/widgets/offline_banner.dart';
 import 'package:prince_academy/features/admin/data/models/branch_model.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/admin_smooth_scroll.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
 import 'package:prince_academy/features/booking/data/models/booking_history_model.dart';
+import 'package:prince_academy/features/booking/presentation/bloc/booking_renew/booking_renew_cubit.dart';
 import 'package:prince_academy/features/home/presentation/bloc/home_bloc.dart';
 import 'package:prince_academy/features/home/presentation/bloc/home_event.dart';
 import 'package:prince_academy/features/home/presentation/bloc/home_state.dart';
-import 'package:prince_academy/core/widgets/app_search_bar.dart';
-import 'package:prince_academy/core/search/search_query_cubit.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/category_list.dart';
 import 'package:prince_academy/features/home/presentation/pages/home/widgets/coaches_list.dart';
+import 'package:prince_academy/features/home/presentation/pages/home/widgets/searchbar.dart';
 import 'package:prince_academy/features/home/presentation/widgets/calendar_strip.dart';
 import 'package:prince_academy/features/home/presentation/widgets/first_time_booking_card.dart';
 import 'package:prince_academy/features/home/presentation/pages/coaches_page.dart';
@@ -51,18 +52,10 @@ class _HomePageBody extends StatefulWidget {
 class _HomePageBodyState extends State<_HomePageBody> {
   final ValueNotifier<String?> _selectedCategoryNotifier =
       ValueNotifier<String?>('All');
-  late final SearchQueryCubit _searchQueryCubit;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchQueryCubit = SearchQueryCubit();
-  }
 
   @override
   void dispose() {
     _selectedCategoryNotifier.dispose();
-    _searchQueryCubit.close();
     super.dispose();
   }
 
@@ -76,9 +69,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _searchQueryCubit,
-      child: Container(
+    return Container(
       decoration: AppGradients.homeScreenDecoration(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -148,165 +139,168 @@ class _HomePageBodyState extends State<_HomePageBody> {
         ),
         body: BrandedPullToRefresh(
           onRefresh: () async {
-            context.read<HomeBloc>().add(const LoadHomeData(forceRefresh: true));
+            context
+                .read<HomeBloc>()
+                .add(const LoadHomeData(forceRefresh: true));
+            // Renew cubit lives on the member shell above Home.
+            context.read<BookingRenewCubit>().load();
             await context.read<HomeBloc>().stream.firstWhere(
                   (s) => !s.isRefreshing && !s.isLoading,
                 );
           },
-          child: CustomScrollView(
-            cacheExtent: 600,
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            slivers: [
-              BlocSelector<HomeBloc, HomeState, bool>(
-                selector: (s) => s.error != null && s.hasLoaded,
-                builder: (context, showOffline) {
-                  if (!showOffline) {
-                    return const SliverToBoxAdapter(child: SizedBox.shrink());
-                  }
-                  return const SliverToBoxAdapter(child: OfflineBanner());
-                },
-              ),
-              BlocSelector<HomeBloc, HomeState, bool>(
-                selector: (s) => s.isRefreshing && s.hasLoaded,
-                builder: (context, refreshing) {
-                  return SliverToBoxAdapter(
-                    child: SilentRefreshBar(visible: refreshing),
-                  );
-                },
-              ),
-              const SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 8),
-                    QuerySearchBar(
-                      hintText: 'Search For Coaches, Classes, or Events',
-                    ),
-                    SizedBox(height: 8),
-                  ],
+          child: ScrollConfiguration(
+            behavior: const AdminSmoothScrollBehavior(),
+            child: CustomScrollView(
+              cacheExtent: 600,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              physics: AdminSmoothScrollBehavior.physics,
+              slivers: [
+                BlocSelector<HomeBloc, HomeState, bool>(
+                  selector: (s) => s.error != null && s.hasLoaded,
+                  builder: (context, showOffline) {
+                    if (!showOffline) {
+                      return const SliverToBoxAdapter(child: SizedBox.shrink());
+                    }
+                    return const SliverToBoxAdapter(child: OfflineBanner());
+                  },
                 ),
-              ),
-
-              // INSERT: date strip, carousel, empty state
-              BlocSelector<HomeBloc, HomeState, _HomeSectionsViewData>(
-                selector: (state) => _HomeSectionsViewData(
-                  isLoading: state.isLoading,
-                  hasLoaded: state.hasLoaded,
-                  selectedDate: state.selectedDate,
-                  allSessions: state.allSessions,
-                  sessionsForSelectedDate: state.sessionsForSelectedDate,
-                  upcomingSession: state.upcomingSession,
-                  bookings: state.bookings,
-                  lastBooking: state.lastBooking,
-                  branch: state.branch,
-                  hasSessionsForSelectedDate: state.hasSessionsForSelectedDate,
-                ),
-                builder: (context, data) {
-                  if (data.isLoading && !data.hasLoaded) {
-                    return const SliverToBoxAdapter(
-                      child: _HomeSectionsShimmer(),
+                BlocSelector<HomeBloc, HomeState, bool>(
+                  selector: (s) => s.isRefreshing && s.hasLoaded,
+                  builder: (context, refreshing) {
+                    return SliverToBoxAdapter(
+                      child: SilentRefreshBar(visible: refreshing),
                     );
-                  }
-
-                  return SliverMainAxisGroup(
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: CalendarStrip(
-                          selectedDate: data.selectedDate,
-                          allSessions: data.allSessions,
-                          onDateSelected: (date) {
-                            context.read<HomeBloc>().add(SelectDate(date));
-                          },
-                        ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                      SliverToBoxAdapter(
-                        child: _HomeInsightsCarousel(
-                          selectedDate: data.selectedDate,
-                          allSessions: data.allSessions,
-                          sessionsForSelectedDate:
-                              data.sessionsForSelectedDate,
-                          bookings: data.bookings,
-                          // NEW: first-time CTA when no active/upcoming sessions
-                          showFirstTimeBookingCard:
-                              data.showFirstTimeBookingCard,
-                          onBookCoach: _openCoachesPage,
-                          onBookingTap: (booking) =>
-                              _openSessionDetail(context, booking),
-                        ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 4)),
+                  },
+                ),
+                const SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 8),
+                      HomeSearchBar(),
+                      SizedBox(height: 8),
                     ],
-                  );
-                },
-              ),
-              // END INSERT
-
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'Category',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 18,
-                        ),
                   ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(
-                child: CategoryList(
-                  selectedCategoryNotifier: _selectedCategoryNotifier,
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Choose Your Coach',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 18,
-                            ),
-                      ),
-                      TextButton(
-                        onPressed: _openCoachesPage,
-                        child: const Text(
-                          'View All',
-                          style: TextStyle(
-                            color: EColorConstants.primaryColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+
+                // INSERT: date strip, carousel, empty state
+                BlocSelector<HomeBloc, HomeState, _HomeSectionsViewData>(
+                  selector: (state) => _HomeSectionsViewData(
+                    isLoading: state.isLoading,
+                    hasLoaded: state.hasLoaded,
+                    selectedDate: state.selectedDate,
+                    allSessions: state.allSessions,
+                    sessionsForSelectedDate: state.sessionsForSelectedDate,
+                    upcomingSession: state.upcomingSession,
+                    bookings: state.bookings,
+                    lastBooking: state.lastBooking,
+                    branch: state.branch,
+                    hasSessionsForSelectedDate:
+                        state.hasSessionsForSelectedDate,
+                  ),
+                  builder: (context, data) {
+                    if (data.isLoading && !data.hasLoaded) {
+                      return const SliverToBoxAdapter(
+                        child: _HomeSectionsShimmer(),
+                      );
+                    }
+
+                    return SliverMainAxisGroup(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: CalendarStrip(
+                            selectedDate: data.selectedDate,
+                            allSessions: data.allSessions,
+                            onDateSelected: (date) {
+                              context.read<HomeBloc>().add(SelectDate(date));
+                            },
                           ),
                         ),
-                      )
-                    ],
+                        const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                        SliverToBoxAdapter(
+                          child: _HomeInsightsCarousel(
+                            selectedDate: data.selectedDate,
+                            allSessions: data.allSessions,
+                            sessionsForSelectedDate:
+                                data.sessionsForSelectedDate,
+                            bookings: data.bookings,
+                            // NEW: first-time CTA when no active/upcoming sessions
+                            showFirstTimeBookingCard:
+                                data.showFirstTimeBookingCard,
+                            onBookCoach: _openCoachesPage,
+                            onBookingTap: (booking) =>
+                                _openSessionDetail(context, booking),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 4)),
+                      ],
+                    );
+                  },
+                ),
+                // END INSERT
+
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'Category',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
+                          ),
+                    ),
                   ),
                 ),
-              ),
-              SliverPadding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                sliver: CoachesList(
-                  selectedCategoryNotifier: _selectedCategoryNotifier,
-                  searchQueryCubit: _searchQueryCubit,
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                SliverToBoxAdapter(
+                  child: CategoryList(
+                    selectedCategoryNotifier: _selectedCategoryNotifier,
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 110),
-              ),
-            ],
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Choose Your Coach',
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 18,
+                                  ),
+                        ),
+                        TextButton(
+                          onPressed: _openCoachesPage,
+                          child: const Text(
+                            'View All',
+                            style: TextStyle(
+                              color: EColorConstants.primaryColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+                SliverPadding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                  sliver: CoachesList(
+                    selectedCategoryNotifier: _selectedCategoryNotifier,
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 110),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -520,9 +514,7 @@ class _HomeInsightsCarousel extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       primary: false,
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
+      physics: AdminSmoothScrollBehavior.physics,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       clipBehavior: Clip.none,
       child: Row(

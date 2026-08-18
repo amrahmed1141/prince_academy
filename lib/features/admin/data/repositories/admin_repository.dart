@@ -23,7 +23,7 @@ class AdminRepository extends StreamRepository<List<PendingPaymentModel>> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'bookings',
-          callback: (_) => unawaited(refresh()),
+          callback: (_) => unawaited(refreshInBackground()),
         )
         .subscribe();
   }

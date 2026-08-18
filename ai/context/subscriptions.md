@@ -18,7 +18,8 @@ Subscription window on bookings, client pricing helpers, and admin renew. No `li
 ## Important repositories
 
 - Create/price path: `BookingRepository` / `BookingRemoteDs` (uses pricing helpers)
-- Renew: `CoachRepository.renewSubscription` → RPC `renew_booking_subscription`
+- Admin renew (same row): `CoachRepository.renewSubscription` → RPC `renew_booking_subscription`
+- Member renew (new booking, same days/price): `BookingRepository.renewExpiredBooking` → RPC `renew_expired_booking` (+ `get_renewable_bookings` / `dismiss_booking_renew_prompt`)
 
 ## Important Cubits / BLoCs
 

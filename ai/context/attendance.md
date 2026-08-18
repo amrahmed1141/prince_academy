@@ -13,7 +13,8 @@ Mark / re-attend / unmark attendance, QR scan flows, and member weekly progress.
 - Admin models: `DayAttendance`, attendance/session detail models — `lib/features/admin/data/models/`
 - Member: `SessionModel` (`attendanceStatus`, `attendedSessions`) — `lib/features/sessions/data/models/`
 - `WeeklyProgressCalculator` — `lib/features/sessions/domain/weekly_progress_calculator.dart` (`daySessionAttendance` for home calendar circles)
-- UI: `session_detail_page`, `qr_scanner_page`, `weekly_attendance_chart`, `today_attendance_page`, `calendar_strip`
+- UI: `session_detail_page`, `qr_scanner_page`, `weekly_attendance_chart` (member weekly gauge), `today_attendance_page`, `calendar_strip`
+- Shared gauge: `lib/core/widgets/semi_circular_gauge.dart` (admin today KPI + member weekly progress)
 
 ## Important repositories
 
@@ -35,6 +36,7 @@ Mark / re-attend / unmark attendance, QR scan flows, and member weekly progress.
 - Attendance owns state/corrections; Booking owns schedule creation.
 - Admin dashboard upcoming/live session cards read `attended_count` / `booked_count` from `today_coach_sessions` (derived from `attendance` + active verified `bookings` for today). No separate attendance-progress table. Dashboard realtime listens on `attendance`, `bookings`, `payments`, and `coach_sessions` (must be in `supabase_realtime` publication).
 - Admin Home KPI page 1 sums those per-session counts into **today total attendance** (`Σ attended / Σ booked`) for the arc progress widget — no new RPC.
+- Member Home / Sessions replace the weekly bar chart with the same semi-circular gauge: **sessions attended / sessions scheduled this week** via `WeeklyProgressCalculator.calculate` (upcoming scheduled days are included in the denominator; future days cannot be attended yet). No new SQL/RPC.
 - Tap the KPI gauge → `TodayAttendancePage` lists each expected member from companion view `today_attendance_members` (same booking filters as `today_coach_sessions` so counts match). Coach chips filter client-side; Mark attended reuses `CoachRepository.markAttendance`.
 - Member mark-attendance cards use elevation-only chrome — no green gradient border on "markable today" cards.
 - Approved freezes (`booking_freeze_dates`) are excluded from Needs-attention expected days and from `is_scheduled_today` / Mark Attended. `get_booking_sessions` returns `status = frozen` for those dates.

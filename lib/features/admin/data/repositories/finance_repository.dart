@@ -20,7 +20,7 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'payments',
-            callback: (_) => unawaited(refresh()),
+            callback: (_) => unawaited(refreshInBackground()),
           )
           .subscribe();
     }
@@ -32,7 +32,7 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'bookings',
-            callback: (_) => unawaited(refresh()),
+            callback: (_) => unawaited(refreshInBackground()),
           )
           .subscribe();
     }
@@ -57,7 +57,7 @@ class FinanceRepository extends StreamRepository<FinanceDashboardData> {
     final results = await Future.wait<dynamic>([
       _supabase
           .from('finance_daily_revenue')
-          .select()
+          .select('payment_date, daily_revenue')
           .order('payment_date', ascending: false)
           .limit(365),
       _supabase

@@ -39,27 +39,65 @@ class CoachAvatar extends StatelessWidget {
       );
     }
 
+    final thumbUrl = CoachPhotoHelper.thumbnailUrl(photoUrl) ?? url;
     final cacheSize = (size * 3).round().clamp(96, 512);
 
     return ClipOval(
-      child: Image(
-        image: ResizeImage(
-          AppImageCache.provider(url),
-          width: cacheSize,
-          height: cacheSize,
-        ),
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-          if (wasSynchronouslyLoaded || frame != null) return child;
-          return _ShimmerAvatar(size: size);
-        },
-        errorBuilder: (_, __, ___) {
-          return _InitialsAvatar(name: coachName, size: size);
-        },
+      child: _RemotePhoto(
+        url: thumbUrl,
+        fallbackUrl: thumbUrl == url ? null : url,
+        cacheSize: cacheSize,
+        size: size,
+        coachName: coachName,
       ),
+    );
+  }
+}
+
+class _RemotePhoto extends StatelessWidget {
+  const _RemotePhoto({
+    required this.url,
+    required this.fallbackUrl,
+    required this.cacheSize,
+    required this.size,
+    required this.coachName,
+  });
+
+  final String url;
+  final String? fallbackUrl;
+  final int cacheSize;
+  final double size;
+  final String coachName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image(
+      image: ResizeImage(
+        AppImageCache.provider(url),
+        width: cacheSize,
+        height: cacheSize,
+      ),
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) return child;
+        return _ShimmerAvatar(size: size);
+      },
+      errorBuilder: (_, __, ___) {
+        final fallback = fallbackUrl;
+        if (fallback == null) {
+          return _InitialsAvatar(name: coachName, size: size);
+        }
+        return _RemotePhoto(
+          url: fallback,
+          fallbackUrl: null,
+          cacheSize: cacheSize,
+          size: size,
+          coachName: coachName,
+        );
+      },
     );
   }
 }

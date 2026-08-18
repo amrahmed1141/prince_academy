@@ -1,6 +1,11 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-/// Shared [NetworkImage] providers so the same URL reuses one in-memory cache entry.
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:prince_academy/core/cache/disk_image_cache.dart';
+
+/// Shared image providers so the same URL reuses one in-memory cache entry
+/// and a disk file across launches.
 /// Also bumps Flutter's image cache budget for smoother coach/avatar scrolling.
 abstract final class AppImageCache {
   static final Map<String, ImageProvider> _providers = {};
@@ -20,9 +25,32 @@ abstract final class AppImageCache {
     final existing = _providers[trimmed];
     if (existing != null) return existing;
 
-    final imageProvider = NetworkImage(trimmed);
+    final ImageProvider imageProvider;
+    if (kIsWeb) {
+      imageProvider = NetworkImage(trimmed);
+    } else {
+      imageProvider = DiskCachedNetworkImage(trimmed);
+    }
     _providers[trimmed] = imageProvider;
     return imageProvider;
+  }
+
+  /// Download files to disk without a [BuildContext] (member prefetch).
+  static Future<void> warmUrls(Iterable<String?> urls) async {
+    if (kIsWeb) return;
+    final unique = <String>{};
+    for (final url in urls) {
+      if (url == null) continue;
+      final trimmed = url.trim();
+      if (trimmed.startsWith('http')) unique.add(trimmed);
+    }
+    await Future.wait(
+      unique.map((url) async {
+        try {
+          await DiskImageCache.ensure(url);
+        } catch (_) {}
+      }),
+    );
   }
 
   /// Warm images into Flutter's ImageCache without blocking the UI.
@@ -31,17 +59,22 @@ abstract final class AppImageCache {
     Iterable<String?> urls,
   ) async {
     ensureBudget();
+    final tasks = <Future<void>>[];
     for (final url in urls) {
       if (url == null || url.trim().isEmpty) continue;
       if (!url.startsWith('http')) continue;
-      try {
-        await precacheImage(provider(url), context);
-      } catch (_) {}
+      tasks.add(() async {
+        try {
+          await precacheImage(provider(url), context);
+        } catch (_) {}
+      }());
     }
+    await Future.wait(tasks);
   }
 
   static void clear() {
     _providers.clear();
     PaintingBinding.instance.imageCache.clear();
+    unawaited(DiskImageCache.clear());
   }
 }

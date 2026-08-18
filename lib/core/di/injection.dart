@@ -6,12 +6,15 @@ import 'package:prince_academy/features/auth/data/repositories/auth_repo_impl.da
 import 'package:prince_academy/features/admin/data/datasources/admin_session_preferences.dart';
 import 'package:prince_academy/features/admin/data/repositories/admin_dashboard_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/admin_repository.dart';
+import 'package:prince_academy/features/admin/data/repositories/admin_search_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_dashboard_cubit.dart';
+import 'package:prince_academy/features/admin/presentation/bloc/admin_search/admin_search_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/all_schedules/all_schedules_cubit.dart';
+import 'package:prince_academy/features/admin/presentation/bloc/all_coaches/all_coaches_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/coach/coach_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/finance_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/session_detail_bloc.dart';
@@ -23,6 +26,7 @@ import 'package:prince_academy/features/booking/data/repositories/booking_freeze
 import 'package:prince_academy/features/booking/presentation/bloc/booking_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_detail_bloc.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/booking_history_bloc.dart';
+import 'package:prince_academy/features/booking/presentation/bloc/booking_renew/booking_renew_cubit.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/user_freeze/user_freeze_cubit.dart';
 import 'package:prince_academy/features/booking/presentation/bloc/my_freeze_requests/my_freeze_requests_cubit.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/all_freeze/all_freeze_cubit.dart';
@@ -37,6 +41,8 @@ import 'package:prince_academy/features/sessions/presentation/bloc/sessions_bloc
 import 'package:prince_academy/features/sessions/presentation/bloc/user_session_detail_bloc.dart';
 import 'package:prince_academy/features/notifications/data/repositories/notification_repository.dart';
 import 'package:prince_academy/features/notifications/presentation/bloc/notification_bloc.dart';
+import 'package:prince_academy/features/search/data/repositories/global_search_repository.dart';
+import 'package:prince_academy/features/search/presentation/cubit/global_search_cubit.dart';
 
 final sl = GetIt.I;
 
@@ -66,6 +72,9 @@ Future<void> setupDI() async {
   sl.registerFactory<AllSchedulesCubit>(
     () => AllSchedulesCubit(sl()),
   );
+  sl.registerFactory<AllCoachesCubit>(
+    () => AllCoachesCubit(sl()),
+  );
   sl.registerFactory<CoachBloc>(() => CoachBloc(repository: sl()));
   sl.registerLazySingleton<HomeCoachRepository>(
     () => HomeCoachRepository(sl(), cache: sl()),
@@ -92,6 +101,7 @@ Future<void> setupDI() async {
   sl.registerFactory<BookingBloc>(() => BookingBloc(sl()));
   sl.registerFactory<BookingHistoryBloc>(() => BookingHistoryBloc(sl()));
   sl.registerFactory<BookingDetailBloc>(() => BookingDetailBloc(sl()));
+  sl.registerFactory<BookingRenewCubit>(() => BookingRenewCubit(sl()));
   sl.registerFactory<UserFreezeCubit>(
     () => UserFreezeCubit(
       sl<BookingFreezeRepository>(),
@@ -129,4 +139,20 @@ Future<void> setupDI() async {
   );
   // App-scoped while authenticated (provided in PrinceAcademyApp).
   sl.registerFactory<NotificationBloc>(() => NotificationBloc(sl()));
+
+  sl.registerLazySingleton<GlobalSearchRepository>(
+    () => GlobalSearchRepository(
+      coaches: sl(),
+      sessions: sl(),
+    ),
+  );
+  sl.registerFactory<GlobalSearchCubit>(
+    () => GlobalSearchCubit(sl()),
+  );
+  sl.registerLazySingleton<AdminSearchRepository>(
+    () => AdminSearchRepository(sl()),
+  );
+  sl.registerFactory<AdminSearchCubit>(
+    () => AdminSearchCubit(sl()),
+  );
 }

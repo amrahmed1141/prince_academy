@@ -52,6 +52,12 @@ class AuthRepoImpl implements AuthRepo {
   }
 
   @override
+  Future<void> signInWithGoogle() => ds.signInWithGoogle();
+
+  @override
+  Future<void> signInWithFacebook() => ds.signInWithFacebook();
+
+  @override
   Future<void> signOut() => ds.signOut();
 
   @override

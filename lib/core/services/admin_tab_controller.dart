@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 /// Controls the admin shell bottom-nav tab from anywhere in the admin UI.
 class AdminTabController extends ChangeNotifier {
   static const int home = 0;
-  static const int addInfo = 1;
+  static const int addInfo = 1; // Create hub
   static const int tracking = 2;
   static const int finance = 3;
 

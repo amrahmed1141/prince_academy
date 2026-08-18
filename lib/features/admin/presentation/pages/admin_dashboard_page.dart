@@ -3,14 +3,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
-import 'package:prince_academy/core/services/admin_tab_controller.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/widgets/branded_pull_to_refresh.dart';
+import 'package:prince_academy/core/widgets/offline_banner.dart';
+import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
 import 'package:prince_academy/features/admin/data/models/admin_dashboard_model.dart';
 import 'package:prince_academy/features/admin/data/models/low_attendance_member_model.dart';
 import 'package:prince_academy/features/admin/data/models/payment_verification_data.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_dashboard_cubit.dart';
+import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_bloc.dart';
+import 'package:prince_academy/features/admin/presentation/pages/admin_add_info_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_profile.dart';
 import 'package:prince_academy/features/admin/presentation/pages/all_schedules_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/all_freeze_page.dart';
@@ -22,9 +25,11 @@ import 'package:prince_academy/features/admin/presentation/pages/today_attendanc
 import 'package:prince_academy/features/admin/presentation/pages/today_sessions_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/all_coaches_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/all_members_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/tracking/tracking_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/tracking/user_tracking_detail_page.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_smooth_scroll.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_attention_list.dart';
+import 'package:prince_academy/features/admin/presentation/widgets/dashboard/admin_dashboard_search_bar.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_header.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_kpi_pager.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/dashboard_pending_payments_list.dart';
@@ -55,26 +60,26 @@ class _AdminDashboardView extends StatelessWidget {
       decoration: AppGradients.homeScreenDecoration(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: BlocListener<AdminDashboardCubit, AdminDashboardState>(
-          listenWhen: (previous, current) =>
-              previous.errorMessage != current.errorMessage &&
-              current.errorMessage != null &&
-              current.data != null,
-          listener: (context, state) {
-            final message = state.errorMessage;
-            if (message == null) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(message),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          },
-          child: const Column(
-            children: [
-              _DashboardHeaderSection(),
-              Expanded(child: _DashboardScrollBody()),
-            ],
+        body: SafeArea(
+          bottom: false,
+          child: BrandedPullToRefresh(
+            onRefresh: () => context.read<AdminDashboardCubit>().refresh(),
+            child: NestedScrollView(
+              floatHeaderSlivers: true,
+              headerSliverBuilder: (context, _) => [
+                ScrollAwaySearchHeader(
+                  primary: false,
+                  automaticallyImplyLeading: false,
+                  titleSpacing: 0,
+                  toolbarHeight: 80,
+                  searchExtent: 64,
+                  backgroundColor: const Color(0xFFFFF9F5),
+                  title: const _DashboardHeaderSection(),
+                  searchBar: const AdminDashboardSearchBar(),
+                ),
+              ],
+              body: const _DashboardScrollBody(),
+            ),
           ),
         ),
       ),
@@ -137,25 +142,22 @@ class _DashboardScrollBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BrandedPullToRefresh(
-      onRefresh: () => context.read<AdminDashboardCubit>().refresh(),
-      child: ScrollConfiguration(
-        behavior: const AdminSmoothScrollBehavior(),
-        child: BlocBuilder<AdminDashboardCubit, AdminDashboardState>(
-          buildWhen: _shellChanged,
-          builder: (context, state) {
-            if (state.isInitialLoading && state.data == null) {
-              return const _DashboardShimmer();
-            }
-            if (state.errorMessage != null && state.data == null) {
-              return _DashboardErrorScroll(
-                message: state.errorMessage!,
-                onRetry: () => context.read<AdminDashboardCubit>().load(),
-              );
-            }
-            return const _DashboardContentScroll();
-          },
-        ),
+    return ScrollConfiguration(
+      behavior: const AdminSmoothScrollBehavior(),
+      child: BlocBuilder<AdminDashboardCubit, AdminDashboardState>(
+        buildWhen: _shellChanged,
+        builder: (context, state) {
+          if (state.isInitialLoading && state.data == null) {
+            return const _DashboardShimmer();
+          }
+          if (state.errorMessage != null && state.data == null) {
+            return _DashboardErrorScroll(
+              message: state.errorMessage!,
+              onRetry: () => context.read<AdminDashboardCubit>().load(),
+            );
+          }
+          return const _DashboardContentScroll();
+        },
       ),
     );
   }
@@ -166,24 +168,34 @@ class _DashboardContentScroll extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CustomScrollView(
+    return CustomScrollView(
       physics: AdminSmoothScrollBehavior.physics,
       cacheExtent: 480,
       slivers: [
-        SliverPadding(
+        BlocSelector<AdminDashboardCubit, AdminDashboardState, bool>(
+          selector: (state) =>
+              state.errorMessage != null && state.data != null,
+          builder: (context, showOffline) {
+            if (!showOffline) {
+              return const SliverToBoxAdapter(child: SizedBox.shrink());
+            }
+            return const SliverToBoxAdapter(child: OfflineBanner());
+          },
+        ),
+        const SliverPadding(
           padding: EdgeInsets.fromLTRB(20, 8, 20, 120),
           sliver: SliverList(
             delegate: SliverChildListDelegate.fixed(
               [
                 _DashboardKpiSection(),
                 SizedBox(height: 24),
+                _DashboardActionsSection(),
+                SizedBox(height: 24),
                 _DashboardTodaySection(),
                 SizedBox(height: 24),
                 _DashboardAttentionSection(),
                 SizedBox(height: 24),
                 _DashboardPendingSection(),
-                SizedBox(height: 24),
-                _DashboardActionsSection(),
               ],
               addAutomaticKeepAlives: false,
             ),
@@ -356,10 +368,9 @@ class _DashboardActionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DashboardQuickActions(
-      onScanQr: () => _DashboardNav.openQrScanner(context),
-      onVerifyPayments: () => _DashboardNav.openPendingPayments(context),
-      onManageAcademy: () => sl<AdminTabController>().goAddInfo(),
-      onAddSession: () => sl<AdminTabController>().goAddInfo(),
+      onScan: () => _DashboardNav.openQrScanner(context),
+      onTracking: () => _DashboardNav.openTracking(context),
+      onAddInfo: () => _DashboardNav.openAddInfo(context),
     );
   }
 }
@@ -372,6 +383,26 @@ abstract final class _DashboardNav {
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => const QrScannerPage(),
+      ),
+    );
+  }
+
+  static void openTracking(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const TrackingPage(showBackButton: true),
+      ),
+    );
+  }
+
+  static void openAddInfo(BuildContext context) {
+    final homeBloc = context.read<AdminHomeBloc>();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: homeBloc,
+          child: const AdminAddInfoPage(showAsStandalone: true),
+        ),
       ),
     );
   }
@@ -492,13 +523,21 @@ class _DashboardShimmer extends StatelessWidget {
                   const SizedBox(height: 12),
                   Center(child: _box(height: 10, width: 40)),
                   const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(child: _box(height: 72)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _box(height: 72)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _box(height: 72)),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                   _box(height: 88),
                   const SizedBox(height: 24),
                   _box(height: 120),
                   const SizedBox(height: 24),
                   _box(height: 160),
-                  const SizedBox(height: 24),
-                  _box(height: 120),
                 ],
               ),
             ),

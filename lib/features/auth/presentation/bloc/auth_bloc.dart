@@ -19,6 +19,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<SignUpRequested>(_onSignUpRequested);
     on<AuthUserSignIn>(_onUserSignIn);
     on<AuthAdminSignIn>(_onAdminSignIn);
+    on<AuthGoogleSignIn>(_onGoogleSignIn);
+    on<AuthFacebookSignIn>(_onFacebookSignIn);
     on<AuthSignOut>(_onSignOut);
     on<AuthRefreshProfile>(_onRefreshProfile);
 
@@ -222,6 +224,59 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (e.code == 'PGRST205' || e.code == '404') {
         emit(const AuthError(
           "Database missing: Please create the 'users' table in Supabase.",
+        ));
+      } else {
+        emit(AuthError(e.message));
+      }
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
+  }
+
+  Future<void> _onGoogleSignIn(
+    AuthGoogleSignIn event,
+    Emitter<AuthState> emit,
+  ) async {
+    await _signInWithSocial(
+      emit,
+      () => repo.signInWithGoogle(),
+    );
+  }
+
+  Future<void> _onFacebookSignIn(
+    AuthFacebookSignIn event,
+    Emitter<AuthState> emit,
+  ) async {
+    await _signInWithSocial(
+      emit,
+      () => repo.signInWithFacebook(),
+    );
+  }
+
+  Future<void> _signInWithSocial(
+    Emitter<AuthState> emit,
+    Future<void> Function() signIn,
+  ) async {
+    emit(const AuthLoading());
+    try {
+      await signIn();
+
+      final userDoc = await repo.loadUser();
+      if (userDoc == null) {
+        await repo.signOut();
+        emit(const AuthError('Profile missing. Contact support.'));
+        return;
+      }
+
+      emit(AuthAuthed(userDoc));
+    } on SocialAuthCancelled {
+      emit(const AuthNoSession());
+    } on AuthException catch (e) {
+      emit(AuthError(_friendlyAuthMessage(e.message)));
+    } on PostgrestException catch (e) {
+      if (e.code == 'PGRST205' || e.code == '404') {
+        emit(const AuthError(
+          "Database missing: Please create the 'profiles' table in Supabase.",
         ));
       } else {
         emit(AuthError(e.message));

@@ -181,6 +181,7 @@ class _SessionScreenScopeState extends State<_SessionScreenScope> {
             AppSearchBar(
               controller: _searchController,
               hintText: 'Search by coach, location, or date',
+              hintPhrases: const ['coaches', 'location', 'date'],
               padding: const EdgeInsets.symmetric(horizontal: 16),
               onChanged: _onSearchChanged,
               onClear: _onSearchClear,

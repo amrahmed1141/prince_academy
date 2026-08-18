@@ -7,7 +7,9 @@ import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
+import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
+import 'package:prince_academy/features/admin/data/admin_search_index.dart';
 import 'package:prince_academy/features/admin/data/models/active_user_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_user_stats_model.dart';
 import 'package:prince_academy/features/admin/data/repositories/branch_repository.dart';
@@ -21,7 +23,13 @@ import 'package:prince_academy/features/admin/presentation/pages/tracking/user_t
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
 
 class TrackingPage extends StatelessWidget {
-  const TrackingPage({super.key});
+  const TrackingPage({
+    super.key,
+    this.showBackButton = false,
+  });
+
+  /// When true, shows a back arrow (pushed route, not the Tracking tab).
+  final bool showBackButton;
 
   @override
   Widget build(BuildContext context) {
@@ -30,13 +38,18 @@ class TrackingPage extends StatelessWidget {
         repository: sl<CoachRepository>(),
         branchRepository: sl<BranchRepository>(),
       )..add(const LoadTrackingData()),
-      child: const TrackingView(),
+      child: TrackingView(showBackButton: showBackButton),
     );
   }
 }
 
 class TrackingView extends StatefulWidget {
-  const TrackingView({super.key});
+  const TrackingView({
+    super.key,
+    this.showBackButton = false,
+  });
+
+  final bool showBackButton;
 
   @override
   State<TrackingView> createState() => _TrackingViewState();
@@ -80,33 +93,57 @@ class _TrackingViewState extends State<TrackingView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: EColorConstants.authFieldBackground,
-      body: SafeArea(
-        child: BlocBuilder<TrackingBloc, TrackingState>(
-          builder: (context, state) {
-            if (state is TrackingInitial || state is TrackingLoading) {
-              return const TrackingPageShimmer();
-            }
-
-            if (state is TrackingError) {
-              return _TrackingErrorView(
-                message: state.message,
-                onRetry: () {
-                  context.read<TrackingBloc>().add(const LoadTrackingData());
-                },
-              );
-            }
-
-            if (state is TrackingLoaded) {
-              return _buildContent(context, state);
-            }
-
-            return const Center(child: Text('Unknown state'));
-          },
-        ),
-      ),
+    return BlocBuilder<TrackingBloc, TrackingState>(
+      builder: (context, state) {
+        final isLoaded = state is TrackingLoaded;
+        return Scaffold(
+          backgroundColor: EColorConstants.authFieldBackground,
+          appBar: widget.showBackButton && !isLoaded
+              ? AppBar(
+                  backgroundColor: EColorConstants.authFieldBackground,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  leading: const BackButton(
+                    color: EColorConstants.authTextDarkBrown,
+                  ),
+                  title: const Text(
+                    'Tracking',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: EColorConstants.authTextDarkBrown,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                )
+              : null,
+          body: SafeArea(
+            child: _buildBody(context, state),
+          ),
+        );
+      },
     );
+  }
+
+  Widget _buildBody(BuildContext context, TrackingState state) {
+    if (state is TrackingInitial || state is TrackingLoading) {
+      return const TrackingPageShimmer();
+    }
+
+    if (state is TrackingError) {
+      return _TrackingErrorView(
+        message: state.message,
+        onRetry: () {
+          context.read<TrackingBloc>().add(const LoadTrackingData());
+        },
+      );
+    }
+
+    if (state is TrackingLoaded) {
+      return _buildContent(context, state);
+    }
+
+    return const Center(child: Text('Unknown state'));
   }
 
   Widget _buildContent(BuildContext context, TrackingLoaded state) {
@@ -126,26 +163,31 @@ class _TrackingViewState extends State<TrackingView> {
           parent: BouncingScrollPhysics(),
         ),
         slivers: [
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Text(
-                'Tracking',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: EColorConstants.authTextDarkBrown,
-                  fontFamily: 'Poppins',
-                ),
+          ScrollAwaySearchHeader(
+            primary: false,
+            automaticallyImplyLeading: false,
+            leading: widget.showBackButton
+                ? const BackButton(
+                    color: EColorConstants.authTextDarkBrown,
+                  )
+                : null,
+            toolbarHeight: 52,
+            searchExtent: 64,
+            title: const Text(
+              'Tracking',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: EColorConstants.authTextDarkBrown,
+                fontFamily: 'Poppins',
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: AppSearchBar(
+            searchBar: AppSearchBar(
               controller: _searchController,
               hintText: 'Search by name or phone...',
+              hintPhrases: AdminSearchHints.tracking,
               variant: AppSearchBarVariant.outlined,
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               onChanged: _onSearchChanged,
               onClear: () {
                 _searchDebounce?.cancel();
@@ -153,7 +195,7 @@ class _TrackingViewState extends State<TrackingView> {
               },
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
@@ -249,9 +291,7 @@ class _TrackingViewState extends State<TrackingView> {
                         ),
                       );
                       if (!context.mounted || coachId == null) return;
-                      context
-                          .read<TrackingBloc>()
-                          .add(FilterByCoach(coachId));
+                      context.read<TrackingBloc>().add(FilterByCoach(coachId));
                     },
                   ),
                 ],
@@ -281,8 +321,8 @@ class _TrackingViewState extends State<TrackingView> {
                   height: 180,
                   child: _CoachOverviewCard(
                     coach: state.displayCoaches.first,
-                    isSelected:
-                        state.selectedCoachId == state.displayCoaches.first.coachId,
+                    isSelected: state.selectedCoachId ==
+                        state.displayCoaches.first.coachId,
                     width: double.infinity,
                     margin: EdgeInsets.zero,
                     onTap: () {
@@ -363,7 +403,8 @@ class _TrackingViewState extends State<TrackingView> {
                               const SizedBox(
                                 width: 14,
                                 height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               ),
                             ],
                           ],

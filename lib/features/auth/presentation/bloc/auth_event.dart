@@ -50,6 +50,14 @@ class AuthAdminSignIn extends AuthEvent {
   List<Object> get props => [email, password];
 }
 
+class AuthGoogleSignIn extends AuthEvent {
+  const AuthGoogleSignIn();
+}
+
+class AuthFacebookSignIn extends AuthEvent {
+  const AuthFacebookSignIn();
+}
+
 class AuthSignOut extends AuthEvent {
   const AuthSignOut();
 }

@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:developer' as developer;
+
+import 'package:prince_academy/core/helpers/remote_error.dart';
 
 /// Broadcast stream + in-memory TTL cache with optional auto-refresh.
 abstract class StreamRepository<T> {
@@ -34,7 +37,20 @@ abstract class StreamRepository<T> {
     _refreshTimer = null;
   }
 
-  Future<T> refresh() async {
+  /// Timer / realtime refresh. Never throws into the zone.
+  Future<void> refreshInBackground() async {
+    try {
+      await refresh(silent: true);
+    } catch (error) {
+      developer.log(
+        'Background refresh failed: ${userFacingRemoteError(error)}',
+        name: 'StreamRepository',
+        error: error,
+      );
+    }
+  }
+
+  Future<T> refresh({bool silent = false}) async {
     if (_isFetching) {
       // A concurrent realtime/mutation tick arrived while a fetch is in flight —
       // queue one follow-up so the latest change is not dropped.
@@ -61,15 +77,26 @@ abstract class StreamRepository<T> {
       _scheduleAutoRefresh();
       return data;
     } catch (error, stackTrace) {
-      if (!_streamController.isClosed) {
-        _streamController.addError(error, stackTrace);
+      final mapped = Exception(userFacingRemoteError(error));
+      final hasCache = _cachedValue != null;
+      if (silent && hasCache) {
+        developer.log(
+          'Kept cached ${T.toString()} after refresh failure',
+          name: 'StreamRepository',
+          error: error,
+        );
+        _scheduleAutoRefresh();
+        return _cachedValue as T;
       }
-      rethrow;
+      if (!_streamController.isClosed) {
+        _streamController.addError(mapped, stackTrace);
+      }
+      Error.throwWithStackTrace(mapped, stackTrace);
     } finally {
       _isFetching = false;
       if (_pendingRefresh) {
         _pendingRefresh = false;
-        unawaited(refresh());
+        unawaited(refreshInBackground());
       }
     }
   }
@@ -77,7 +104,7 @@ abstract class StreamRepository<T> {
   void _scheduleAutoRefresh() {
     _refreshTimer?.cancel();
     _refreshTimer = Timer(cacheTtl, () {
-      refresh();
+      unawaited(refreshInBackground());
     });
   }
 

@@ -20,26 +20,8 @@ class BookNowNavigation {
     String? branchId,
     String? branchName,
   }) async {
-    List<String> bookedCoachIds = const [];
-    try {
-      bookedCoachIds = context.read<BookingBloc>().state.bookedCoachIds;
-    } catch (_) {}
-
-    if (bookedCoachIds.isEmpty) {
-      try {
-        bookedCoachIds = await sl<BookingRepository>().getUserActiveCoachIds();
-      } catch (_) {}
-    }
-
-    if (bookedCoachIds.contains(coachId)) {
-      if (!context.mounted) return;
-      CustomSnackbar.show(
-        context: context,
-        message: 'You already have an active booking for $coachName',
-      );
-      return;
-    }
-
+    // Always verify against the server — bloc cache can still list coaches
+    // whose bookings expired by date while status remains 'active'.
     try {
       final isDuplicate =
           await sl<BookingRepository>().hasActiveBookingWithCoach(coachId);
@@ -52,6 +34,19 @@ class BookNowNavigation {
         return;
       }
     } catch (_) {}
+
+    if (!context.mounted) return;
+
+    List<String> bookedCoachIds = const [];
+    try {
+      bookedCoachIds = await sl<BookingRepository>().getUserActiveCoachIds();
+    } catch (_) {
+      if (context.mounted) {
+        try {
+          bookedCoachIds = context.read<BookingBloc>().state.bookedCoachIds;
+        } catch (_) {}
+      }
+    }
 
     if (!context.mounted) return;
 

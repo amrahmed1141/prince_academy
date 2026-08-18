@@ -273,6 +273,7 @@ class BookingRemoteDs {
   }
 
   // ADDED: active coach IDs for duplicate booking prevention
+  // Expired-by-date rows may still have status='active' — exclude those.
   Future<List<String>> getUserActiveCoachIds() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
@@ -281,11 +282,12 @@ class BookingRemoteDs {
 
     final response = await _supabase
         .from('bookings')
-        .select('coach_id')
+        .select('coach_id, subscription_end')
         .eq('user_id', userId)
         .inFilter('status', ['pending_payment', 'active']);
 
     return (response as List)
+        .where((row) => _isLiveBySubscriptionEnd(row['subscription_end']))
         .map((row) => row['coach_id'] as String)
         .toList();
   }
@@ -298,14 +300,17 @@ class BookingRemoteDs {
 
     final response = await _supabase
         .from('bookings')
-        .select('id')
+        .select('id, subscription_end')
         .eq('user_id', userId)
         .eq('coach_id', coachId)
-        .inFilter('status', ['pending_payment', 'active'])
-        .limit(1)
-        .maybeSingle();
+        .inFilter('status', ['pending_payment', 'active']);
 
-    return response != null;
+    for (final row in response as List) {
+      if (_isLiveBySubscriptionEnd(row['subscription_end'])) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // ADDED: booking id + coach name for duplicate dialog
@@ -317,23 +322,23 @@ class BookingRemoteDs {
 
     final response = await _supabase
         .from('bookings')
-        .select('id, coaches(name)')
+        .select('id, subscription_end, coaches(name)')
         .eq('user_id', userId)
         .eq('coach_id', coachId)
         .inFilter('status', ['pending_payment', 'active'])
-        .order('created_at', ascending: false)
-        .limit(1)
-        .maybeSingle();
+        .order('created_at', ascending: false);
 
-    if (response == null) return null;
+    for (final row in response as List) {
+      if (!_isLiveBySubscriptionEnd(row['subscription_end'])) continue;
 
-    final coaches = response['coaches'];
-    final coachName = coaches is Map ? coaches['name'] as String? : null;
-
-    return (
-      bookingId: response['id'] as String,
-      coachName: coachName,
-    );
+      final coaches = row['coaches'];
+      final coachName = coaches is Map ? coaches['name'] as String? : null;
+      return (
+        bookingId: row['id'] as String,
+        coachName: coachName,
+      );
+    }
+    return null;
   }
 
   Future<bool> hasActiveBookingWithSession({
@@ -348,13 +353,14 @@ class BookingRemoteDs {
 
     final response = await _supabase
         .from('bookings')
-        .select('id, selected_days, selected_time')
+        .select('id, selected_days, selected_time, subscription_end')
         .eq('user_id', userId)
         .eq('coach_id', coachId)
         .inFilter('status', ['pending_payment', 'active']);
 
     for (final row in response as List) {
       final data = Map<String, dynamic>.from(row as Map);
+      if (!_isLiveBySubscriptionEnd(data['subscription_end'])) continue;
       final days = _parseStringList(data['selected_days']);
       final time = data['selected_time'] as String?;
       if (time == selectedTime &&
@@ -365,6 +371,17 @@ class BookingRemoteDs {
     }
 
     return false;
+  }
+
+  /// Matches renew RPC: live when end is null or end >= today (date-only).
+  static bool _isLiveBySubscriptionEnd(dynamic subscriptionEnd) {
+    if (subscriptionEnd == null) return true;
+    final parsed = DateTime.tryParse(subscriptionEnd.toString());
+    if (parsed == null) return true;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final endDay = DateTime(parsed.year, parsed.month, parsed.day);
+    return !endDay.isBefore(today);
   }
 
   List<String> _parseStringList(dynamic value) {
@@ -411,6 +428,69 @@ class BookingRemoteDs {
       });
     } on PostgrestException catch (e) {
       throw Exception(_mapPostgrestError(e, 'reschedule booking'));
+    }
+  }
+
+  Future<List<BookingHistoryModel>> getRenewableBookings() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception('You must be signed in.');
+    }
+
+    try {
+      final response = await _supabase.rpc('get_renewable_bookings');
+      if (response == null) return const [];
+      return (response as List)
+          .map(
+            (json) => BookingHistoryModel.fromJson(
+              Map<String, dynamic>.from(json as Map),
+            ),
+          )
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'load renewals'));
+    }
+  }
+
+  Future<void> dismissBookingRenewPrompt(String bookingId) async {
+    try {
+      await _supabase.rpc('dismiss_booking_renew_prompt', params: {
+        'p_booking_id': bookingId,
+      });
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'dismiss renew prompt'));
+    }
+  }
+
+  Future<BookingModel> renewExpiredBooking({
+    required String sourceBookingId,
+    required DateTime startDate,
+    required String paymentMethod,
+    String? paymentReference,
+  }) async {
+    try {
+      final response = await _supabase.rpc(
+        'renew_expired_booking',
+        params: {
+          'p_source_booking_id': sourceBookingId,
+          'p_start_date': SessionScheduleHelper.formatDateForDb(startDate),
+          'p_payment_method': paymentMethod,
+          if (paymentReference != null) 'p_payment_reference': paymentReference,
+        },
+      );
+
+      if (response is Map) {
+        return BookingModel.fromJson(Map<String, dynamic>.from(response));
+      }
+      if (response is List && response.isNotEmpty) {
+        return BookingModel.fromJson(
+          Map<String, dynamic>.from(response.first as Map),
+        );
+      }
+
+      throw Exception('Unexpected response from booking renewal.');
+    } on PostgrestException catch (e) {
+      throw Exception(_mapPostgrestError(e, 'renew booking'));
     }
   }
 

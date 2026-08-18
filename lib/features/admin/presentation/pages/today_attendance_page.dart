@@ -4,7 +4,9 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
+import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
+import 'package:prince_academy/features/admin/data/admin_search_index.dart';
 import 'package:prince_academy/features/admin/data/repositories/admin_dashboard_repository.dart';
 import 'package:prince_academy/features/admin/data/repositories/coach_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/today_attendance/today_attendance_cubit.dart';
@@ -40,26 +42,18 @@ class _TodayAttendanceView extends StatefulWidget {
 
 class _TodayAttendanceViewState extends State<_TodayAttendanceView> {
   final _searchController = TextEditingController();
-  final _scrollController = ScrollController();
 
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final position = _scrollController.position;
-    if (position.pixels >= position.maxScrollExtent - 240) {
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    if (notification.metrics.pixels >=
+        notification.metrics.maxScrollExtent - 240) {
       context.read<TodayAttendanceCubit>().loadMore();
     }
+    return false;
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -92,38 +86,35 @@ class _TodayAttendanceViewState extends State<_TodayAttendanceView> {
         builder: (context, state) {
           return Scaffold(
             backgroundColor: EColorConstants.authFieldBackground,
-            appBar: AppBar(
-              backgroundColor: EColorConstants.authFieldBackground,
-              elevation: 0,
-              leading:
-                  const BackButton(color: EColorConstants.authTextDarkBrown),
-              title: const Text(
-                "Today's attendance",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: EColorConstants.authTextDarkBrown,
-                  fontFamily: 'Poppins',
-                ),
+            body: NotificationListener<ScrollNotification>(
+              onNotification: _onScrollNotification,
+              child: NestedScrollView(
+                floatHeaderSlivers: true,
+                headerSliverBuilder: (context, _) => [
+                  ScrollAwaySearchHeader(
+                    leading: const BackButton(
+                      color: EColorConstants.authTextDarkBrown,
+                    ),
+                    title: const Text("Today's attendance"),
+                    searchBar: AppSearchBar(
+                      controller: _searchController,
+                      hintText:
+                          'Search by member, coach, session, or branch...',
+                      hintPhrases: AdminSearchHints.attendance,
+                      variant: AppSearchBarVariant.outlined,
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                      onChanged: context
+                          .read<TodayAttendanceCubit>()
+                          .onSearchChanged,
+                      onClear: () {
+                        _searchController.clear();
+                        context.read<TodayAttendanceCubit>().clearSearch();
+                      },
+                    ),
+                  ),
+                ],
+                body: _buildScrollBody(context, state),
               ),
-            ),
-            body: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppSearchBar(
-                  controller: _searchController,
-                  hintText: 'Search by member, coach, session, or branch...',
-                  variant: AppSearchBarVariant.outlined,
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                  onChanged:
-                      context.read<TodayAttendanceCubit>().onSearchChanged,
-                  onClear: () {
-                    _searchController.clear();
-                    context.read<TodayAttendanceCubit>().clearSearch();
-                  },
-                ),
-                Expanded(child: _buildScrollBody(context, state)),
-              ],
             ),
           );
         },
@@ -191,7 +182,6 @@ class _TodayAttendanceViewState extends State<_TodayAttendanceView> {
       color: EColorConstants.primaryColor,
       onRefresh: () => context.read<TodayAttendanceCubit>().refresh(),
       child: ListView.builder(
-        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
