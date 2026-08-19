@@ -54,8 +54,13 @@ class AdminCreateSessionPage extends StatefulWidget {
 }
 
 class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
+  static const _totalSteps = 3;
+
   final _formKey = GlobalKey<FormState>();
   final _priceController = TextEditingController();
+  final _pageController = PageController();
+
+  int _currentStep = 0;
 
   String? _selectedCoachId;
   String? _selectedBranchId;
@@ -65,7 +70,7 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
   int _selectedDurationMinutes = SessionDraft.defaultDurationMinutes;
   String _classType = SessionSlot.defaultClassType;
   List<SessionSlot> _sessionSlots = [SessionSlot.initial()];
-  bool _customizePerDay = false;
+  bool _customizePerDay = true;
   String? _coachError;
   String? _branchError;
   String? _daysError;
@@ -85,6 +90,7 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
       if (widget.initialDraft != null) {
         _applySessionSnapshot(
           AdminSessionFormSnapshot.fromDraft(widget.initialDraft!),
+          overrideCustomizePerDay: true,
         );
         _formTouched = true;
         _hasAppliedInitialDefaults = true;
@@ -97,6 +103,7 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
   @override
   void dispose() {
     _priceController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -153,7 +160,8 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
     _hasAppliedInitialDefaults = true;
   }
 
-  void _applySessionSnapshot(AdminSessionFormSnapshot snapshot) {
+  void _applySessionSnapshot(AdminSessionFormSnapshot snapshot,
+      {bool overrideCustomizePerDay = false}) {
     final slots = snapshot.slots.isEmpty
         ? [SessionSlot.initial()]
         : List<SessionSlot>.from(snapshot.slots);
@@ -165,7 +173,7 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
       _selectedDurationMinutes = snapshot.durationMinutes;
       _sessionSlots = slots;
       _classType = slots.first.classType;
-      _customizePerDay = types.length > 1;
+      if (overrideCustomizePerDay) _customizePerDay = types.length > 1;
       _priceController.text = snapshot.priceText;
       _coachError = null;
       _branchError = null;
@@ -257,7 +265,28 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
     }
   }
 
-  bool _validate() {
+  bool _validateStep(int step) {
+    if (step == 0) {
+      String? coachErr;
+      String? branchErr;
+      if (_selectedCoachId == null) coachErr = 'Please select a coach';
+      if (_selectedBranchId == null) branchErr = 'Please select a branch';
+      setState(() {
+        _coachError = coachErr;
+        _branchError = branchErr;
+      });
+      return coachErr == null && branchErr == null;
+    }
+    if (step == 1) {
+      String? daysErr;
+      if (_sessionSlots.isEmpty) daysErr = 'Pick at least one day';
+      setState(() => _daysError = daysErr);
+      return daysErr == null;
+    }
+    return true;
+  }
+
+  bool _validateFinal() {
     var isValid = true;
     String? coachError;
     String? branchError;
@@ -292,6 +321,30 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
     return isValid && (_formKey.currentState?.validate() ?? false);
   }
 
+  void _goToStep(int step) {
+    _pageController.animateToPage(
+      step,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+    setState(() => _currentStep = step);
+  }
+
+  void _handleNext(AdminHomeState admin) {
+    if (!_validateStep(_currentStep)) return;
+    if (_currentStep < _totalSteps - 1) {
+      _goToStep(_currentStep + 1);
+    }
+  }
+
+  void _handleBack() {
+    if (_currentStep > 0) {
+      _goToStep(_currentStep - 1);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _handleSave() async {
     final admin = context.read<AdminHomeBloc>().state;
     if (admin.coaches.isEmpty) {
@@ -303,7 +356,7 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
       );
       return;
     }
-    if (!_validate()) return;
+    if (!_validateFinal()) return;
 
     final draft = AdminSessionFormSnapshot(
       coachId: _selectedCoachId,
@@ -360,6 +413,7 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
     );
     _applySessionSnapshot(snapshot);
     _formTouched = false;
+    _goToStep(0);
   }
 
   @override
@@ -435,209 +489,265 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
             .toList();
         final showBranchField = _branches.length != 1;
 
+        final stepTitles = ['Coach & Branch', 'Schedule', 'Class & Price'];
+
         return Scaffold(
           backgroundColor: EColorConstants.authFieldBackground,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
-            leading: const BackButton(
+            leading: BackButton(
               color: EColorConstants.authTextDarkBrown,
+              onPressed: _handleBack,
             ),
-            title: const Text(
-              'New session',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: EColorConstants.authTextDarkBrown,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          ),
-          body: AdminSmoothScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!hasCoaches)
-                    _CoachRequiredBanner(
-                      onAddCoach: () => AdminCreateCoachPage.open(context),
-                    ),
-                  AdminFormStyles.fieldLabel('Coach'),
-                  const SizedBox(height: 8),
-                  AdminSearchableDropdownField<CoachModel>(
-                    value: hasCoaches ? selectedCoach : null,
-                    items: admin.coaches,
-                    itemLabel: (coach) => coach.name,
-                    searchText: (coach) => '${coach.name} ${coach.specialty}',
-                    errorText: _coachError,
-                    enabled: hasCoaches,
-                    hintText: 'Select coach',
-                    selectedBuilder: (coach) => SessionCoachDropdownTile(
-                      name: coach.name,
-                      photoUrl: coach.photoUrl,
-                    ),
-                    itemBuilder: (coach) => SessionCoachDropdownTile(
-                      name: coach.name,
-                      photoUrl: coach.photoUrl,
-                    ),
-                    onChanged: hasCoaches
-                        ? (coach) => _onCoachChanged(coach?.id, admin)
-                        : (_) {},
+            title: Column(
+              children: [
+                const Text(
+                  'New session',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: EColorConstants.authTextDarkBrown,
+                    fontFamily: 'Poppins',
                   ),
-                  if (showBranchField) ...[
-                    const SizedBox(height: 12),
-                    AdminFormStyles.fieldLabel('Branch'),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _isLoadingBranches
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 12),
-                                  child: Center(
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                ),
+                Text(
+                  stepTitles[_currentStep],
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: EColorConstants.authPlaceholderGray,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ],
+            ),
+            centerTitle: true,
+          ),
+          body: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                child: _StepIndicator(
+                  totalSteps: _totalSteps,
+                  currentStep: _currentStep,
+                ),
+              ),
+              Expanded(
+                child: Form(
+                  key: _formKey,
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (index) => setState(() => _currentStep = index),
+                    children: [
+                      // Step 1 — Coach & Branch
+                      AdminSmoothScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (!hasCoaches)
+                              _CoachRequiredBanner(
+                                onAddCoach: () =>
+                                    AdminCreateCoachPage.open(context),
+                              ),
+                            AdminFormStyles.fieldLabel('Coach'),
+                            const SizedBox(height: 8),
+                            AdminSearchableDropdownField<CoachModel>(
+                              value: hasCoaches ? selectedCoach : null,
+                              items: admin.coaches,
+                              itemLabel: (coach) => coach.name,
+                              searchText: (coach) =>
+                                  '${coach.name} ${coach.specialty}',
+                              errorText: _coachError,
+                              enabled: hasCoaches,
+                              hintText: 'Select coach',
+                              selectedBuilder: (coach) =>
+                                  SessionCoachDropdownTile(
+                                name: coach.name,
+                                photoUrl: coach.photoUrl,
+                              ),
+                              itemBuilder: (coach) => SessionCoachDropdownTile(
+                                name: coach.name,
+                                photoUrl: coach.photoUrl,
+                              ),
+                              onChanged: hasCoaches
+                                  ? (coach) =>
+                                      _onCoachChanged(coach?.id, admin)
+                                  : (_) {},
+                            ),
+                            if (showBranchField) ...[
+                              const SizedBox(height: 20),
+                              AdminFormStyles.fieldLabel('Branch'),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _isLoadingBranches
+                                        ? const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 12),
+                                            child: Center(
+                                              child: SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                        : AdminSearchableDropdownField<Branch>(
+                                            value: selectedBranch,
+                                            items: _branches,
+                                            itemLabel: (branch) => branch.name,
+                                            prefixIcon:
+                                                Icons.location_city_outlined,
+                                            errorText: _branchError,
+                                            enabled: hasCoaches &&
+                                                _branches.isNotEmpty,
+                                            hintText: 'Select branch',
+                                            onChanged: hasCoaches &&
+                                                    _branches.isNotEmpty
+                                                ? (branch) {
+                                                    setState(() {
+                                                      _formTouched = true;
+                                                      _selectedBranchId =
+                                                          branch?.id;
+                                                      _branchError = null;
+                                                    });
+                                                  }
+                                                : (_) {},
+                                          ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 48,
+                                    height: 48,
+                                    child: Material(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: InkWell(
+                                        borderRadius:
+                                            BorderRadius.circular(16),
+                                        onTap: _showAddBranchDialog,
+                                        child: const Icon(
+                                          Icons.add_business_outlined,
+                                          size: 22,
+                                          color: EColorConstants.primaryColor,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                )
-                              : AdminSearchableDropdownField<Branch>(
-                                  value: selectedBranch,
-                                  items: _branches,
-                                  itemLabel: (branch) => branch.name,
-                                  prefixIcon: Icons.location_city_outlined,
-                                  errorText: _branchError,
-                                  enabled:
-                                      hasCoaches && _branches.isNotEmpty,
-                                  hintText: 'Select branch',
-                                  onChanged:
-                                      hasCoaches && _branches.isNotEmpty
-                                          ? (branch) {
-                                              setState(() {
-                                                _formTouched = true;
-                                                _selectedBranchId =
-                                                    branch?.id;
-                                                _branchError = null;
-                                              });
-                                            }
-                                          : (_) {},
-                                ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: Material(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: _showAddBranchDialog,
-                              child: const Icon(
-                                Icons.add_business_outlined,
-                                size: 22,
-                                color: EColorConstants.primaryColor,
+                                ],
                               ),
+                              if (_branches.isEmpty &&
+                                  !_isLoadingBranches) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'No branches yet. Tap + to add one.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange.shade700,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ],
+                        ),
+                      ),
+
+                      // Step 2 — Schedule
+                      AdminSmoothScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AdminFormStyles.fieldLabel('Days'),
+                            const SizedBox(height: 8),
+                            WeekDayChipRow(
+                              selectedDays: _selectedDays,
+                              enabled: hasCoaches,
+                              onToggle: _toggleDay,
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_branches.isEmpty && !_isLoadingBranches) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'No branches yet. Tap + to add one.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange.shade700,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ],
-                  ],
-                  const SizedBox(height: 12),
-                  AdminFormStyles.fieldLabel('Days'),
-                  const SizedBox(height: 8),
-                  WeekDayChipRow(
-                    selectedDays: _selectedDays,
-                    enabled: hasCoaches,
-                    onToggle: _toggleDay,
-                  ),
-                  if (_daysError != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      _daysError!,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 12,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  AdminFormStyles.fieldLabel('Time · Duration'),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AdminSearchableDropdownField<String>(
-                          value: _selectedTimeSlot,
-                          items: SessionDraft.presetTimeSlots,
-                          itemLabel: (item) => item,
-                          prefixIcon: Iconsax.clock,
-                          enabled: hasCoaches,
-                          hintText: 'Time',
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setState(() {
-                              _formTouched = true;
-                              _selectedTimeSlot = value;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: AdminSearchableDropdownField<int>(
-                          value: SessionDraft.presetDurations
-                                  .contains(_selectedDurationMinutes)
-                              ? _selectedDurationMinutes
-                              : SessionDraft.defaultDurationMinutes,
-                          items: SessionDraft.presetDurations,
-                          itemLabel: SessionDraft.durationLabel,
-                          prefixIcon: Iconsax.timer_1,
-                          enabled: hasCoaches,
-                          hintText: 'Duration',
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setState(() {
-                              _formTouched = true;
-                              _selectedDurationMinutes = value;
-                            });
-                          },
+                            if (_daysError != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                _daysError!,
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 12,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                            AdminFormStyles.fieldLabel('Time · Duration'),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: AdminSearchableDropdownField<String>(
+                                    value: _selectedTimeSlot,
+                                    items: SessionDraft.presetTimeSlots,
+                                    itemLabel: (item) => item,
+                                    prefixIcon: Iconsax.clock,
+                                    enabled: hasCoaches,
+                                    hintText: 'Time',
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      setState(() {
+                                        _formTouched = true;
+                                        _selectedTimeSlot = value;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: AdminSearchableDropdownField<int>(
+                                    value: SessionDraft.presetDurations
+                                            .contains(_selectedDurationMinutes)
+                                        ? _selectedDurationMinutes
+                                        : SessionDraft.defaultDurationMinutes,
+                                    items: SessionDraft.presetDurations,
+                                    itemLabel: SessionDraft.durationLabel,
+                                    prefixIcon: Iconsax.timer_1,
+                                    enabled: hasCoaches,
+                                    hintText: 'Duration',
+                                    onChanged: (value) {
+                                      if (value == null) return;
+                                      setState(() {
+                                        _formTouched = true;
+                                        _selectedDurationMinutes = value;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AdminFormStyles.fieldLabel('Class type'),
-                      ),
-                      TextButton(
-                        onPressed: !hasCoaches
-                            ? null
-                            : () {
+
+                      // Step 3 — Class type & Price
+                      AdminSmoothScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AdminFormStyles.fieldLabel('Class type'),
+                            const SizedBox(height: 12),
+                            _PerDayToggleRow(
+                              value: _customizePerDay,
+                              enabled: hasCoaches,
+                              onChanged: (val) {
                                 setState(() {
-                                  _customizePerDay = !_customizePerDay;
-                                  if (!_customizePerDay) {
+                                  _customizePerDay = val;
+                                  if (!val) {
                                     _sessionSlots = [
                                       for (final slot in _sessionSlots)
                                         slot.copyWith(classType: _classType),
@@ -645,128 +755,264 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
                                   }
                                 });
                               },
-                        child: Text(
-                          _customizePerDay ? 'Same type' : 'Different types',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'Poppins',
-                          ),
+                            ),
+                            const SizedBox(height: 12),
+                            if (!_customizePerDay)
+                              CreateChoiceChipWrap<String>(
+                                items: SessionDraft.classTypes,
+                                selected: _classType,
+                                onSelected: _setClassType,
+                                labelOf: (type) => type,
+                              )
+                            else
+                              ..._sessionSlots.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final slot = entry.value;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: AdminSearchableDropdownField<String>(
+                                    label: WeekDayChipRow
+                                            .shortLabels[slot.day] ??
+                                        slot.day,
+                                    value: slot.classType,
+                                    items: SessionDraft.classTypes,
+                                    itemLabel: (item) => item,
+                                    prefixIcon: Iconsax.category,
+                                    enabled: hasCoaches,
+                                    hintText: 'Class type',
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        _updateSlotType(index, value);
+                                      }
+                                    },
+                                  ),
+                                );
+                              }),
+                            const SizedBox(height: 20),
+                            AdminAutocompleteField(
+                              label: 'Price',
+                              hint: '200',
+                              suffixText: 'EGP',
+                              controller: _priceController,
+                              options: recentPriceOptions,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                decimal: true,
+                              ),
+                              validator: (value) {
+                                final parsed =
+                                    double.tryParse(value?.trim() ?? '');
+                                if (parsed == null || parsed <= 0) {
+                                  return 'Enter a valid price greater than 0';
+                                }
+                                return null;
+                              },
+                              onChanged: (_) {
+                                setState(() {
+                                  _formTouched = true;
+                                  _priceError = null;
+                                });
+                              },
+                            ),
+                            if (_priceError != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                _priceError!,
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 12,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  if (!_customizePerDay)
-                    CreateChoiceChipWrap<String>(
-                      items: SessionDraft.classTypes,
-                      selected: _classType,
-                      onSelected: _setClassType,
-                      labelOf: (type) => type,
-                    )
-                  else
-                    ..._sessionSlots.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final slot = entry.value;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: AdminSearchableDropdownField<String>(
-                          label: WeekDayChipRow.shortLabels[slot.day] ??
-                              slot.day,
-                          value: slot.classType,
-                          items: SessionDraft.classTypes,
-                          itemLabel: (item) => item,
-                          prefixIcon: Iconsax.category,
-                          enabled: hasCoaches,
-                          hintText: 'Class type',
-                          onChanged: (value) {
-                            if (value != null) {
-                              _updateSlotType(index, value);
-                            }
-                          },
-                        ),
-                      );
-                    }),
-                  const SizedBox(height: 12),
-                  AdminAutocompleteField(
-                    label: 'Price',
-                    hint: '200',
-                    suffixText: 'EGP',
-                    controller: _priceController,
-                    options: recentPriceOptions,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    validator: (value) {
-                      final parsed = double.tryParse(value?.trim() ?? '');
-                      if (parsed == null || parsed <= 0) {
-                        return 'Enter a valid price greater than 0';
-                      }
-                      return null;
-                    },
-                    onChanged: (_) {
-                      setState(() {
-                        _formTouched = true;
-                        _priceError = null;
-                      });
-                    },
-                  ),
-                  if (_priceError != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      _priceError!,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 12,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
+            ],
           ),
           bottomNavigationBar: SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: (!admin.isSavingSession && hasCoaches)
-                      ? _handleSave
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: EColorConstants.primaryColor,
-                    disabledBackgroundColor:
-                        EColorConstants.authPlaceholderGray,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: admin.isSavingSession
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          'Create session',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            fontFamily: 'Poppins',
+              child: _currentStep < _totalSteps - 1
+                  ? SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed:
+                            hasCoaches ? () => _handleNext(admin) : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: EColorConstants.primaryColor,
+                          disabledBackgroundColor:
+                              EColorConstants.authPlaceholderGray,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                ),
-              ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Text(
+                              'Next',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: (!admin.isSavingSession && hasCoaches)
+                            ? _handleSave
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: EColorConstants.primaryColor,
+                          disabledBackgroundColor:
+                              EColorConstants.authPlaceholderGray,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: admin.isSavingSession
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Create session',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                      ),
+                    ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _StepIndicator extends StatelessWidget {
+  const _StepIndicator({
+    required this.totalSteps,
+    required this.currentStep,
+  });
+
+  final int totalSteps;
+  final int currentStep;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < totalSteps; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              height: 4,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(2),
+                color: i <= currentStep
+                    ? EColorConstants.primaryColor
+                    : const Color(0xFFE8DDD0),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PerDayToggleRow extends StatelessWidget {
+  const _PerDayToggleRow({
+    required this.value,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8DDD0)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.calendar_today_outlined,
+            size: 16,
+            color: EColorConstants.primaryColor,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Different type per day',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Poppins',
+                    color: enabled
+                        ? EColorConstants.authTextDarkBrown
+                        : EColorConstants.authPlaceholderGray,
+                  ),
+                ),
+                Text(
+                  value
+                      ? 'Each day has its own class type'
+                      : 'All days share the same type',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'Poppins',
+                    color: EColorConstants.authPlaceholderGray,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            onChanged: enabled ? onChanged : null,
+            activeColor: EColorConstants.primaryColor,
+          ),
+        ],
+      ),
     );
   }
 }

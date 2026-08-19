@@ -12,8 +12,8 @@ import 'package:prince_academy/features/admin/data/models/low_attendance_member_
 import 'package:prince_academy/features/admin/data/models/payment_verification_data.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_dashboard_cubit.dart';
-import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_bloc.dart';
-import 'package:prince_academy/features/admin/presentation/pages/admin_add_info_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/admin_create_coach_page.dart';
+import 'package:prince_academy/features/admin/presentation/pages/admin_create_session_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_profile.dart';
 import 'package:prince_academy/features/admin/presentation/pages/all_schedules_page.dart';
 import 'package:prince_academy/features/admin/presentation/pages/all_freeze_page.dart';
@@ -370,7 +370,8 @@ class _DashboardActionsSection extends StatelessWidget {
     return DashboardQuickActions(
       onScan: () => _DashboardNav.openQrScanner(context),
       onTracking: () => _DashboardNav.openTracking(context),
-      onAddInfo: () => _DashboardNav.openAddInfo(context),
+      onAddCoach: () => _DashboardNav.openAddCoach(context),
+      onAddSession: () => _DashboardNav.openAddSession(context),
     );
   }
 }
@@ -395,16 +396,12 @@ abstract final class _DashboardNav {
     );
   }
 
-  static void openAddInfo(BuildContext context) {
-    final homeBloc = context.read<AdminHomeBloc>();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: homeBloc,
-          child: const AdminAddInfoPage(showAsStandalone: true),
-        ),
-      ),
-    );
+  static void openAddCoach(BuildContext context) {
+    AdminCreateCoachPage.open(context);
+  }
+
+  static void openAddSession(BuildContext context) {
+    AdminCreateSessionPage.open(context);
   }
 
   static void openPendingPayments(BuildContext context) {

@@ -7,12 +7,14 @@ class DashboardQuickActions extends StatelessWidget {
     super.key,
     this.onScan,
     this.onTracking,
-    this.onAddInfo,
+    this.onAddCoach,
+    this.onAddSession,
   });
 
   final VoidCallback? onScan;
   final VoidCallback? onTracking;
-  final VoidCallback? onAddInfo;
+  final VoidCallback? onAddCoach;
+  final VoidCallback? onAddSession;
 
   @override
   Widget build(BuildContext context) {
@@ -49,9 +51,17 @@ class DashboardQuickActions extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _ActionChip(
-                icon: Iconsax.add_circle,
-                label: 'Create',
-                onTap: onAddInfo,
+                icon: Iconsax.personalcard,
+                label: 'Add Coach',
+                onTap: onAddCoach,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ActionChip(
+                icon: Iconsax.calendar_add,
+                label: 'Add Session',
+                onTap: onAddSession,
               ),
             ),
           ],
