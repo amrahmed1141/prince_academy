@@ -13,6 +13,7 @@ import 'package:prince_academy/features/auth/presentation/pages/authentication/w
 import 'package:prince_academy/features/auth/presentation/pages/auth/signup/widgets/signup_form.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/gradient_button.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/widgets/auth_social_buttons.dart';
+import 'package:prince_academy/features/auth/presentation/pages/authentication/admin_login_page.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -30,7 +31,7 @@ class _AuthPageState extends State<AuthPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
   }
 
@@ -211,12 +212,32 @@ class _AuthPageState extends State<AuthPage>
                                   child: [
                                     const _SignInTab(key: ValueKey(0)),
                                     const _SignUpTab(key: ValueKey(1)),
-                                    const _AdminTab(key: ValueKey(2)),
                                   ][_currentIndex],
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => BlocProvider.value(
+                                      value: context.read<AuthBloc>(),
+                                      child: const AdminLoginPage(),
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                'Admin? Sign in here',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
                           ],
                         ),
                       ),
@@ -356,77 +377,3 @@ class _SignUpTab extends StatelessWidget {
   }
 }
 
-class _AdminTab extends StatefulWidget {
-  const _AdminTab({super.key});
-
-  @override
-  State<_AdminTab> createState() => _AdminTabState();
-}
-
-class _AdminTabState extends State<_AdminTab> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _obscure = true;
-
-  @override
-  void dispose() {
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final loading =
-        context.select<AuthBloc, bool>((b) => b.state is AuthLoading);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AuthTextField(
-          controller: _email,
-          label: 'Admin Email',
-          hintText: 'admin@example.com',
-          prefixIcon: Icons.admin_panel_settings_outlined,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 16),
-        AuthTextField(
-          controller: _password,
-          label: 'Password',
-          hintText: 'Enter your password',
-          prefixIcon: Icons.lock_outline,
-          obscureText: _obscure,
-          suffixIcon: IconButton(
-            onPressed: () => setState(() => _obscure = !_obscure),
-            icon: Icon(
-              _obscure
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
-              color: EColorConstants.primaryColor,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        GradientButton(
-          text: 'Login as Admin',
-          loading: loading,
-          onPressed: () {
-            context.read<AuthBloc>().add(
-                  AuthAdminSignIn(_email.text.trim(), _password.text.trim()),
-                );
-          },
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Admin login only (no signup)',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: EColorConstants.authPlaceholderGray,
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
-}

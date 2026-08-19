@@ -8,7 +8,7 @@ class AuthTabBar extends StatelessWidget {
   const AuthTabBar({
     super.key,
     required this.controller,
-    this.tabs = const ['Sign In', 'Sign Up', 'Admin'],
+    this.tabs = const ['Sign In', 'Sign Up'],
   });
 
   @override
