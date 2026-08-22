@@ -841,6 +841,9 @@ class _HeaderNetworkPhoto extends StatelessWidget {
       errorBuilder: (_, __, ___) {
         final fallback = fallbackUrl;
         if (fallback == null) return placeholder;
+        if (CoachPhotoHelper.isRenderUrl(url)) {
+          CoachPhotoHelper.disableTransforms();
+        }
         return _HeaderNetworkPhoto(
           url: fallback,
           fallbackUrl: null,

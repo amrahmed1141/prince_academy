@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/services/admin_tab_controller.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_event.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/coach/coach_bloc.dart';
@@ -76,30 +76,32 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           create: (_) => sl<CoachBloc>()..add(const CoachStarted()),
         ),
       ],
-      child: Scaffold(
-        backgroundColor: EColorConstants.authFieldBackground,
-        body: Stack(
-          children: [
-            IndexedStack(
-              index: currentIndex,
-              children: [
-                _tabAt(0, const AdminDashboardPage()),
-                _tabAt(1, const AdminAddInfoPage()),
-                _tabAt(2, const TrackingPage()),
-                _tabAt(3, const FinancePage()),
-              ],
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 24,
-              child: AdminGlassNavBar(
-                selectedIndex: currentIndex,
-                onDestinationSelected: _tabController.select,
-                onQrPressed: _openQrScanner,
+      child: AppGradients.lightBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Stack(
+            children: [
+              IndexedStack(
+                index: currentIndex,
+                children: [
+                  _tabAt(0, const AdminDashboardPage()),
+                  _tabAt(1, const AdminAddInfoPage()),
+                  _tabAt(2, const TrackingPage()),
+                  _tabAt(3, const FinancePage()),
+                ],
               ),
-            ),
-          ],
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 24,
+                child: AdminGlassNavBar(
+                  selectedIndex: currentIndex,
+                  onDestinationSelected: _tabController.select,
+                  onQrPressed: _openQrScanner,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/features/admin/data/models/branch_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
@@ -491,8 +492,9 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
 
         final stepTitles = ['Coach & Branch', 'Schedule', 'Class & Price'];
 
-        return Scaffold(
-          backgroundColor: EColorConstants.authFieldBackground,
+        return AppGradients.lightBackground(
+      child: Scaffold(
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
@@ -911,7 +913,7 @@ class _AdminCreateSessionPageState extends State<AdminCreateSessionPage> {
                     ),
             ),
           ),
-        );
+        ));
       },
     );
   }

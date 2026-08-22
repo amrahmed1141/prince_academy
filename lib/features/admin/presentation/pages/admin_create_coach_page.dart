@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_event.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_state.dart';
@@ -279,8 +280,9 @@ class _AdminCreateCoachPageState extends State<AdminCreateCoachPage> {
         final existingNames =
             admin.coaches.map((coach) => coach.name).toList();
 
-        return Scaffold(
-          backgroundColor: EColorConstants.authFieldBackground,
+        return AppGradients.lightBackground(
+      child: Scaffold(
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
@@ -442,7 +444,7 @@ class _AdminCreateCoachPageState extends State<AdminCreateCoachPage> {
               ),
             ),
           ),
-        );
+        ));
       },
     );
   }

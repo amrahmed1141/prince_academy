@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
 import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
@@ -84,8 +85,9 @@ class _TodayAttendanceViewState extends State<_TodayAttendanceView> {
       },
       child: BlocBuilder<TodayAttendanceCubit, TodayAttendanceState>(
         builder: (context, state) {
-          return Scaffold(
-            backgroundColor: EColorConstants.authFieldBackground,
+          return AppGradients.lightBackground(
+      child: Scaffold(
+            backgroundColor: Colors.transparent,
             body: NotificationListener<ScrollNotification>(
               onNotification: _onScrollNotification,
               child: NestedScrollView(
@@ -100,7 +102,7 @@ class _TodayAttendanceViewState extends State<_TodayAttendanceView> {
                       controller: _searchController,
                       hintText:
                           'Search by member, coach, session, or branch...',
-                      hintPhrases: AdminSearchHints.attendance,
+                      hintPhrases: AdminSearchHints.attendance(context),
                       variant: AppSearchBarVariant.outlined,
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                       onChanged: context
@@ -116,7 +118,7 @@ class _TodayAttendanceViewState extends State<_TodayAttendanceView> {
                 body: _buildScrollBody(context, state),
               ),
             ),
-          );
+          ));
         },
       ),
     );

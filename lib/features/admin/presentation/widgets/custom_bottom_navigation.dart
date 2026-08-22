@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 
 class _AdminNavDestination {
   const _AdminNavDestination({
@@ -17,16 +18,6 @@ class _AdminNavDestination {
   bool get hasAssetIcon => assetIcon != null;
 }
 
-const _destinations = [
-  _AdminNavDestination(
-    assetIcon: 'assets/icons/logo.png',
-    label: 'Home',
-  ),
-  _AdminNavDestination(icon: Iconsax.add_circle, label: 'Create'),
-  _AdminNavDestination(icon: Iconsax.chart, label: 'Tracking'),
-  _AdminNavDestination(icon: Iconsax.receipt_2, label: 'Finance'),
-];
-
 class AdminGlassNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -41,6 +32,17 @@ class AdminGlassNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
+    final destinations = [
+      _AdminNavDestination(
+        assetIcon: 'assets/icons/logo.png',
+        label: s.home,
+      ),
+      _AdminNavDestination(icon: Iconsax.add_circle, label: s.create),
+      _AdminNavDestination(icon: Iconsax.chart, label: s.tracking),
+      _AdminNavDestination(icon: Iconsax.receipt_2, label: s.finance),
+    ];
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -65,8 +67,8 @@ class AdminGlassNavBar extends StatelessWidget {
                   ],
                 ),
                 child: Row(
-                  children: List.generate(_destinations.length, (index) {
-                    final destination = _destinations[index];
+                  children: List.generate(destinations.length, (index) {
+                    final destination = destinations[index];
                     return Expanded(
                       child: _AdminNavPillItem(
                         icon: destination.icon,

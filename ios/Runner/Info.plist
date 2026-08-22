@@ -25,9 +25,9 @@
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>FacebookAppID</key>
-	<string>000000000000000</string>
+	<string>2112258239722633</string>
 	<key>FacebookClientToken</key>
-	<string>FACEBOOK_CLIENT_TOKEN</string>
+	<string>f9d627e416dd739e52c07927c45448f0</string>
 	<key>FacebookDisplayName</key>
 	<string>Prince Academy</string>
 	<key>CFBundleURLTypes</key>
@@ -37,7 +37,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>fb000000000000000</string>
+				<string>fb2112258239722633</string>
 			</array>
 		</dict>
 		<dict>

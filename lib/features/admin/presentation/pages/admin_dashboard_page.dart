@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/widgets/branded_pull_to_refresh.dart';
 import 'package:prince_academy/core/widgets/offline_banner.dart';
@@ -73,9 +74,9 @@ class _AdminDashboardView extends StatelessWidget {
                   titleSpacing: 0,
                   toolbarHeight: 80,
                   searchExtent: 64,
-                  backgroundColor: const Color(0xFFFFF9F5),
+                  backgroundColor: Colors.transparent,
                   title: const _DashboardHeaderSection(),
-                  searchBar: const AdminDashboardSearchBar(),
+                  searchBar: AdminDashboardSearchBar(),
                 ),
               ],
               body: const _DashboardScrollBody(),
@@ -596,7 +597,7 @@ class _DashboardErrorScroll extends StatelessWidget {
                 TextButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Iconsax.refresh),
-                  label: const Text('Retry'),
+                  label: Text(context.s.retry),
                   style: TextButton.styleFrom(
                     foregroundColor: EColorConstants.primaryColor,
                   ),

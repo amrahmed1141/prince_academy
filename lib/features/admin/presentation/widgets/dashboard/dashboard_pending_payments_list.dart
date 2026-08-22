@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/features/admin/data/models/pending_payment_model.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
 
@@ -25,15 +26,16 @@ class DashboardPendingPaymentsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'Pending payments',
-                style: TextStyle(
+                s.pendingPayments,
+                style: const TextStyle(
                   color: EColorConstants.authTextDarkBrown,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -50,9 +52,9 @@ class DashboardPendingPaymentsList extends StatelessWidget {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text(
-                  'See all',
-                  style: TextStyle(
+                child: Text(
+                  s.seeAll,
+                  style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontFamily: 'Poppins',
                     fontSize: 13,
@@ -74,9 +76,9 @@ class DashboardPendingPaymentsList extends StatelessWidget {
                   color: EColorConstants.primaryColor.withOpacity(0.7),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'All clear',
-                  style: TextStyle(
+                Text(
+                  s.allClear,
+                  style: const TextStyle(
                     color: EColorConstants.authTextDarkBrown,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -84,10 +86,10 @@ class DashboardPendingPaymentsList extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'No payments waiting for verification.',
+                Text(
+                  s.t('destPendingPaymentsSub'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: EColorConstants.authPlaceholderGray,
                     fontSize: 13,
                     fontFamily: 'Poppins',

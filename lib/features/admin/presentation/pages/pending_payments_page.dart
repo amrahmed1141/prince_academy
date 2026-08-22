@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/cache/image_cache.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
@@ -60,11 +62,12 @@ class _PendingPaymentsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: EColorConstants.authFieldBackground,
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Pending Payments'),
-        backgroundColor: EColorConstants.authFieldBackground,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       body: BlocConsumer<AdminBloc, AdminState>(
@@ -143,24 +146,20 @@ class _PendingPaymentsView extends StatelessWidget {
                   color: EColorConstants.primaryColor,
                   onRefresh: () => _onRefresh(context),
                   child: payments.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
-                          children: const [
-                            SizedBox(height: 120),
-                            Center(
-                              child: Text(
-                                'No pending payments 🎉',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Poppins',
-                                  color: EColorConstants.authPlaceholderGray,
-                                ),
+                      ? LayoutBuilder(
+                          builder: (context, constraints) {
+                            return ListView(
+                              physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics(),
                               ),
-                            ),
-                          ],
+                              children: [
+                                SizedBox(
+                                  height: constraints.maxHeight,
+                                  child: const _PendingPaymentsEmptyState(),
+                                ),
+                              ],
+                            );
+                          },
                         )
                       : ListView.builder(
                           physics: const AlwaysScrollableScrollPhysics(
@@ -206,6 +205,60 @@ class _PendingPaymentsView extends StatelessWidget {
           );
         },
       ),
+    ));
+  }
+}
+
+class _PendingPaymentsEmptyState extends StatelessWidget {
+  const _PendingPaymentsEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: EColorConstants.primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Iconsax.tick_circle,
+                size: 40,
+                color: EColorConstants.primaryColor,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'All caught up',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                fontFamily: 'Poppins',
+                color: EColorConstants.authTextDarkBrown,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'There are no payments waiting for review right now.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Poppins',
+                color: EColorConstants.authPlaceholderGray,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -232,6 +285,11 @@ class _ErrorView extends StatelessWidget {
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
                 backgroundColor: EColorConstants.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               child: const Text('Retry'),
             ),

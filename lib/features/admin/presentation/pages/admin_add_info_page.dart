@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/admin_home/admin_home_bloc.dart';
@@ -17,8 +18,9 @@ import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.
 import 'package:prince_academy/features/admin/presentation/widgets/create_choice_chips.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/specialty_chip.dart';
 
-/// Create hub (formerly Add Info). Coach/session lists live on Tracking
-/// and All Schedules; this screen only starts a create flow.
+/// Create hub (formerly Add Info). Starts a create flow and lists every
+/// coach and session group for quick edit. Full management also lives on
+/// Tracking and All Schedules.
 class AdminAddInfoPage extends StatelessWidget {
   const AdminAddInfoPage({
     super.key,
@@ -100,10 +102,11 @@ class _AdminCreateHubViewState extends State<_AdminCreateHubView> {
 
     if (!widget.showAsStandalone) return page;
 
-    return Scaffold(
-      backgroundColor: EColorConstants.authFieldBackground,
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: page,
-    );
+    ));
   }
 }
 
@@ -163,8 +166,8 @@ class _CreateHubBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final recentCoaches = admin.coaches.take(2).toList();
-    final recentGroups = CoachWithSessions.group(admin.sessions).take(2).toList();
+    final coaches = admin.coaches;
+    final sessionGroups = CoachWithSessions.group(admin.sessions);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,19 +193,9 @@ class _CreateHubBody extends StatelessWidget {
             ),
           ],
         ),
-        if (recentCoaches.isNotEmpty || recentGroups.isNotEmpty) ...[
+        if (coaches.isNotEmpty || sessionGroups.isNotEmpty) ...[
           const SizedBox(height: 28),
-          const Text(
-            'Recent',
-            style: TextStyle(
-              color: EColorConstants.authTextDarkBrown,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'Poppins',
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (recentCoaches.isNotEmpty) ...[
+          if (coaches.isNotEmpty) ...[
             _RecentSectionHeader(
               label: 'Coaches',
               onViewAll: () {
@@ -211,8 +204,8 @@ class _CreateHubBody extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 8),
-            ...recentCoaches.map(
+            const SizedBox(height: 10),
+            ...coaches.map(
               (coach) => _RecentCoachRow(
                 coach: coach,
                 onTap: () => Navigator.of(context).push(
@@ -221,7 +214,7 @@ class _CreateHubBody extends StatelessWidget {
               ),
             ),
           ],
-          if (recentGroups.isNotEmpty) ...[
+          if (sessionGroups.isNotEmpty) ...[
             const SizedBox(height: 16),
             _RecentSectionHeader(
               label: 'Sessions',
@@ -231,8 +224,8 @@ class _CreateHubBody extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 8),
-            ...recentGroups.map((group) {
+            const SizedBox(height: 10),
+            ...sessionGroups.map((group) {
               final session = group.schedules.first;
               return _RecentSessionRow(
                 group: group,
@@ -267,16 +260,16 @@ class _HubActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 120),
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+          constraints: const BoxConstraints(minHeight: 136),
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.06),
@@ -289,34 +282,34 @@ class _HubActionCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 48,
+                height: 48,
                 decoration: const BoxDecoration(
                   color: Color(0xFFF3EDE4),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   icon,
-                  size: 20,
+                  size: 24,
                   color: EColorConstants.primaryColor,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Text(
                 title,
                 style: const TextStyle(
                   color: EColorConstants.authTextDarkBrown,
-                  fontSize: 16,
+                  fontSize: 17,
                   fontWeight: FontWeight.w700,
                   fontFamily: 'Poppins',
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 subtitle,
                 style: const TextStyle(
                   color: EColorConstants.authPlaceholderGray,
-                  fontSize: 12,
+                  fontSize: 13,
                   fontFamily: 'Poppins',
                 ),
               ),
@@ -385,23 +378,23 @@ class _RecentCoachRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             child: Row(
               children: [
                 CoachAvatar(
                   coachName: coach.name,
                   photoUrl: coach.photoUrl,
-                  size: 40,
+                  size: 48,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,16 +404,17 @@ class _RecentCoachRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: EColorConstants.authTextDarkBrown,
                           fontFamily: 'Poppins',
                         ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         SpecialtyChip.displayLabel(coach.specialty),
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: EColorConstants.authPlaceholderGray,
                           fontFamily: 'Poppins',
                         ),
@@ -430,7 +424,7 @@ class _RecentCoachRow extends StatelessWidget {
                 ),
                 const Icon(
                   Iconsax.arrow_right_3,
-                  size: 16,
+                  size: 18,
                   color: EColorConstants.authPlaceholderGray,
                 ),
               ],
@@ -462,23 +456,23 @@ class _RecentSessionRow extends StatelessWidget {
         .join(' · ');
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             child: Row(
               children: [
                 CoachAvatar(
                   coachName: group.name,
                   photoUrl: group.photoUrl,
-                  size: 40,
+                  size: 48,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -488,12 +482,13 @@ class _RecentSessionRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: EColorConstants.authTextDarkBrown,
                           fontFamily: 'Poppins',
                         ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         [
                           if (dayLabels.isNotEmpty) dayLabels,
@@ -503,8 +498,8 @@ class _RecentSessionRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 11,
-                          color: EColorConstants.authPlaceholderGray,
+                          fontSize: 12,
+                          color: EColorConstants.primaryColor,
                           fontFamily: 'Poppins',
                         ),
                       ),
@@ -513,7 +508,7 @@ class _RecentSessionRow extends StatelessWidget {
                 ),
                 const Icon(
                   Iconsax.arrow_right_3,
-                  size: 16,
+                  size: 18,
                   color: EColorConstants.authPlaceholderGray,
                 ),
               ],

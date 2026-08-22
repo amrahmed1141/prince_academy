@@ -11,6 +11,31 @@ abstract final class CoachPhotoHelper {
   static const avatarThumbWidth = 256;
   static const heroWidth = 800;
 
+  /// Storage Image Transformations are Pro+ only. This project currently returns
+  /// `FeatureNotEnabled` on `/render/image/` — leave false until enabled under
+  /// Storage → Settings. Set true (or call [enableTransforms]) after upgrading.
+  static bool transformsEnabled = false;
+
+  static void enableTransforms() => transformsEnabled = true;
+
+  /// Latch off after a render 403 / FeatureNotEnabled so we stop retrying.
+  static void disableTransforms() => transformsEnabled = false;
+
+  static bool isRenderUrl(String url) => url.contains(_renderPublic);
+
+  /// Strips transform query params and rewrites render → object public URL.
+  static String? objectUrlFromRender(String url) {
+    if (!isRenderUrl(url)) return null;
+    final swapped = url.replaceFirst(_renderPublic, _objectPublic);
+    final uri = Uri.parse(swapped);
+    return Uri(
+      scheme: uri.scheme,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+      path: uri.path,
+    ).toString();
+  }
+
   static String? normalize(String? raw) {
     final value = raw?.trim();
     if (value == null || value.isEmpty) return null;
@@ -35,8 +60,7 @@ abstract final class CoachPhotoHelper {
     return '$base/storage/v1/object/public/$_bucket/$path';
   }
 
-  /// Small render URL for list avatars. Falls back to [normalize] when the
-  /// value is not a public Storage object URL.
+  /// Small list-avatar URL. Uses Storage transforms when [transformsEnabled].
   static String? thumbnailUrl(
     String? raw, {
     int width = avatarThumbWidth,
@@ -44,7 +68,7 @@ abstract final class CoachPhotoHelper {
     return _transformed(raw, width: width, height: width, quality: 70);
   }
 
-  /// Medium render URL for the coach profile hero.
+  /// Medium coach-profile hero URL. Uses Storage transforms when enabled.
   static String? heroUrl(String? raw, {int width = heroWidth}) {
     return _transformed(raw, width: width, quality: 75);
   }
@@ -80,6 +104,7 @@ abstract final class CoachPhotoHelper {
   }) {
     final url = normalize(raw);
     if (url == null || isLocalPath(url)) return url;
+    if (!transformsEnabled) return url;
     return transformedPublicUrl(
           url,
           width: width,

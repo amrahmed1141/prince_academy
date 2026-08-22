@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/image_resize_helper.dart';
 import 'package:prince_academy/features/admin/data/models/coach_model.dart';
@@ -144,8 +145,9 @@ class _EditCoachPageState extends State<EditCoachPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: EColorConstants.authFieldBackground,
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text(
           'Edit Coach',
@@ -335,14 +337,17 @@ class _EditCoachPageState extends State<EditCoachPage> {
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
-              height: 52,
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _handleSaveChanges,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: EColorConstants.primaryColor,
+                  foregroundColor: Colors.white,
                   disabledBackgroundColor: EColorConstants.authPlaceholderGray,
+                  minimumSize: const Size.fromHeight(52),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: BorderSide.none,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   elevation: 0,
                 ),
@@ -359,6 +364,7 @@ class _EditCoachPageState extends State<EditCoachPage> {
                         'Save Changes',
                         style: TextStyle(
                           fontSize: 16,
+                          height: 1.2,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           fontFamily: 'Poppins',
@@ -369,7 +375,7 @@ class _EditCoachPageState extends State<EditCoachPage> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   InputDecoration _inputDecoration({

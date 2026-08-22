@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
@@ -96,11 +97,12 @@ class _TrackingViewState extends State<TrackingView> {
     return BlocBuilder<TrackingBloc, TrackingState>(
       builder: (context, state) {
         final isLoaded = state is TrackingLoaded;
-        return Scaffold(
-          backgroundColor: EColorConstants.authFieldBackground,
+        return AppGradients.lightBackground(
+      child: Scaffold(
+          backgroundColor: Colors.transparent,
           appBar: widget.showBackButton && !isLoaded
               ? AppBar(
-                  backgroundColor: EColorConstants.authFieldBackground,
+                  backgroundColor: Colors.transparent,
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   leading: const BackButton(
@@ -120,7 +122,7 @@ class _TrackingViewState extends State<TrackingView> {
           body: SafeArea(
             child: _buildBody(context, state),
           ),
-        );
+        ));
       },
     );
   }
@@ -184,8 +186,8 @@ class _TrackingViewState extends State<TrackingView> {
             ),
             searchBar: AppSearchBar(
               controller: _searchController,
-              hintText: 'Search by name or phone...',
-              hintPhrases: AdminSearchHints.tracking,
+              hintText: 'Search members...',
+              hintPhrases: AdminSearchHints.tracking(context),
               variant: AppSearchBarVariant.outlined,
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               onChanged: _onSearchChanged,
@@ -195,110 +197,64 @@ class _TrackingViewState extends State<TrackingView> {
               },
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          const SliverToBoxAdapter(child: SizedBox(height: 4)),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: Row(
+            child: SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
-                  const Icon(
-                    Icons.location_city_outlined,
-                    size: 16,
-                    color: EColorConstants.primaryColor,
+                  _BranchFilterChip(
+                    label: 'All branches',
+                    isSelected: state.selectedBranchId == null,
+                    onTap: () {
+                      context
+                          .read<TrackingBloc>()
+                          .add(const FilterByBranch(null));
+                    },
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: SizedBox(
-                      height: 36,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _BranchFilterChip(
-                            label: 'ALL BRANCHES',
-                            isSelected: state.selectedBranchId == null,
-                            onTap: () {
-                              context
-                                  .read<TrackingBloc>()
-                                  .add(const FilterByBranch(null));
-                            },
-                          ),
-                          ...state.branches.map(
-                            (branch) => _BranchFilterChip(
-                              label: branch.name.toUpperCase(),
-                              isSelected: state.selectedBranchId == branch.id,
-                              onTap: () {
-                                context
-                                    .read<TrackingBloc>()
-                                    .add(FilterByBranch(branch.id));
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+                  ...state.branches.map(
+                    (branch) => _BranchFilterChip(
+                      label: branch.name,
+                      isSelected: state.selectedBranchId == branch.id,
+                      onTap: () {
+                        context
+                            .read<TrackingBloc>()
+                            .add(FilterByBranch(branch.id));
+                      },
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  const Icon(
-                    Iconsax.chart_2,
-                    size: 18,
-                    color: EColorConstants.primaryColor,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            state.displayCoaches.isEmpty
-                                ? 'COACH OVERVIEW'
-                                : 'COACH OVERVIEW (${state.displayCoaches.length})',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.4,
-                              color: EColorConstants.authTextDarkBrown,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                        if (state.isFiltering) ...[
-                          const SizedBox(width: 8),
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ],
-                      ],
+              child: _SectionHeader(
+                icon: Iconsax.teacher,
+                title: 'Coach overview',
+                count: state.displayCoaches.isEmpty
+                    ? null
+                    : '${state.displayCoaches.length}',
+                isBusy: state.isFiltering,
+                onViewAll: () async {
+                  final coachId = await Navigator.of(context).push<String>(
+                    MaterialPageRoute(
+                      builder: (_) => AllCoachesPage(
+                        initialCoaches: state.displayCoaches,
+                      ),
                     ),
-                  ),
-                  _ViewAllButton(
-                    onTap: () async {
-                      final coachId = await Navigator.of(context).push<String>(
-                        MaterialPageRoute(
-                          builder: (_) => AllCoachesPage(
-                            initialCoaches: state.displayCoaches,
-                          ),
-                        ),
-                      );
-                      if (!context.mounted || coachId == null) return;
-                      context.read<TrackingBloc>().add(FilterByCoach(coachId));
-                    },
-                  ),
-                ],
+                  );
+                  if (!context.mounted || coachId == null) return;
+                  context.read<TrackingBloc>().add(FilterByCoach(coachId));
+                },
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          const SliverToBoxAdapter(child: SizedBox(height: 14)),
           if (state.displayCoaches.isEmpty)
             const SliverToBoxAdapter(
               child: Padding(
@@ -306,7 +262,7 @@ class _TrackingViewState extends State<TrackingView> {
                 child: Text(
                   'No coaches in this branch.',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: EColorConstants.authPlaceholderGray,
                     fontFamily: 'Poppins',
                   ),
@@ -318,7 +274,7 @@ class _TrackingViewState extends State<TrackingView> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: SizedBox(
-                  height: 180,
+                  height: 198,
                   child: _CoachOverviewCard(
                     coach: state.displayCoaches.first,
                     isSelected: state.selectedCoachId ==
@@ -337,7 +293,7 @@ class _TrackingViewState extends State<TrackingView> {
           else
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 180,
+                height: 198,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -368,119 +324,69 @@ class _TrackingViewState extends State<TrackingView> {
                 ),
               ),
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          const SliverToBoxAdapter(child: SizedBox(height: 28)),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Iconsax.user,
-                        size: 18,
-                        color: EColorConstants.primaryColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                'ALL MEMBERS (${state.membersCountLabel})',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.4,
-                                  color: EColorConstants.authTextDarkBrown,
-                                  fontFamily: 'Poppins',
-                                ),
-                              ),
-                            ),
-                            if (state.isSearching) ...[
-                              const SizedBox(width: 8),
-                              const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ],
-                          ],
+                  _SectionHeader(
+                    icon: Iconsax.people,
+                    title: 'All members',
+                    count: state.membersCountLabel,
+                    isBusy: state.isSearching,
+                    onViewAll: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AllMembersPage(
+                            initialMembers: state.visibleUsers,
+                          ),
                         ),
-                      ),
-                      _ViewAllButton(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AllMembersPage(
-                                initialMembers: state.visibleUsers,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                  if (state.selectedCoachName != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Filtered by ${state.selectedCoachName}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: EColorConstants.authPlaceholderGray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                  if (state.selectedBranchName != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Branch: ${state.selectedBranchName}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: EColorConstants.authPlaceholderGray,
-                        fontFamily: 'Poppins',
-                      ),
+                  if (state.selectedCoachName != null ||
+                      state.selectedBranchName != null) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (state.selectedCoachName != null)
+                          _ActiveFilterChip(
+                            icon: Iconsax.teacher,
+                            label: state.selectedCoachName!,
+                            onClear: () {
+                              context
+                                  .read<TrackingBloc>()
+                                  .add(const FilterByCoach(null));
+                            },
+                          ),
+                        if (state.selectedBranchName != null)
+                          _ActiveFilterChip(
+                            icon: Iconsax.location,
+                            label: state.selectedBranchName!,
+                            onClear: () {
+                              context
+                                  .read<TrackingBloc>()
+                                  .add(const FilterByBranch(null));
+                            },
+                          ),
+                      ],
                     ),
                   ],
                 ],
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+          const SliverToBoxAdapter(child: SizedBox(height: 14)),
           if (state.filteredUsers.isEmpty)
             SliverToBoxAdapter(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: EColorConstants.authCardWhite,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: EColorConstants.authFieldBorder),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Iconsax.people,
-                      size: 48,
-                      color: Colors.grey.shade300,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      state.users.isEmpty
-                          ? 'No members in database yet.'
-                          : 'No members match this filter.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: EColorConstants.authPlaceholderGray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ),
+              child: _EmptyMembersCard(
+                message: state.users.isEmpty
+                    ? 'No members in database yet.'
+                    : 'No members match this filter.',
               ),
             )
           else
@@ -564,6 +470,87 @@ class _TrackingViewState extends State<TrackingView> {
   }
 }
 
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? count;
+  final bool isBusy;
+  final VoidCallback onViewAll;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.onViewAll,
+    this.count,
+    this.isBusy = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: EColorConstants.primaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 16, color: EColorConstants.primaryColor),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: EColorConstants.authTextDarkBrown,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: EColorConstants.authFieldBackground,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: EColorConstants.authFieldBorder),
+                  ),
+                  child: Text(
+                    count!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: EColorConstants.authTextDarkBrown,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                ),
+              ],
+              if (isBusy) ...[
+                const SizedBox(width: 8),
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ],
+            ],
+          ),
+        ),
+        _ViewAllButton(onTap: onViewAll),
+      ],
+    );
+  }
+}
+
 class _ViewAllButton extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -571,20 +558,94 @@ class _ViewAllButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-        child: Text(
-          'View All',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: EColorConstants.primaryColor,
-            fontFamily: 'Poppins',
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text(
+                'View all',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: EColorConstants.primaryColor,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              SizedBox(width: 2),
+              Icon(
+                Iconsax.arrow_right_3,
+                size: 14,
+                color: EColorConstants.primaryColor,
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ActiveFilterChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onClear;
+
+  const _ActiveFilterChip({
+    required this.icon,
+    required this.label,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: EColorConstants.primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: EColorConstants.primaryColor.withOpacity(0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: EColorConstants.primaryColor),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: EColorConstants.authTextDarkBrown,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onClear,
+            borderRadius: BorderRadius.circular(12),
+            child: const Padding(
+              padding: EdgeInsets.all(2),
+              child: Icon(
+                Icons.close_rounded,
+                size: 14,
+                color: EColorConstants.primaryColor,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -605,31 +666,44 @@ class _BranchFilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? EColorConstants.primaryColor.withOpacity(0.12)
-                : EColorConstants.authCardWhite,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
               color: isSelected
                   ? EColorConstants.primaryColor
-                  : EColorConstants.authFieldBorder,
+                  : EColorConstants.authCardWhite,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: isSelected
+                    ? EColorConstants.primaryColor
+                    : EColorConstants.authFieldBorder,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: EColorConstants.primaryColor.withOpacity(0.22),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
             ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-              color: isSelected
-                  ? EColorConstants.primaryColor
-                  : EColorConstants.authTextDarkBrown,
-              fontFamily: 'Poppins',
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? Colors.white
+                    : EColorConstants.authTextDarkBrown,
+                fontFamily: 'Poppins',
+              ),
             ),
           ),
         ),
@@ -649,19 +723,22 @@ class _CoachOverviewCard extends StatelessWidget {
     required this.coach,
     required this.isSelected,
     required this.onTap,
-    this.width = 156,
+    this.width = 164,
     this.margin = const EdgeInsets.only(right: 12),
   });
 
   @override
   Widget build(BuildContext context) {
+    final memberLabel =
+        '${coach.totalSubscribers} member${coach.totalSubscribers == 1 ? '' : 's'}';
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: width,
         margin: margin,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         decoration: BoxDecoration(
           color: isSelected
               ? EColorConstants.primaryColor.withOpacity(0.08)
@@ -671,34 +748,35 @@ class _CoachOverviewCard extends StatelessWidget {
             color: isSelected
                 ? EColorConstants.primaryColor
                 : EColorConstants.authFieldBorder,
-            width: isSelected ? 1.5 : 1,
+            width: isSelected ? 1.6 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
+              color: Colors.black.withOpacity(isSelected ? 0.07 : 0.04),
+              blurRadius: isSelected ? 14 : 10,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: EColorConstants.authFieldBorder,
+                  color: isSelected
+                      ? EColorConstants.primaryColor
+                      : EColorConstants.authFieldBorder,
                   width: 2,
                 ),
               ),
               child: CoachAvatar(
                 coachName: coach.coachName,
                 photoUrl: coach.coachPhoto,
-                size: 60,
+                size: 58,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -707,8 +785,9 @@ class _CoachOverviewCard extends StatelessWidget {
                     coach.coachName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: EColorConstants.authTextDarkBrown,
                       fontFamily: 'Poppins',
@@ -718,12 +797,12 @@ class _CoachOverviewCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 const Icon(
                   Iconsax.verify5,
-                  size: 15,
+                  size: 14,
                   color: EColorConstants.primaryColor,
                 ),
               ],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               coach.coachSpecialty,
               maxLines: 1,
@@ -734,28 +813,40 @@ class _CoachOverviewCard extends StatelessWidget {
                 fontFamily: 'Poppins',
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${coach.totalSubscribers} users',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: EColorConstants.authPlaceholderGray,
-                fontFamily: 'Poppins',
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: EColorConstants.authFieldBackground,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                memberLabel,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: EColorConstants.authTextDarkBrown,
+                  fontFamily: 'Poppins',
+                ),
               ),
             ),
             const Spacer(),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _StatusDot(
-                  color: const Color(0xFF2E7D32),
-                  label: '${coach.activeSubscribers} active',
+                Expanded(
+                  child: _StatPill(
+                    color: const Color(0xFF2E7D32),
+                    background: const Color(0xFFE8F5E9),
+                    label: '${coach.activeSubscribers} active',
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _StatusDot(
-                  color: const Color(0xFFD32F2F),
-                  label: '${coach.expiredSubscribers} expired',
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _StatPill(
+                    color: const Color(0xFFC62828),
+                    background: const Color(0xFFFFEBEE),
+                    label: '${coach.expiredSubscribers} exp',
+                  ),
                 ),
               ],
             ),
@@ -779,24 +870,28 @@ class _AllCoachChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 90,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 104,
         margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? EColorConstants.primaryColor.withOpacity(0.12)
+              ? EColorConstants.primaryColor
               : EColorConstants.authCardWhite,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? EColorConstants.primaryColor
                 : EColorConstants.authFieldBorder,
-            width: isSelected ? 1.5 : 1,
+            width: isSelected ? 1.6 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
+              color: isSelected
+                  ? EColorConstants.primaryColor.withOpacity(0.24)
+                  : Colors.black.withOpacity(0.04),
+              blurRadius: isSelected ? 14 : 10,
               offset: const Offset(0, 4),
             ),
           ],
@@ -805,37 +900,40 @@ class _AllCoachChip extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: EColorConstants.primaryColor.withOpacity(0.1),
+                color: isSelected
+                    ? Colors.white.withOpacity(0.18)
+                    : EColorConstants.primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Iconsax.people,
-                size: 24,
-                color: isSelected
-                    ? EColorConstants.primaryColor
-                    : EColorConstants.authPlaceholderGray,
+                size: 22,
+                color: isSelected ? Colors.white : EColorConstants.primaryColor,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(
               'All',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: isSelected
-                    ? EColorConstants.primaryColor
+                    ? Colors.white
                     : EColorConstants.authTextDarkBrown,
                 fontFamily: 'Poppins',
               ),
             ),
             const SizedBox(height: 2),
-            const Text(
-              'Coaches',
+            Text(
+              'coaches',
               style: TextStyle(
-                fontSize: 10,
-                color: EColorConstants.authPlaceholderGray,
+                fontSize: 11,
+                color: isSelected
+                    ? Colors.white.withOpacity(0.85)
+                    : EColorConstants.authPlaceholderGray,
                 fontFamily: 'Poppins',
               ),
             ),
@@ -864,211 +962,292 @@ class _SubscriberCard extends StatelessWidget {
         .take(2)
         .join();
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: EColorConstants.authCardWhite,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: EColorConstants.authFieldBorder),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: EColorConstants.primaryColor.withOpacity(0.15),
-              child: Text(
-                initials.isEmpty ? '?' : initials,
-                style: const TextStyle(
-                  color: EColorConstants.primaryColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  fontFamily: 'Poppins',
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: EColorConstants.authCardWhite,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: EColorConstants.authFieldBorder),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.035),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          user.fullName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: EColorConstants.authTextDarkBrown,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                      ),
-                      if (user.hasPendingPayment) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF8E1),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: const Color(0xFFF9A825).withOpacity(0.35),
-                            ),
-                          ),
-                          child: const Text(
-                            'PENDING',
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFFF9A825),
-                              fontFamily: 'Poppins',
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${user.totalBookings} booking${user.totalBookings == 1 ? '' : 's'}',
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor:
+                      EColorConstants.primaryColor.withOpacity(0.12),
+                  child: Text(
+                    initials.isEmpty ? '?' : initials,
                     style: const TextStyle(
-                      fontSize: 11,
-                      color: EColorConstants.authPlaceholderGray,
+                      color: EColorConstants.primaryColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
                       fontFamily: 'Poppins',
                     ),
                   ),
-                  if (user.phone != null && user.phone!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Iconsax.call,
-                          size: 13,
-                          color: EColorConstants.authPlaceholderGray,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          user.phone!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: EColorConstants.authTextDarkBrown,
-                            fontFamily: 'Poppins',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Row(
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _StatusDot(
-                        color: Color(0xFF2E7D32),
-                        label: '',
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              user.fullName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: EColorConstants.authTextDarkBrown,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ),
+                          if (user.hasPendingPayment) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF8E1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFF9A825)
+                                      .withOpacity(0.35),
+                                ),
+                              ),
+                              child: const Text(
+                                'Pending',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFF57F17),
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      Text(
-                        ' ${user.activeBookings} active',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: EColorConstants.authPlaceholderGray,
-                          fontFamily: 'Poppins',
-                        ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Iconsax.ticket,
+                            size: 12,
+                            color: EColorConstants.authPlaceholderGray,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${user.totalBookings} booking${user.totalBookings == 1 ? '' : 's'}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: EColorConstants.authPlaceholderGray,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                          if (user.phone != null && user.phone!.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 3,
+                              height: 3,
+                              decoration: const BoxDecoration(
+                                color: EColorConstants.authPlaceholderGray,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Iconsax.call,
+                              size: 12,
+                              color: EColorConstants.authPlaceholderGray,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                user.phone!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: EColorConstants.authTextDarkBrown,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      const _StatusDot(
-                        color: Color(0xFFD32F2F),
-                        label: '',
-                      ),
-                      Text(
-                        ' ${user.expiredBookings} expired',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: EColorConstants.authPlaceholderGray,
-                          fontFamily: 'Poppins',
-                        ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _StatPill(
+                            color: const Color(0xFF2E7D32),
+                            background: const Color(0xFFE8F5E9),
+                            label: '${user.activeBookings} active',
+                            compact: true,
+                          ),
+                          const SizedBox(width: 6),
+                          _StatPill(
+                            color: const Color(0xFFC62828),
+                            background: const Color(0xFFFFEBEE),
+                            label: '${user.expiredBookings} expired',
+                            compact: true,
+                          ),
+                          if (user.latestSubscriptionEnd != null) ...[
+                            const Spacer(),
+                            Text(
+                              SubscriptionFormatters.formatDate(
+                                user.latestSubscriptionEnd,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: EColorConstants.authPlaceholderGray,
+                                fontFamily: 'Poppins',
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
-                  if (user.latestSubscriptionEnd != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Latest: ${SubscriptionFormatters.formatDate(user.latestSubscriptionEnd)}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: EColorConstants.authPlaceholderGray,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: EColorConstants.authFieldBackground,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Iconsax.arrow_right_3,
+                    size: 14,
+                    color: EColorConstants.authPlaceholderGray,
+                  ),
+                ),
+              ],
             ),
-            const Icon(
-              Iconsax.arrow_right_3,
-              size: 16,
-              color: EColorConstants.authPlaceholderGray,
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _StatusDot extends StatelessWidget {
+class _StatPill extends StatelessWidget {
   final Color color;
+  final Color background;
   final String label;
+  final bool compact;
 
-  const _StatusDot({
+  const _StatPill({
     required this.color,
+    required this.background,
     required this.label,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    String displayLabel = label;
-    if (label.contains(' ')) {
-      final parts = label.split(' ');
-      if (parts.length == 2 && parts[1].length >= 3) {
-        displayLabel = '${parts[0]} ${parts[1].substring(0, 3)}';
-      }
-    }
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 6,
+        vertical: compact ? 4 : 5,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: compact ? 10 : 10,
+                fontWeight: FontWeight.w600,
+                color: color,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        if (displayLabel.isNotEmpty)
+class _EmptyMembersCard extends StatelessWidget {
+  final String message;
+
+  const _EmptyMembersCard({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+      decoration: BoxDecoration(
+        color: EColorConstants.authCardWhite,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: EColorConstants.authFieldBorder),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: EColorConstants.authFieldBackground,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Iconsax.people,
+              size: 26,
+              color: EColorConstants.authPlaceholderGray,
+            ),
+          ),
+          const SizedBox(height: 14),
           Text(
-            displayLabel,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: color,
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              color: EColorConstants.authPlaceholderGray,
               fontFamily: 'Poppins',
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }

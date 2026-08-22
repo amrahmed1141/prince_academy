@@ -5,6 +5,14 @@ import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 void main() {
   final base = SupabaseConfig.url.replaceAll(RegExp(r'/+$'), '');
 
+  setUp(() {
+    CoachPhotoHelper.transformsEnabled = true;
+  });
+
+  tearDown(() {
+    CoachPhotoHelper.transformsEnabled = false;
+  });
+
   group('CoachPhotoHelper.thumbnailUrl', () {
     test('rewrites public object URLs to the render endpoint', () {
       final original =
@@ -25,6 +33,13 @@ void main() {
       expect(thumb, contains('coaches/a.jpg'));
     });
 
+    test('uses the original object URL when transforms are disabled', () {
+      CoachPhotoHelper.transformsEnabled = false;
+      final original =
+          '$base/storage/v1/object/public/coach-photos/coaches/a.jpg';
+      expect(CoachPhotoHelper.thumbnailUrl(original), original);
+    });
+
     test('leaves local paths unchanged', () {
       expect(CoachPhotoHelper.thumbnailUrl('/tmp/photo.jpg'), '/tmp/photo.jpg');
     });
@@ -42,6 +57,18 @@ void main() {
       final hero = CoachPhotoHelper.heroUrl(original);
       expect(hero, contains('width=800'));
       expect(hero, contains('/render/image/public/'));
+    });
+  });
+
+  group('CoachPhotoHelper.objectUrlFromRender', () {
+    test('rewrites a render URL back to the public object URL', () {
+      final render =
+          '$base/storage/v1/render/image/public/coach-photos/coaches/a.jpg'
+          '?width=256&height=256&resize=cover&quality=70';
+      expect(
+        CoachPhotoHelper.objectUrlFromRender(render),
+        '$base/storage/v1/object/public/coach-photos/coaches/a.jpg',
+      );
     });
   });
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/features/admin/data/models/branch_model.dart';
 import 'package:prince_academy/features/admin/data/models/coach_with_sessions.dart';
@@ -235,8 +236,9 @@ class _EditSessionPageState extends State<EditSessionPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: EColorConstants.authFieldBackground,
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text(
           'Edit Session',
@@ -446,6 +448,6 @@ class _EditSessionPageState extends State<EditSessionPage> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

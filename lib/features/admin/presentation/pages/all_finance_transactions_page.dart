@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
 import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
 import 'package:prince_academy/features/admin/data/admin_search_index.dart';
@@ -55,8 +56,9 @@ class _AllFinanceTransactionsPageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2),
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: BlocConsumer<FinanceCubit, FinanceState>(
         listenWhen: (previous, current) =>
             previous.errorMessage != current.errorMessage ||
@@ -110,7 +112,7 @@ class _AllFinanceTransactionsPageState
             floatHeaderSlivers: true,
             headerSliverBuilder: (context, _) => [
               ScrollAwaySearchHeader(
-                backgroundColor: const Color(0xFFF9F6F2),
+                backgroundColor: Colors.transparent,
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                   color: AppColors.textPrimary,
@@ -125,7 +127,7 @@ class _AllFinanceTransactionsPageState
                   child: AppSearchBar(
                     controller: _searchController,
                     hintText: 'Search member, coach, or time',
-                    hintPhrases: AdminSearchHints.transactions,
+                    hintPhrases: AdminSearchHints.transactions(context),
                     variant: AppSearchBarVariant.elevated,
                     padding: EdgeInsets.zero,
                     onChanged: (value) {
@@ -214,6 +216,6 @@ class _AllFinanceTransactionsPageState
           );
         },
       ),
-    );
+    ));
   }
 }

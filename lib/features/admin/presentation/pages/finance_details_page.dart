@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/finance_bloc.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/finance/finance_performance_card.dart';
@@ -126,10 +127,11 @@ class _FinanceDetailsPageState extends State<FinanceDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2),
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF9F6F2),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
@@ -357,7 +359,7 @@ class _FinanceDetailsPageState extends State<FinanceDetailsPage> {
           );
         },
       ),
-    );
+    ));
   }
 }
 

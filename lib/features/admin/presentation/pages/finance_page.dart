@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:prince_academy/core/constants/app_colors.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/features/admin/data/repositories/finance_repository.dart';
 import 'package:prince_academy/features/admin/presentation/bloc/finance_bloc.dart';
@@ -53,10 +54,11 @@ class _FinanceHomeViewState extends State<_FinanceHomeView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F6F2),
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF9F6F2),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: widget.showBackButton,
         leading: widget.showBackButton
@@ -231,7 +233,7 @@ class _FinanceHomeViewState extends State<_FinanceHomeView> {
           );
         },
       ),
-    );
+    ));
   }
 }
 

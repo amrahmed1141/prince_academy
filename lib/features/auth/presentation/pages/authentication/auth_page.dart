@@ -94,6 +94,17 @@ class _AuthPageState extends State<AuthPage>
     }
   }
 
+  void _openAdminLogin() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: context.read<AuthBloc>(),
+          child: const AdminLoginPage(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
@@ -114,133 +125,154 @@ class _AuthPageState extends State<AuthPage>
                         constraints.maxWidth > 600 ? 48.0 : 20.0;
                     final logoSize = constraints.maxWidth > 600 ? 200.0 : 165.0;
 
-                    return SingleChildScrollView(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: horizontalPadding,
-                        vertical: 16,
-                      ),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight - 32,
-                        ),
-                        child: Column(
-                          children: [
-                            SizedBox(height: constraints.maxHeight * 0.015),
-                            Image.asset(
-                              'assets/icons/logo.png',
-                              height: logoSize,
-                              width: logoSize,
-                              fit: BoxFit.contain,
+                    return Stack(
+                      children: [
+                        SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 16,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight - 32,
                             ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'Prince MMA Academy',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                color: Colors.white,
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.6,
-                                height: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'TRAIN HARD. FIGHT SMART.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                color: Colors.white.withOpacity(0.85),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 4,
-                                height: 1.25,
-                              ),
-                            ),
-                            const SizedBox(height: 26),
-                            AuthTabBar(controller: _tabController),
-                            const SizedBox(height: 20),
-                            AuthCard(
-                              child: AnimatedSize(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeOutCubic,
-                                alignment: Alignment.topCenter,
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 300),
-                                  switchInCurve: Curves.easeOutCubic,
-                                  switchOutCurve: Curves.easeInCubic,
-                                  layoutBuilder:
-                                      (currentChild, previousChildren) {
-                                    return Stack(
-                                      alignment: Alignment.topCenter,
-                                      children: <Widget>[
-                                        ...previousChildren,
-                                        if (currentChild != null) currentChild,
-                                      ],
-                                    );
-                                  },
-                                  transitionBuilder: (child, animation) {
-                                    final isCurrent = child.key ==
-                                        ValueKey<int>(_currentIndex);
-                                    final double slideDirection =
-                                        _currentIndex >= _prevIndex
-                                            ? 1.0
-                                            : -1.0;
-
-                                    final offsetTween = isCurrent
-                                        ? Tween<Offset>(
-                                            begin: Offset(
-                                                slideDirection * 0.15, 0.0),
-                                            end: Offset.zero,
-                                          )
-                                        : Tween<Offset>(
-                                            begin: Offset(
-                                                -slideDirection * 0.15, 0.0),
-                                            end: Offset.zero,
-                                          );
-
-                                    return FadeTransition(
-                                      opacity: animation,
-                                      child: SlideTransition(
-                                        position:
-                                            offsetTween.animate(animation),
-                                        child: child,
-                                      ),
-                                    );
-                                  },
-                                  child: [
-                                    const _SignInTab(key: ValueKey(0)),
-                                    const _SignUpTab(key: ValueKey(1)),
-                                  ][_currentIndex],
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  height: constraints.maxHeight * 0.015,
                                 ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => BlocProvider.value(
-                                      value: context.read<AuthBloc>(),
-                                      child: const AdminLoginPage(),
+                                Image.asset(
+                                  'assets/icons/logo.png',
+                                  height: logoSize,
+                                  width: logoSize,
+                                  fit: BoxFit.contain,
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Prince MMA Academy',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: Colors.white,
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'TRAIN HARD. FIGHT SMART.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: Colors.white.withOpacity(0.85),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 4,
+                                    height: 1.25,
+                                  ),
+                                ),
+                                const SizedBox(height: 26),
+                                AuthTabBar(controller: _tabController),
+                                const SizedBox(height: 20),
+                                AuthCard(
+                                  child: AnimatedSize(
+                                    duration:
+                                        const Duration(milliseconds: 300),
+                                    curve: Curves.easeOutCubic,
+                                    alignment: Alignment.topCenter,
+                                    child: AnimatedSwitcher(
+                                      duration:
+                                          const Duration(milliseconds: 300),
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeInCubic,
+                                      layoutBuilder:
+                                          (currentChild, previousChildren) {
+                                        return Stack(
+                                          alignment: Alignment.topCenter,
+                                          children: <Widget>[
+                                            ...previousChildren,
+                                            if (currentChild != null)
+                                              currentChild,
+                                          ],
+                                        );
+                                      },
+                                      transitionBuilder: (child, animation) {
+                                        final isCurrent = child.key ==
+                                            ValueKey<int>(_currentIndex);
+                                        final double slideDirection =
+                                            _currentIndex >= _prevIndex
+                                                ? 1.0
+                                                : -1.0;
+
+                                        final offsetTween = isCurrent
+                                            ? Tween<Offset>(
+                                                begin: Offset(
+                                                  slideDirection * 0.15,
+                                                  0.0,
+                                                ),
+                                                end: Offset.zero,
+                                              )
+                                            : Tween<Offset>(
+                                                begin: Offset(
+                                                  -slideDirection * 0.15,
+                                                  0.0,
+                                                ),
+                                                end: Offset.zero,
+                                              );
+
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: SlideTransition(
+                                            position: offsetTween
+                                                .animate(animation),
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: [
+                                        const _SignInTab(key: ValueKey(0)),
+                                        const _SignUpTab(key: ValueKey(1)),
+                                      ][_currentIndex],
                                     ),
                                   ),
-                                );
-                              },
-                              child: Text(
-                                'Admin? Sign in here',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
                                 ),
+                                const SizedBox(height: 24),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 4,
+                          right: horizontalPadding - 8,
+                          child: TextButton.icon(
+                            onPressed: _openAdminLogin,
+                            style: TextButton.styleFrom(
+                              foregroundColor:
+                                  Colors.white.withOpacity(0.85),
+                              minimumSize: const Size(48, 48),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.padded,
+                            ),
+                            icon: const Icon(
+                              Icons.admin_panel_settings_outlined,
+                              size: 20,
+                            ),
+                            label: const Text(
+                              'Admin',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 12),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     );
                   },
                 ),

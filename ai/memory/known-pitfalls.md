@@ -6,6 +6,10 @@ Append dated entries. Do not invent.
 
 <!-- YYYY-MM-DD — note -->
 
+## 2026-08-20 — Coach photo `/render/image/` 403 FeatureNotEnabled
+
+Storage Image Transformations are Pro+ only. This project's render URLs return `{"error":"FeatureNotEnabled"}` while `/object/public/...` returns 200. `CoachPhotoHelper.transformsEnabled` defaults to **false** so list/precache use original object URLs; set true after enabling transforms in Storage → Settings (Pro). Runtime latch still disables transforms after a render 403 and retries the object URL.
+
 ## 2026-08-18 — Google signInWithIdToken needs the **Web** client ID
 
 `google_sign_in` on Android still requires `serverClientId` = the **Web application** OAuth client ID (not the Android client). Missing SHA-1 on the Android OAuth client, or putting the Android client ID in `serverClientId`, yields "Missing ID token" / audience errors. Facebook login needs a real App ID + Client Token in `strings.xml` / `Info.plist` and the provider enabled in Supabase Auth.

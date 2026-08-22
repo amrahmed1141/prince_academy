@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/features/notifications/presentation/widgets/notification_bell_button.dart';
 
 class AdminHeader extends StatelessWidget implements PreferredSizeWidget {
@@ -62,14 +63,14 @@ class AdminHeader extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Admin',
-                      style: TextStyle(
+                      context.s.admin,
+                      style: const TextStyle(
                         color: EColorConstants.authTextDarkBrown,
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -77,8 +78,8 @@ class AdminHeader extends StatelessWidget implements PreferredSizeWidget {
                       ),
                     ),
                     Text(
-                      'Management Portal',
-                      style: TextStyle(
+                      context.s.managementPortal,
+                      style: const TextStyle(
                         color: EColorConstants.authPlaceholderGray,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

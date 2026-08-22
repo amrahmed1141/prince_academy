@@ -5,6 +5,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/helpers/class_type_colors.dart';
 import 'package:prince_academy/core/helpers/session_live_status.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/features/admin/data/models/admin_dashboard_model.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
@@ -51,6 +52,7 @@ class _DashboardTodayListState extends State<DashboardTodayList> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     final visible = SessionLiveStatusHelper.currentAndUpcoming(
       widget.sessions,
       now: _now,
@@ -59,10 +61,10 @@ class _DashboardTodayListState extends State<DashboardTodayList> {
       (session) => SessionLiveStatusHelper.resolve(session, now: _now).isLive,
     );
     final title = widget.sessions.isEmpty
-        ? 'Current session'
+        ? s.currentSession
         : hasLive
-            ? 'Current session'
-            : 'Upcoming session';
+            ? s.currentSession
+            : s.upcomingSession;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,9 +91,9 @@ class _DashboardTodayListState extends State<DashboardTodayList> {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text(
-                  'View all',
-                  style: TextStyle(
+                child: Text(
+                  s.viewAll,
+                  style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontFamily: 'Poppins',
                     fontSize: 13,
@@ -102,14 +104,14 @@ class _DashboardTodayListState extends State<DashboardTodayList> {
         ),
         const SizedBox(height: 12),
         if (widget.sessions.isEmpty)
-          const _EmptyCard(
-            title: 'No sessions today',
-            subtitle: 'Scheduled coach sessions for today will show up here.',
+          _EmptyCard(
+            title: s.noSessionsToday,
+            subtitle: s.t('destTodaySessionsSub'),
           )
         else if (visible.isEmpty)
-          const _EmptyCard(
-            title: 'All sessions finished',
-            subtitle: 'No current or upcoming sessions left for today.',
+          _EmptyCard(
+            title: s.allSessionsFinished,
+            subtitle: s.t('destTodaySessionsSub'),
           )
         else
           SizedBox(

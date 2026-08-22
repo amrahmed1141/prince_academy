@@ -3,7 +3,7 @@ import 'package:prince_academy/core/constants/colors.dart';
 
 /// Shared label + field styling for admin create/edit forms.
 abstract final class AdminFormStyles {
-  static const screenBackground = Color(0xFFF7F4EF);
+  static const screenBackground = Color(0xFFF7F4EF); // prefer AppGradients.lightScreenDecoration on pages
   static const fieldFill = Color(0xFFFFFFFF);
   static const sessionPanelFill = Color(0xFFF3EDE4);
   static const statChipFill = Color(0xFFF0EBF8);

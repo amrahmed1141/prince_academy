@@ -13,6 +13,7 @@ import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart'
 import 'package:prince_academy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
+import 'package:prince_academy/features/auth/presentation/pages/authentication/auth_page.dart';
 import 'package:prince_academy/features/booking/presentation/pages/booking_history_page.dart';
 import 'package:prince_academy/features/booking/presentation/pages/my_freeze_requests_page.dart';
 import 'package:prince_academy/features/notifications/presentation/widgets/notification_bell_button.dart';
@@ -93,9 +94,18 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ],
         ),
-        body: BlocSelector<AuthBloc, AuthState, UserModel?>(
-          selector: (state) => state is AuthAuthed ? state.user : null,
-          builder: (context, user) {
+        body: BlocListener<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state is AuthNoSession) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const AuthPage()),
+                (route) => false,
+              );
+            }
+          },
+          child: BlocSelector<AuthBloc, AuthState, UserModel?>(
+            selector: (state) => state is AuthAuthed ? state.user : null,
+            builder: (context, user) {
             final name = user?.fullName?.trim().isNotEmpty == true
                 ? user!.fullName!.trim()
                 : 'Member';
@@ -274,6 +284,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             );
           },
+        ),
         ),
       ),
     );

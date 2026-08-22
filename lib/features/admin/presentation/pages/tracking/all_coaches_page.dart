@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
 import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
@@ -73,8 +74,9 @@ class _AllCoachesViewState extends State<_AllCoachesView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: EColorConstants.authFieldBackground,
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: NestedScrollView(
         floatHeaderSlivers: true,
         headerSliverBuilder: (context, _) => [
@@ -92,7 +94,7 @@ class _AllCoachesViewState extends State<_AllCoachesView> {
             searchBar: AppSearchBar(
               controller: _searchController,
               hintText: 'Search by coach name...',
-              hintPhrases: AdminSearchHints.coaches,
+              hintPhrases: AdminSearchHints.coaches(context),
               variant: AppSearchBarVariant.outlined,
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
               onChanged: _onSearchChanged,
@@ -105,7 +107,7 @@ class _AllCoachesViewState extends State<_AllCoachesView> {
         ],
         body: _buildBody(),
       ),
-    );
+    ));
   }
 
   Widget _buildBody() {
@@ -275,7 +277,7 @@ class _CoachListCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        '${coach.totalSubscribers} users',
+                        '${coach.totalSubscribers} members',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,

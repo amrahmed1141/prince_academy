@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
 import 'package:prince_academy/core/widgets/scroll_away_search_header.dart';
@@ -44,8 +45,9 @@ class _TodaySessionsViewState extends State<_TodaySessionsView> {
   Widget build(BuildContext context) {
     return BlocBuilder<TodaySessionsCubit, TodaySessionsState>(
       builder: (context, state) {
-        return Scaffold(
-          backgroundColor: EColorConstants.authFieldBackground,
+        return AppGradients.lightBackground(
+      child: Scaffold(
+          backgroundColor: Colors.transparent,
           body: NestedScrollView(
             floatHeaderSlivers: true,
             headerSliverBuilder: (context, _) => [
@@ -57,7 +59,7 @@ class _TodaySessionsViewState extends State<_TodaySessionsView> {
                 searchBar: AppSearchBar(
                   controller: _searchController,
                   hintText: 'Search by coach, session, or branch...',
-                  hintPhrases: AdminSearchHints.sessions,
+                  hintPhrases: AdminSearchHints.sessions(context),
                   variant: AppSearchBarVariant.outlined,
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                   onChanged:
@@ -71,7 +73,7 @@ class _TodaySessionsViewState extends State<_TodaySessionsView> {
             ],
             body: _buildBody(context, state),
           ),
-        );
+        ));
       },
     );
   }

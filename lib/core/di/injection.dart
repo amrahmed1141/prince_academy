@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/cache/local_cache_store.dart';
+import 'package:prince_academy/core/l10n/locale_cubit.dart';
 import 'package:prince_academy/features/auth/domain/repositories/auth_repo.dart';
 import 'package:prince_academy/features/auth/data/repositories/auth_repo_impl.dart';
 import 'package:prince_academy/features/admin/data/datasources/admin_session_preferences.dart';
@@ -49,6 +50,10 @@ final sl = GetIt.I;
 Future<void> setupDI() async {
   sl.registerLazySingleton<SupabaseClient>(() => Supabase.instance.client);
   sl.registerSingleton<LocalCacheStore>(LocalCacheStore.instance);
+
+  final localeCubit = LocaleCubit();
+  await localeCubit.load();
+  sl.registerSingleton<LocaleCubit>(localeCubit);
 
   final sessionPreferences = await AdminSessionPreferences.create();
   sl.registerSingleton<AdminSessionPreferences>(sessionPreferences);

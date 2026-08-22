@@ -20,7 +20,7 @@ class PaymentMethodFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 42,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -30,29 +30,38 @@ class PaymentMethodFilter extends StatelessWidget {
           final (value, label) = options[index];
           final isSelected = selected == value;
 
-          return FilterChip(
-            label: Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: isSelected
-                    ? Colors.white
-                    : EColorConstants.authTextDarkBrown,
+          return Material(
+            color: isSelected
+                ? EColorConstants.primaryColor
+                : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              onTap: () => onChanged(value),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected
+                        ? EColorConstants.primaryColor
+                        : EColorConstants.authFieldBorder,
+                  ),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: isSelected
+                        ? Colors.white
+                        : EColorConstants.authTextDarkBrown,
+                  ),
+                ),
               ),
             ),
-            selected: isSelected,
-            onSelected: (_) => onChanged(value),
-            showCheckmark: false,
-            selectedColor: EColorConstants.primaryColor,
-            backgroundColor: Colors.white,
-            side: BorderSide(
-              color: isSelected
-                  ? EColorConstants.primaryColor
-                  : EColorConstants.authFieldBorder,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
           );
         },
       ),

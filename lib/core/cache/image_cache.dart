@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prince_academy/core/cache/disk_image_cache.dart';
+import 'package:prince_academy/core/helpers/coach_photo_helper.dart';
 
 /// Shared image providers so the same URL reuses one in-memory cache entry
 /// and a disk file across launches.
@@ -44,13 +45,7 @@ abstract final class AppImageCache {
       final trimmed = url.trim();
       if (trimmed.startsWith('http')) unique.add(trimmed);
     }
-    await Future.wait(
-      unique.map((url) async {
-        try {
-          await DiskImageCache.ensure(url);
-        } catch (_) {}
-      }),
-    );
+    await Future.wait(unique.map(_ensureWithTransformFallback));
   }
 
   /// Warm images into Flutter's ImageCache without blocking the UI.
@@ -66,10 +61,34 @@ abstract final class AppImageCache {
       tasks.add(() async {
         try {
           await precacheImage(provider(url), context);
+        } on NetworkImageLoadException catch (e) {
+          final original = _fallbackAfterTransformFailure(url, e.statusCode);
+          if (original == null) return;
+          try {
+            await precacheImage(provider(original), context);
+          } catch (_) {}
         } catch (_) {}
       }());
     }
     await Future.wait(tasks);
+  }
+
+  static Future<void> _ensureWithTransformFallback(String url) async {
+    try {
+      await DiskImageCache.ensure(url);
+    } on NetworkImageLoadException catch (e) {
+      final original = _fallbackAfterTransformFailure(url, e.statusCode);
+      if (original == null) return;
+      try {
+        await DiskImageCache.ensure(original);
+      } catch (_) {}
+    } catch (_) {}
+  }
+
+  static String? _fallbackAfterTransformFailure(String url, int statusCode) {
+    if (statusCode != 403 || !CoachPhotoHelper.isRenderUrl(url)) return null;
+    CoachPhotoHelper.disableTransforms();
+    return CoachPhotoHelper.objectUrlFromRender(url);
   }
 
   static void clear() {

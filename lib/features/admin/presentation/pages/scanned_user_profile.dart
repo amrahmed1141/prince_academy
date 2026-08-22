@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
@@ -270,8 +271,9 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: EColorConstants.authFieldBackground,
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: _isLoading
             ? const ScannedProfileShimmer()
@@ -376,7 +378,7 @@ class _ScannedUserProfilePageState extends State<ScannedUserProfilePage> {
                     ),
                   ),
       ),
-    );
+    ));
   }
 
   Widget _buildCoachFilterChips() {

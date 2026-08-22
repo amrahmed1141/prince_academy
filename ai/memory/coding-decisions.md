@@ -6,6 +6,10 @@ Append dated entries. Do not invent.
 
 <!-- YYYY-MM-DD — note -->
 
+2026-08-21 — App language: `LocaleCubit` (SharedPreferences `app_locale`) + `AppStrings` EN/AR maps under `lib/core/l10n/`. `MaterialApp` sets `locale` + `flutter_localizations` for RTL. Admin Profile has Language picker; admin chrome (nav, headers, dashboard, search destinations) uses `context.s`. Expand `_en`/`_ar` maps for remaining admin/member screens.
+
+2026-08-20 — Coach photos default to public object URLs (`CoachPhotoHelper.transformsEnabled = false`) because Storage Image Transformations are not enabled on this tenant (`FeatureNotEnabled` on `/render/image/`). When Pro transforms are turned on in Dashboard Storage settings, set `transformsEnabled = true` (avatar 256px / hero 800px render + original fallback). Disk cache + prefetch unchanged.
+
 2026-08-18 — Member Google/Facebook login uses native ID tokens (`google_sign_in` 6.x + `flutter_facebook_auth` 6.x → `signInWithIdToken`) through `AuthRepo`. Buttons live on Sign In and Sign Up only. Google Web Client ID is `--dart-define=GOOGLE_WEB_CLIENT_ID`. Facebook App ID/Client Token are native placeholders until filled. `handle_new_user` also reads OAuth `name`.
 
 2026-08-18 — Admin Create (formerly Add Info) is a hub of Coach/Session cards. Lists moved to All Coaches / All Schedules. Create-coach is a compact photo+name+specialty-chips form; create-session uses day chips, shared class type, time+duration on one row, hides branch when there is only one, and a sticky single CTA. Bottom nav and dashboard chip label is Create.

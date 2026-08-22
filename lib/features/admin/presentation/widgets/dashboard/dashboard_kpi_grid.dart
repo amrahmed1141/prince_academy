@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
 
 class DashboardKpiGrid extends StatelessWidget {
@@ -34,6 +35,7 @@ class DashboardKpiGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Column(
       children: [
         Row(
@@ -41,7 +43,7 @@ class DashboardKpiGrid extends StatelessWidget {
             Expanded(
               child: _KpiTile(
                 icon: Iconsax.wallet_money,
-                label: 'Pending',
+                label: s.pending,
                 value: '$pendingCount',
                 accent: const Color(0xFFE65100),
                 onTap: onPendingTap,
@@ -51,7 +53,7 @@ class DashboardKpiGrid extends StatelessWidget {
             Expanded(
               child: _KpiTile(
                 icon: Iconsax.chart_1,
-                label: 'Today revenue',
+                label: s.todayRevenue,
                 value: _currency.format(todayRevenue),
                 accent: EColorConstants.primaryColor,
                 onTap: onRevenueTap,
@@ -65,7 +67,7 @@ class DashboardKpiGrid extends StatelessWidget {
             Expanded(
               child: _KpiTile(
                 icon: Iconsax.people,
-                label: 'Active members',
+                label: s.activeMembers,
                 value: '$activeMembers',
                 accent: EColorConstants.authDeepPrimary,
                 onTap: onMembersTap,
@@ -75,7 +77,7 @@ class DashboardKpiGrid extends StatelessWidget {
             Expanded(
               child: _KpiTile(
                 icon: Iconsax.calendar_1,
-                label: "Today's sessions",
+                label: s.todaysSessions,
                 value: '$todaySessions',
                 accent: EColorConstants.authLightPrimary,
                 onTap: onTodayTap,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 
 class DashboardQuickActions extends StatelessWidget {
   const DashboardQuickActions({
@@ -18,12 +19,13 @@ class DashboardQuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Quick actions',
-          style: TextStyle(
+        Text(
+          s.quickActions,
+          style: const TextStyle(
             color: EColorConstants.authTextDarkBrown,
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -36,7 +38,7 @@ class DashboardQuickActions extends StatelessWidget {
             Expanded(
               child: _ActionChip(
                 icon: Iconsax.scan_barcode,
-                label: 'Scan',
+                label: s.scan,
                 onTap: onScan,
               ),
             ),
@@ -44,7 +46,7 @@ class DashboardQuickActions extends StatelessWidget {
             Expanded(
               child: _ActionChip(
                 icon: Iconsax.chart,
-                label: 'Tracking',
+                label: s.tracking,
                 onTap: onTracking,
               ),
             ),
@@ -52,7 +54,7 @@ class DashboardQuickActions extends StatelessWidget {
             Expanded(
               child: _ActionChip(
                 icon: Iconsax.personalcard,
-                label: 'Add Coach',
+                label: s.addCoach,
                 onTap: onAddCoach,
               ),
             ),
@@ -60,7 +62,7 @@ class DashboardQuickActions extends StatelessWidget {
             Expanded(
               child: _ActionChip(
                 icon: Iconsax.calendar_add,
-                label: 'Add Session',
+                label: s.addSession,
                 onTap: onAddSession,
               ),
             ),

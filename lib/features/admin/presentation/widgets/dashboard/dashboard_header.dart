@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/features/notifications/presentation/widgets/notification_bell_button.dart';
 
 class DashboardHeader extends StatelessWidget {
@@ -16,18 +17,14 @@ class DashboardHeader extends StatelessWidget {
   final int pendingCount;
   final VoidCallback? onAvatarTap;
 
-  String get _greeting {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat('EEE d MMM').format(DateTime.now());
+    final s = context.s;
+    final localeCode = Localizations.localeOf(context).languageCode;
+    final dateLabel =
+        DateFormat('EEE d MMM', localeCode).format(DateTime.now());
     final firstName = adminName.trim().isEmpty
-        ? 'Admin'
+        ? s.admin
         : adminName.trim().split(RegExp(r'\s+')).first;
 
     return Padding(
@@ -39,7 +36,7 @@ class DashboardHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$_greeting, $firstName',
+                  s.greetingWithName(firstName),
                   style: const TextStyle(
                     color: EColorConstants.authTextDarkBrown,
                     fontSize: 20,

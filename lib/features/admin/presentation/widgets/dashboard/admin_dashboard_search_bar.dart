@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/core/widgets/launch_search_bar.dart';
 import 'package:prince_academy/features/admin/data/admin_search_index.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_search_page.dart';
@@ -10,7 +11,8 @@ class AdminDashboardSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LaunchSearchBar(
-      hintPhrases: AdminSearchHints.pages,
+      hintText: context.s.search,
+      hintPhrases: AdminSearchHints.pages(context),
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
       onTap: () => openAdminSearch(context),
     );

@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:prince_academy/features/auth/presentation/bloc/auth_event.dart';
 import 'package:prince_academy/features/auth/presentation/bloc/auth_state.dart';
 import 'package:prince_academy/features/auth/presentation/pages/authentication/auth_page.dart';
 import 'package:prince_academy/app/bottom_navigation/navigation_bottom.dart';
 import 'package:prince_academy/app/splash/splash_screen.dart';
+import 'package:prince_academy/core/l10n/locale_cubit.dart';
 import 'package:prince_academy/core/services/firebase_messaging_service.dart';
 import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/features/admin/presentation/pages/admin_home.dart';
@@ -36,28 +38,42 @@ class PrinceAcademyApp extends StatelessWidget {
         BlocProvider<AuthBloc>(
           create: (_) => sl<AuthBloc>()..add(const AuthStarted()),
         ),
-      ],
-      child: MaterialApp(
-        navigatorKey: rootNavigatorKey,
-        scaffoldMessengerKey: rootScaffoldMessengerKey,
-        debugShowCheckedModeBanner: false,
-        title: 'Prince Academy',
-        theme: EAppTheme.lightTheme,
-        themeMode: ThemeMode.light,
-        home: BlocBuilder<AuthBloc, AuthState>(
-          builder: (context, state) {
-            if (state is AuthInitial) {
-              return const SplashScreen();
-            } else if (state is AuthAuthed) {
-              return AuthenticatedShell(
-                isAdmin: state.user.role == 'admin',
-              );
-            } else {
-              // Includes AuthNoSession and AuthError
-              return const AuthPage();
-            }
-          },
+        BlocProvider<LocaleCubit>.value(
+          value: sl<LocaleCubit>(),
         ),
+      ],
+      child: BlocBuilder<LocaleCubit, Locale>(
+        builder: (context, locale) {
+          return MaterialApp(
+            navigatorKey: rootNavigatorKey,
+            scaffoldMessengerKey: rootScaffoldMessengerKey,
+            debugShowCheckedModeBanner: false,
+            title: 'Prince Academy',
+            theme: EAppTheme.lightTheme,
+            themeMode: ThemeMode.light,
+            locale: locale,
+            supportedLocales: AppLocales.supported,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, state) {
+                if (state is AuthInitial) {
+                  return const SplashScreen();
+                } else if (state is AuthAuthed) {
+                  return AuthenticatedShell(
+                    isAdmin: state.user.role == 'admin',
+                  );
+                } else {
+                  // Includes AuthNoSession and AuthError
+                  return const AuthPage();
+                }
+              },
+            ),
+          );
+        },
       ),
     );
   }

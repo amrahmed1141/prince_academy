@@ -26,7 +26,7 @@ class TrackingSearchBar extends StatelessWidget {
             onChanged('');
           },
       hintText: 'Search by name or phone...',
-      hintPhrases: AdminSearchHints.tracking,
+      hintPhrases: AdminSearchHints.tracking(context),
       variant: AppSearchBarVariant.outlined,
       padding: EdgeInsets.zero,
     );

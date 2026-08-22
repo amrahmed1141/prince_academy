@@ -45,17 +45,19 @@ class _BookingHistoryView extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
+      width: double.infinity,
+      height: double.infinity,
       decoration: AppGradients.homeScreenDecoration(),
       child: Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
         backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        automaticallyImplyLeading: Navigator.canPop(context),
-        title: const Text('Booking History'),
-      ),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          automaticallyImplyLeading: Navigator.canPop(context),
+          title: const Text('Booking History'),
+        ),
       body: BlocBuilder<BookingHistoryBloc, BookingHistoryState>(
         builder: (context, state) {
           if (state is BookingHistoryLoading ||

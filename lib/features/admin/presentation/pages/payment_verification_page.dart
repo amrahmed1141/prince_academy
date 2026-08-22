@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/features/admin/data/models/payment_verification_data.dart';
@@ -112,10 +113,11 @@ class _PaymentVerificationPageState extends State<PaymentVerificationPage> {
         ? data.memberName!
         : 'Member';
 
-    return Scaffold(
-      backgroundColor: EColorConstants.authFieldBackground,
+    return AppGradients.lightBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: EColorConstants.authFieldBackground,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: EColorConstants.authTextDarkBrown,
         title: const Text(
@@ -304,7 +306,7 @@ class _PaymentVerificationPageState extends State<PaymentVerificationPage> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

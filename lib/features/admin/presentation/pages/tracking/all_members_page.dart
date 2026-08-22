@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/helpers/subscription_formatters.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
@@ -63,8 +64,9 @@ class _AllMembersViewState extends State<_AllMembersView> {
   Widget build(BuildContext context) {
     return BlocBuilder<MembersListCubit, MembersListState>(
       builder: (context, state) {
-        return Scaffold(
-          backgroundColor: EColorConstants.authFieldBackground,
+        return AppGradients.lightBackground(
+      child: Scaffold(
+          backgroundColor: Colors.transparent,
           body: NotificationListener<ScrollNotification>(
             onNotification: _onScrollNotification,
             child: NestedScrollView(
@@ -78,7 +80,7 @@ class _AllMembersViewState extends State<_AllMembersView> {
                   searchBar: AppSearchBar(
                     controller: _searchController,
                     hintText: 'Search by name or phone...',
-                    hintPhrases: AdminSearchHints.members,
+                    hintPhrases: AdminSearchHints.members(context),
                     variant: AppSearchBarVariant.outlined,
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                     onChanged:
@@ -93,7 +95,7 @@ class _AllMembersViewState extends State<_AllMembersView> {
               body: _buildBody(context, state),
             ),
           ),
-        );
+        ));
       },
     );
   }

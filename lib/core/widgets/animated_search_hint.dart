@@ -44,6 +44,7 @@ class _AnimatedSearchHintState extends State<AnimatedSearchHint>
   void didUpdateWidget(covariant AnimatedSearchHint oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.phrases != widget.phrases ||
+        oldWidget.prefix != widget.prefix ||
         oldWidget.interval != widget.interval) {
       _index = 0;
       _armCycle();
@@ -85,51 +86,57 @@ class _AnimatedSearchHintState extends State<AnimatedSearchHint>
         );
 
     final phrase = widget.phrases[_index % widget.phrases.length];
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
-    return Row(
-      children: [
-        Text(
-          widget.prefix,
-          maxLines: 1,
-          style: style,
-        ),
-        Flexible(
-          child: ClipRect(
-            child: AnimatedSwitcher(
-              duration: widget.animationDuration,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              layoutBuilder: (currentChild, previousChildren) {
-                return Stack(
-                  alignment: Alignment.centerLeft,
-                  children: <Widget>[
-                    ...previousChildren,
-                    if (currentChild != null) currentChild,
-                  ],
-                );
-              },
-              transitionBuilder: (child, animation) {
-                final offset = Tween<Offset>(
-                  begin: const Offset(0, 0.35),
-                  end: Offset.zero,
-                ).animate(animation);
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(position: offset, child: child),
-                );
-              },
-              child: Text(
-                key: ValueKey<String>(phrase),
-                phrase,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.start,
-                style: style,
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Row(
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          Text(
+            widget.prefix,
+            maxLines: 1,
+            style: style,
+          ),
+          Expanded(
+            child: ClipRect(
+              child: AnimatedSwitcher(
+                duration: widget.animationDuration,
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                layoutBuilder: (currentChild, previousChildren) {
+                  return Stack(
+                    alignment: AlignmentDirectional.centerStart,
+                    children: <Widget>[
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
+                    ],
+                  );
+                },
+                transitionBuilder: (child, animation) {
+                  final begin = Offset(0, isRtl ? -0.35 : 0.35);
+                  final offset = Tween<Offset>(
+                    begin: begin,
+                    end: Offset.zero,
+                  ).animate(animation);
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(position: offset, child: child),
+                  );
+                },
+                child: Text(
+                  key: ValueKey<String>('${widget.prefix}$phrase'),
+                  phrase,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.start,
+                  style: style,
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

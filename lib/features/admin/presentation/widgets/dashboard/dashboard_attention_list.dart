@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/features/admin/data/models/low_attendance_member_model.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/coach_avatar.dart';
@@ -81,15 +82,16 @@ class _DashboardAttentionListState extends State<DashboardAttentionList> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'Needs attention',
-                style: TextStyle(
+                s.needsAttention,
+                style: const TextStyle(
                   color: EColorConstants.authTextDarkBrown,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -106,9 +108,9 @@ class _DashboardAttentionListState extends State<DashboardAttentionList> {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text(
-                  'See all',
-                  style: TextStyle(
+                child: Text(
+                  s.seeAll,
+                  style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontFamily: 'Poppins',
                     fontSize: 13,
@@ -130,9 +132,9 @@ class _DashboardAttentionListState extends State<DashboardAttentionList> {
                   color: EColorConstants.primaryColor.withOpacity(0.7),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'All clear',
-                  style: TextStyle(
+                Text(
+                  s.allClear,
+                  style: const TextStyle(
                     color: EColorConstants.authTextDarkBrown,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,

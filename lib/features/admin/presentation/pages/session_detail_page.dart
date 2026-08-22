@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/di/injection.dart';
 import 'package:prince_academy/core/widgets/shimmer_widgets.dart';
 import 'package:prince_academy/features/admin/data/models/session_detail_model.dart';
@@ -102,10 +103,11 @@ class _SessionDetailPageState extends State<SessionDetailPage>
           }
         },
         builder: (context, state) {
-          return Scaffold(
-            backgroundColor: EColorConstants.authFieldBackground,
+          return AppGradients.lightBackground(
+      child: Scaffold(
+            backgroundColor: Colors.transparent,
             appBar: AppBar(
-              backgroundColor: EColorConstants.authFieldBackground,
+              backgroundColor: Colors.transparent,
               elevation: 0,
               leading: BackButton(
                 onPressed: () => Navigator.of(context).pop(_sessionUpdated),
@@ -121,7 +123,7 @@ class _SessionDetailPageState extends State<SessionDetailPage>
               ),
             ),
             body: _buildBody(context, state),
-          );
+          ));
         },
       ),
     );

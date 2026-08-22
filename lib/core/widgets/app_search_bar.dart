@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/core/search/search_cubit.dart';
 import 'package:prince_academy/core/search/search_query_cubit.dart';
 import 'package:prince_academy/core/widgets/animated_search_hint.dart';
+import 'package:prince_academy/core/widgets/directional_icon.dart';
 
 /// Visual styles shared across user and admin screens.
 enum AppSearchBarVariant {
@@ -166,13 +168,19 @@ class _AppSearchBarState extends State<AppSearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
+    final hintText =
+        widget.hintText == 'Search...' ? s.search : widget.hintText;
+    final hintPrefix = s.searchHintPrefix;
+
     return Padding(
       padding: widget.padding,
       child: switch (widget.variant) {
         AppSearchBarVariant.elevated => _ElevatedField(
             controller: _controller,
             focusNode: _focusNode,
-            hintText: widget.hintText,
+            hintText: hintText,
+            hintPrefix: hintPrefix,
             showAnimatedHint: _showAnimatedHint,
             hintPhrases: widget.hintPhrases,
             enabled: widget.enabled,
@@ -190,7 +198,8 @@ class _AppSearchBarState extends State<AppSearchBar> {
         AppSearchBarVariant.outlined => _OutlinedField(
             controller: _controller,
             focusNode: _focusNode,
-            hintText: widget.hintText,
+            hintText: hintText,
+            hintPrefix: hintPrefix,
             showAnimatedHint: _showAnimatedHint,
             hintPhrases: widget.hintPhrases,
             enabled: widget.enabled,
@@ -287,6 +296,7 @@ class _ElevatedField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.hintText,
+    required this.hintPrefix,
     required this.showAnimatedHint,
     required this.hintPhrases,
     required this.enabled,
@@ -305,6 +315,7 @@ class _ElevatedField extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final String hintText;
+  final String hintPrefix;
   final bool showAnimatedHint;
   final List<String>? hintPhrases;
   final bool enabled;
@@ -336,6 +347,7 @@ class _ElevatedField extends StatelessWidget {
         controller: controller,
         focusNode: focusNode,
         hintText: hintText,
+        hintPrefix: hintPrefix,
         showAnimatedHint: showAnimatedHint,
         hintPhrases: hintPhrases,
         enabled: enabled,
@@ -362,6 +374,7 @@ class _OutlinedField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.hintText,
+    required this.hintPrefix,
     required this.showAnimatedHint,
     required this.hintPhrases,
     required this.enabled,
@@ -380,6 +393,7 @@ class _OutlinedField extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final String hintText;
+  final String hintPrefix;
   final bool showAnimatedHint;
   final List<String>? hintPhrases;
   final bool enabled;
@@ -400,6 +414,7 @@ class _OutlinedField extends StatelessWidget {
       controller: controller,
       focusNode: focusNode,
       hintText: hintText,
+      hintPrefix: hintPrefix,
       showAnimatedHint: showAnimatedHint,
       hintPhrases: hintPhrases,
       enabled: enabled,
@@ -435,6 +450,7 @@ class _SearchFieldShell extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.hintText,
+    required this.hintPrefix,
     required this.showAnimatedHint,
     required this.hintPhrases,
     required this.enabled,
@@ -458,6 +474,7 @@ class _SearchFieldShell extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final String hintText;
+  final String hintPrefix;
   final bool showAnimatedHint;
   final List<String>? hintPhrases;
   final bool enabled;
@@ -486,89 +503,99 @@ class _SearchFieldShell extends StatelessWidget {
           fontFamily: 'Poppins',
         );
 
-    return Stack(
-      alignment: Alignment.centerLeft,
-      children: [
-        TextField(
-          controller: controller,
-          focusNode: focusNode,
-          enabled: enabled,
-          autofocus: autofocus,
-          readOnly: readOnly,
-          canRequestFocus: !readOnly,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
-          onTap: onTap,
-          textInputAction: TextInputAction.search,
-          style: textStyle,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: fillColor,
-            prefixIcon: showBack
-                ? IconButton(
-                    onPressed: onBack,
-                    tooltip: 'Back',
-                    icon: const Icon(
-                      Icons.chevron_left_rounded,
-                      color: EColorConstants.authTextDarkBrown,
-                      size: 26,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          TextField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: enabled,
+            autofocus: autofocus,
+            readOnly: readOnly,
+            canRequestFocus: !readOnly,
+            onChanged: onChanged,
+            onSubmitted: onSubmitted,
+            onTap: onTap,
+            textInputAction: TextInputAction.search,
+            style: textStyle,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: fillColor,
+              hoverColor: Colors.transparent,
+              prefixIcon: showBack
+                  ? IconButton(
+                      onPressed: onBack,
+                      tooltip: 'Back',
+                      icon: Icon(
+                        DirectionalIcons.back(context),
+                        color: EColorConstants.authTextDarkBrown,
+                        size: 22,
+                        textDirection: TextDirection.ltr,
+                      ),
+                    )
+                  : const Padding(
+                      padding: EdgeInsetsDirectional.only(start: 8),
+                      child: Icon(
+                        Iconsax.search_normal,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
                     ),
-                  )
-                : const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Icon(
-                      Iconsax.search_normal,
-                      color: Colors.grey,
-                      size: 20,
-                    ),
-                  ),
-            prefixIconConstraints: showBack
-                ? null
-                : const BoxConstraints(minWidth: 48, minHeight: 48),
-            suffixIcon: showClear
-                ? IconButton(
-                    onPressed: onClear,
-                    tooltip: 'Clear',
-                    icon: const Icon(
-                      Icons.close,
-                      size: 18,
-                      color: Colors.grey,
-                    ),
-                  )
-                : null,
-            hintText: showAnimatedHint ? null : hintText,
-            hintStyle: resolvedHintStyle,
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(radius),
-              borderSide: BorderSide(color: borderColor, width: 1),
+              prefixIconConstraints: showBack
+                  ? null
+                  : const BoxConstraints(minWidth: 48, minHeight: 48),
+              suffixIcon: showClear
+                  ? IconButton(
+                      onPressed: onClear,
+                      tooltip: 'Clear',
+                      icon: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                    )
+                  : null,
+              hintText: showAnimatedHint ? null : hintText,
+              hintStyle: resolvedHintStyle,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(radius),
+                borderSide: BorderSide(color: borderColor, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(radius),
+                borderSide: BorderSide(color: focusedBorderColor, width: 1.5),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(radius),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(radius),
+                borderSide: BorderSide(color: borderColor, width: 1),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(radius),
-              borderSide: BorderSide(color: focusedBorderColor, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(radius),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(radius),
-              borderSide: BorderSide(color: borderColor, width: 1),
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 14),
           ),
-        ),
-        if (showAnimatedHint && hintPhrases != null)
-          Positioned(
-            left: showBack ? 52 : 48,
-            right: showClear ? 48 : 16,
-            child: IgnorePointer(
-              child: AnimatedSearchHint(
-                phrases: hintPhrases!,
-                style: resolvedHintStyle,
+          if (showAnimatedHint && hintPhrases != null)
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(
+                  start: showBack ? 52 : 48,
+                  end: showClear ? 48 : 16,
+                ),
+                child: IgnorePointer(
+                  child: AnimatedSearchHint(
+                    prefix: hintPrefix,
+                    phrases: hintPhrases!,
+                    style: resolvedHintStyle,
+                  ),
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

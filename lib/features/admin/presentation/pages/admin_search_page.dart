@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:prince_academy/core/constants/colors.dart';
 import 'package:prince_academy/core/di/injection.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
 import 'package:prince_academy/core/theme/app_gradients.dart';
 import 'package:prince_academy/core/theme/theme.dart';
 import 'package:prince_academy/core/widgets/app_search_bar.dart';
@@ -71,8 +72,8 @@ class _AdminSearchPageState extends State<AdminSearchPage> {
                     autofocus: true,
                     showBack: true,
                     alwaysShowClear: true,
-                    hintText: 'Search...',
-                    hintPhrases: AdminSearchHints.pages,
+                    hintText: context.s.search,
+                    hintPhrases: AdminSearchHints.pages(context),
                     onBack: () => Navigator.of(context).maybePop(),
                     onChanged: context.read<AdminSearchCubit>().search,
                     onClear: () {
@@ -88,12 +89,12 @@ class _AdminSearchPageState extends State<AdminSearchPage> {
                           prev.results != next.results ||
                           prev.query != next.query,
                       builder: (context, state) {
+                        final s = context.s;
                         return switch (state.status) {
-                          AdminSearchStatus.idle => const _MessagePane(
+                          AdminSearchStatus.idle => _MessagePane(
                               icon: Iconsax.search_normal,
-                              title: 'Search admin',
-                              subtitle:
-                                  'Pages, coaches, classes, members & more',
+                              title: s.searchAdmin,
+                              subtitle: s.t('destDashboardSub'),
                             ),
                           AdminSearchStatus.loading
                               when state.results.destinations.isEmpty &&
@@ -120,11 +121,10 @@ class _AdminSearchPageState extends State<AdminSearchPage> {
                                   'Something went wrong',
                             ),
                           AdminSearchStatus.ready when state.showEmpty =>
-                            const _MessagePane(
+                            _MessagePane(
                               icon: Iconsax.search_status,
-                              title: 'No matches',
-                              subtitle:
-                                  'Try a coach, class, member, or admin page',
+                              title: s.noMatches,
+                              subtitle: s.t('destDashboardSub'),
                             ),
                           AdminSearchStatus.ready =>
                             _ResultsList(results: state.results),
@@ -149,17 +149,18 @@ class _ResultsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.s;
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
       children: [
         if (results.destinations.isNotEmpty)
           _Section(
-            title: 'Pages',
+            title: s.pages,
             children: results.destinations
                 .map(
                   (d) => _HitTile(
-                    title: d.title,
-                    subtitle: d.subtitle,
+                    title: d.localizedTitle(s),
+                    subtitle: d.localizedSubtitle(s),
                     leading: _IconBadge(d.icon),
                     onTap: () => openAdminSearchDestination(context, d.id),
                   ),
@@ -168,7 +169,7 @@ class _ResultsList extends StatelessWidget {
           ),
         if (results.coaches.isNotEmpty)
           _Section(
-            title: 'Coaches',
+            title: s.coaches,
             children: results.coaches
                 .map(
                   (c) => _HitTile(
@@ -190,28 +191,30 @@ class _ResultsList extends StatelessWidget {
           ),
         if (results.sessions.isNotEmpty)
           _Section(
-            title: 'Classes',
+            title: s.classes,
             children: results.sessions
                 .map(
-                  (s) => _HitTile(
-                    title: s.sessionType.isNotEmpty
-                        ? s.sessionType
-                        : (s.coachName ?? 'Class'),
+                  (session) => _HitTile(
+                    title: session.sessionType.isNotEmpty
+                        ? session.sessionType
+                        : (session.coachName ?? s.classes),
                     subtitle: [
-                      if (s.coachName != null && s.coachName!.isNotEmpty)
-                        s.coachName!,
-                      if (s.days.isNotEmpty) s.days.join(', '),
-                      if (s.timeSlots.isNotEmpty) s.timeSlots.first,
+                      if (session.coachName != null &&
+                          session.coachName!.isNotEmpty)
+                        session.coachName!,
+                      if (session.days.isNotEmpty) session.days.join(', '),
+                      if (session.timeSlots.isNotEmpty)
+                        session.timeSlots.first,
                     ].join(' · '),
                     leading: const _IconBadge(Iconsax.calendar_1),
-                    onTap: () => openAdminSearchSession(context, s),
+                    onTap: () => openAdminSearchSession(context, session),
                   ),
                 )
                 .toList(),
           ),
         if (results.members.isNotEmpty)
           _Section(
-            title: 'Members',
+            title: s.members,
             children: results.members
                 .map(
                   (m) => _HitTile(

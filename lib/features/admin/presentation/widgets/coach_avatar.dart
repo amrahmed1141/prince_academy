@@ -90,6 +90,9 @@ class _RemotePhoto extends StatelessWidget {
         if (fallback == null) {
           return _InitialsAvatar(name: coachName, size: size);
         }
+        if (CoachPhotoHelper.isRenderUrl(url)) {
+          CoachPhotoHelper.disableTransforms();
+        }
         return _RemotePhoto(
           url: fallback,
           fallbackUrl: null,

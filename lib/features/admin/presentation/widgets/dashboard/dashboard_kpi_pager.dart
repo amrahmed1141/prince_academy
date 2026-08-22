@@ -4,6 +4,8 @@ import 'package:flutter/physics.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:prince_academy/core/constants/colors.dart';
+import 'package:prince_academy/core/l10n/app_strings.dart';
+import 'package:prince_academy/core/widgets/directional_icon.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/admin_section_card.dart';
 import 'package:prince_academy/features/admin/presentation/widgets/dashboard/today_attendance_kpi_card.dart';
 
@@ -224,7 +226,7 @@ class _AttendancePage extends StatelessWidget {
             Expanded(
               child: _MetricCard(
                 icon: Iconsax.calendar_1,
-                label: "Today's sessions",
+                label: context.s.todaysSessions,
                 value: '$todaySessions',
                 accent: EColorConstants.authLightPrimary,
                 onTap: onTodaySessionsTap,
@@ -234,7 +236,7 @@ class _AttendancePage extends StatelessWidget {
             Expanded(
               child: _MetricCard(
                 icon: Iconsax.wallet_money,
-                label: 'Pending',
+                label: context.s.pending,
                 value: '$pendingCount',
                 accent: const Color(0xFFE65100),
                 onTap: onPendingTap,
@@ -244,7 +246,7 @@ class _AttendancePage extends StatelessWidget {
             Expanded(
               child: _MetricCard(
                 icon: Iconsax.chart_1,
-                label: 'Today revenue',
+                label: context.s.todayRevenue,
                 value: DashboardKpiPager._currency.format(todayRevenue),
                 accent: EColorConstants.primaryColor,
                 onTap: onRevenueTap,
@@ -307,24 +309,24 @@ class _OverviewPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'All Schedules',
-                              style: TextStyle(
+                              context.s.allSchedules,
+                              style: const TextStyle(
                                 color: EColorConstants.authTextDarkBrown,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                                 fontFamily: 'Poppins',
                               ),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
-                              "Every coach's training schedule",
-                              style: TextStyle(
+                              context.s.t('destAllSchedulesSub'),
+                              style: const TextStyle(
                                 color: EColorConstants.authPlaceholderGray,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -334,11 +336,10 @@ class _OverviewPage extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Icon(
-                        Iconsax.arrow_right_3,
+                      const FixedDirectionIcon(
+                        DirectionalIcons.forwardFixed,
                         size: 20,
-                        color: EColorConstants.authPlaceholderGray
-                            .withOpacity(0.8),
+                        color: EColorConstants.authPlaceholderGray,
                       ),
                     ],
                   ),
@@ -353,7 +354,7 @@ class _OverviewPage extends StatelessWidget {
             Expanded(
               child: _MetricCard(
                 icon: Iconsax.teacher,
-                label: 'Coaches',
+                label: context.s.coaches,
                 value: '$coachesCount',
                 accent: EColorConstants.authDeepPrimary,
                 onTap: onCoachesTap,
@@ -363,7 +364,7 @@ class _OverviewPage extends StatelessWidget {
             Expanded(
               child: _MetricCard(
                 icon: Iconsax.people,
-                label: 'Members',
+                label: context.s.members,
                 value: '$membersCount',
                 accent: EColorConstants.primaryColor,
                 onTap: onMembersTap,
@@ -373,7 +374,7 @@ class _OverviewPage extends StatelessWidget {
             Expanded(
               child: _MetricCard(
                 icon: Iconsax.pause_circle,
-                label: 'Freeze',
+                label: context.s.freeze,
                 value: '$freezePendingCount',
                 accent: EColorConstants.authLightPrimary,
                 onTap: onFreezeTap,
